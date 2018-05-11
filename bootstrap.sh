@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 # About: Init script for the test VM
 
 # Install dependencies

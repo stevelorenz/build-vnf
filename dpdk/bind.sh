@@ -1,4 +1,3 @@
 #!/bin/bash
 #
-# Bind virtual interface to DPDK
-# MARK:
+# Bind a virtual interface to DPDK
