@@ -63,5 +63,9 @@ echo "igb_uio" | sudo tee -a /etc/modules
 echo "export RTE_SDK=${RTE_SDK}" >> ${HOME}/.profile
 echo "export RTE_TARGET=${RTE_TARGET}" >> ${HOME}/.profile
 
+# Link RTE_TARGET to already built binaries, needed by default make files
+echo "# Link built binaries."
+ln -sf ${RTE_SDK}/build ${RTE_SDK}/${RTE_TARGET}
+
 echo ""
 echo "# Setup finished."
