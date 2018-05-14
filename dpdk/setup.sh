@@ -9,7 +9,7 @@
 ###############
 
 # DPDK version to use. If unspecified use master branch
-export DPDK_VERSION=v17.05
+export DPDK_VERSION=v17.11-rc4
 
 # Path to the DPDK dir
 export RTE_SDK=${HOME}/dpdk
@@ -43,6 +43,7 @@ sudo apt-get -y install libnuma-dev libpcap-dev linux-headers-`uname -r`
 # get code from git repo
 git clone http://dpdk.org/git/dpdk ${RTE_SDK}
 cd ${RTE_SDK}
+git checkout -b ${DPDK_VERSION}
 make config T=${RTE_TARGET}
 sed -ri 's,(PMD_PCAP=).*,\1y,' build/.config
 echo "# Compiling dpdk target from source."

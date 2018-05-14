@@ -59,7 +59,9 @@ main(int argc, char **argv)
 	int ret;
 	unsigned lcore_id;
 
+	/* Initialize the environment */
 	ret = rte_eal_init(argc, argv);
+	/* Return the number of parsed arguments */
 	if (ret < 0)
 		rte_panic("Cannot init EAL\n");
 
