@@ -5,6 +5,7 @@
 Vagrant.configure("2") do |config|
 
     config.vm.box = "bento/ubuntu-16.04"
+    config.vm.hostname = "vnf"
 
     # Create a private network, which allows host-only access to the machine using a specific IP.
     # This option is needed otherwise the Intel DPDK takes over the entire adapter
@@ -15,7 +16,7 @@ Vagrant.configure("2") do |config|
     # VirtualBox-specific configuration
     config.vm.provider "virtualbox" do |vb|
         # Set easy to remember VM name
-        vb.name = "ubuntu-16.04-dpdk"
+        vb.name = "ubuntu-16.04-vnf"
         # Assign 2 GB of memory
         vb.memory = 2048
         # Assign 2 cores
