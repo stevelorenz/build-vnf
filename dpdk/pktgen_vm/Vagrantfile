@@ -1,0 +1,27 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+# About: Vagrant file for the traffic generator: pktgen
+
+Vagrant.configure("2") do |config|
+
+    config.vm.box = "bento/ubuntu-16.04"
+
+    # Create a private network, which allows host-only access to the machine using a specific IP.
+    # This option is needed otherwise the Intel DPDK takes over the entire adapter
+    config.vm.network "private_network", ip: "10.0.0.13"
+    config.vm.network "private_network", ip: "10.0.0.14"
+    config.vm.provision :shell, path: "bootstrap.sh"
+
+    # VirtualBox-specific configuration
+    config.vm.provider "virtualbox" do |vb|
+        # Set easy to remember VM name
+        vb.name = "ubuntu-16.04-pktgen"
+        # Assign 2 GB of memory
+        vb.memory = 2048
+        # Assign 4 cores
+        vb.cpus = 4
+        # Configure VirtualBox to enable
+        vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+        vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+    end
+end
