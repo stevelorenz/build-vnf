@@ -17,6 +17,10 @@ export RTE_SDK=${HOME}/dpdk
 # Target of build process
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
+# Enable debugging with gdb
+# MARK: This add debug info also in testpmd app
+export EXTRA_CFLAGS="-O0 -g"
+
 # Hugepages mount point
 export HUGEPAGE_MOUNT=/mnt/huge
 
@@ -63,6 +67,7 @@ echo "igb_uio" | sudo tee -a /etc/modules
 # Add env variables setting to .profile file so that they are set at each login
 echo "export RTE_SDK=${RTE_SDK}" >> ${HOME}/.profile
 echo "export RTE_TARGET=${RTE_TARGET}" >> ${HOME}/.profile
+echo "export EXTRA_CFLAGS=${EXTRA_CFLAGS}" >> ${HOME}/.profile
 
 # Link RTE_TARGET to already built binaries, needed by default make files
 echo "# Link built binaries."

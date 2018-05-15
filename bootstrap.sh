@@ -3,7 +3,7 @@
 
 # Install dependencies
 apt-get update
-apt-get install bash-completion git
+apt-get install bash-completion git htop
 
 # Add termite infos
 wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
