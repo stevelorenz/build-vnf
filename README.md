@@ -1,6 +1,7 @@
 # Build VSF #
 
-Try different tools to build simple Virtualized Service Function (VSF) in virtual machine or containers.
+Try different tools to build simple Virtualized Service Function (VSF) or Virtualized Network Function (VNF) in virtual
+machine or containers.
 
 Such VSFs should be latter integrated into the [SFC-Ostack](https://github.com/stevelorenz/sfc-ostack) framework.
 
@@ -10,3 +11,8 @@ Such VSFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 - DPDK
 - User-space NIC Driver
 - Raw sockets
+
+## Katalog ##
+
+
+## TODO: Test Environment ##

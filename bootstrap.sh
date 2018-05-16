@@ -1,9 +1,9 @@
 #!/bin/bash
-# About: Provision script for the test VM
+# About: Provision script for test VMs
 
 # Install dependencies
-apt-get update
-apt-get install bash-completion git htop
+sudo apt-get update
+sudo apt-get install -y bash-completion git htop
 
 # Add termite infos
 wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
