@@ -67,7 +67,7 @@ echo "igb_uio" | sudo tee -a /etc/modules
 # Add env variables setting to .profile file so that they are set at each login
 echo "export RTE_SDK=${RTE_SDK}" >> ${HOME}/.profile
 echo "export RTE_TARGET=${RTE_TARGET}" >> ${HOME}/.profile
-echo "export EXTRA_CFLAGS=${EXTRA_CFLAGS}" >> ${HOME}/.profile
+echo "export EXTRA_CFLAGS=\"${EXTRA_CFLAGS}\"" >> ${HOME}/.profile
 
 # Link RTE_TARGET to already built binaries, needed by default make files
 echo "# Link built binaries."
