@@ -1,0 +1,11 @@
+# Set src and dst IPs and MACs
+set 0 src ip 10.0.0.13/24
+set 0 dst ip 10.0.0.11/
+set 0 dst mac 08:00:27:60:05:11
+
+# Number of packets to transmit
+set 0 count 1000
+
+# Set traffic
+set 0 proto udp
+set 0 type ipv4

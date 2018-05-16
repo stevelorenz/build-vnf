@@ -39,9 +39,9 @@ echo "nodev ${HUGEPAGE_MOUNT} hugetlbfs defaults 0 0" | sudo tee -a /etc/fstab
 
 # Install dependencies
 echo "# Installing dependencies via apt."
-sudo apt-get update
-sudo apt-get -y install git hugepages build-essential clang doxygen
-sudo apt-get -y install libnuma-dev libpcap-dev linux-headers-`uname -r`
+sudo apt update
+sudo apt -y install git hugepages build-essential clang doxygen
+sudo apt -y install libnuma-dev libpcap-dev linux-headers-`uname -r`
 
 # Config and build DPDK
 # get code from git repo
@@ -68,6 +68,10 @@ echo "igb_uio" | sudo tee -a /etc/modules
 echo "export RTE_SDK=${RTE_SDK}" >> ${HOME}/.profile
 echo "export RTE_TARGET=${RTE_TARGET}" >> ${HOME}/.profile
 echo "export EXTRA_CFLAGS=\"${EXTRA_CFLAGS}\"" >> ${HOME}/.profile
+# Also add them to bashrc
+echo "export RTE_SDK=${RTE_SDK}" >> ${HOME}/.bashrc
+echo "export RTE_TARGET=${RTE_TARGET}" >> ${HOME}/.bashrc
+echo "export EXTRA_CFLAGS=\"${EXTRA_CFLAGS}\"" >> ${HOME}/.bashrc
 
 # Link RTE_TARGET to already built binaries, needed by default make files
 echo "# Link built binaries."
