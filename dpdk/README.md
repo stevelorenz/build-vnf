@@ -7,3 +7,5 @@
 - utils: Useful tool scripts.
 - examples: Official DPDK example applications. Used for learning and testing.
 - app: Self-developed DPDK application.
+- pktgen: Scripts and configs for the traffic generator --- pktgen.
+- monitor: Tools for performance monitoring.
