@@ -41,6 +41,7 @@
 #include <rte_ethdev.h>
 #include <rte_mempool.h>
 #include <rte_mbuf.h>
+#include <rte_ip.h>
 
 static volatile bool force_quit;
 
@@ -190,6 +191,22 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 		port_statistics[dst_port].tx += sent;
 }
 
+void get_ip_str(uint32_t ip, char *ip_addr_str);
+/**
+ * @brief Convert Uint32 IP address to x.x.x.x format
+ */
+void get_ip_str(uint32_t ip, char *ip_addr_str)
+{
+	ip = ntohl(ip);
+	uint8_t octet[4];
+	/*char ip_addr_str[16];*/
+	for(int i = 0 ; i < 4; i++)
+	{
+		octet[i] =  ip >> (i * 8);
+	}
+	sprintf(ip_addr_str, "%d.%d.%d.%d", octet[3], octet[2], octet[1], octet[0]);
+}
+
 /**
  * @brief Log infos of received packets
  */
@@ -200,24 +217,45 @@ static void log_rx_pkt(struct rte_mbuf *m)
 	 * Call rte_pktmbuf_mtod to move the pointer to the data part in the
 	 * mbuf and use ether_hdr to cast it into the Ethernet header type.
 	 * */
+	printf("--------------------------------------------------------------------------\n");
+	printf("Number of segments: %d\n", m->nb_segs);
 	struct ether_hdr *eth;
 	eth = rte_pktmbuf_mtod(m, struct ether_hdr *);
 	/* MAC addresses
 	 * 48 bits -> 6 bytes
 	 * */
-	int i;
-	char mac_addr [ETHER_ADDR_LEN], *pos;
-	pos = mac_addr;
-	for (i = 0; i < ETHER_ADDR_LEN; ++i) {
-		pos+= sprintf(pos, "%x", eth->s_addr.addr_bytes[i]);
-	}
-	/*tmp = &eth->d_addr.addr_bytes[0];*/
-	/* IP addresses */
+	char mac_addr [ETHER_ADDR_LEN * 2 + 5 + 1];
+	uint8_t *addr_ptr;
+	addr_ptr = eth->s_addr.addr_bytes;
+	/* Convert addr_bytes into string with hexadecimal format */
+	snprintf(mac_addr, sizeof(mac_addr), "%02x:%02x:%02x:%02x:%02x:%02x",
+			addr_ptr[0], addr_ptr[1], addr_ptr[2], addr_ptr[3], addr_ptr[4], addr_ptr[5]
+		);
+	printf("SRC MAC: %s\n", mac_addr);
 
+	addr_ptr = eth->d_addr.addr_bytes;
+	snprintf(mac_addr, sizeof(mac_addr), "%02x:%02x:%02x:%02x:%02x:%02x",
+			addr_ptr[0], addr_ptr[1], addr_ptr[2], addr_ptr[3], addr_ptr[4], addr_ptr[5]
+		);
+	printf("DST MAC: %s\n", mac_addr);
 
+	/* IP header */
+	struct ipv4_hdr *iphdr;
+	/* Check mbuf API: Move the pointer to an offset into the data in the
+	 * mbuf */
+	iphdr = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr *, ETHER_HDR_LEN);
+	char ip_addr_str[16];
+	get_ip_str(iphdr->src_addr, ip_addr_str);
+	printf("SRC IP address: %s\n",ip_addr_str);
+	get_ip_str(iphdr->dst_addr, ip_addr_str);
+	printf("DST IP address: %s\n",ip_addr_str);
+	printf("Total length: %d\n", iphdr->total_length);
+	printf("Pakcet ID: %d\n", iphdr->packet_id);
+
+	/* UDP header */
+
+	printf("--------------------------------------------------------------------------\n");
 }
-
-/* TODO: Add payload modification function here */
 
 /* main processing loop
  *
@@ -309,15 +347,14 @@ l2fwd_main_loop(void)
 			nb_rx = rte_eth_rx_burst(portid, 0,
 					pkts_burst, MAX_PKT_BURST);
 
+			/*printf("Read %d packets from port: %d.\n", nb_rx, portid);*/
 			port_statistics[portid].rx += nb_rx;
 
 			/* Loop over all received packets */
 			for (j = 0; j < nb_rx; j++) {
 				m = pkts_burst[j];
-
 				/* Try to get packet information here */
 				log_rx_pkt(m);
-
 				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 				/* Forwarding packets here */
 				l2fwd_simple_forward(m, portid);

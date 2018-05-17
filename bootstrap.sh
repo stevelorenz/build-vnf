@@ -3,7 +3,7 @@
 
 # Install dependencies
 sudo apt update
-sudo apt install -y git pkg-config
+sudo apt install -y git pkg-config gdb
 sudo apt install -y bash-completion htop dfc
 
 # Add termite infos
