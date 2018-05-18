@@ -3,6 +3,7 @@
 
 BIN="${HOME}/bin/"
 CONFIG="receiver_cfg.lua"
+#CONFIG="test_seq.lua"
 #CONFIG="receiver_cfg.pkt"
 LOG="udp_recv.log"
 
