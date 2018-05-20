@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 	/* TODO: Add args parser for these paras */
 	const char *src_ip_addr = "127.0.0.1";
 	const char *dst_ip_addr = "127.0.0.1";
-	const char *src_mac_addr = "ff:00:00:00:00:00";
+	const char *src_mac_addr = "00:00:00:00:00:00";
 	const char *dst_mac_addr = "00:00:00:00:00:ff";
 
 	int dst_port = DST_PORT;
@@ -159,13 +159,14 @@ int main(int argc, char *argv[])
 	udph->check = 0;
 
 	/* Send packet out */
+	uint16_t len;
 	uint16_t frame_len = sizeof(struct ether_header) + iph->tot_len;
-	if (sendto(send_sock, fbuf, frame_len, 0, (struct sockaddr*) &dst_in, sizeof(dst_in)) < 0) {
+	if ( ( len = sendto(send_sock, fbuf, frame_len, 0, (struct sockaddr*) &dst_in, sizeof(struct sockaddr)) ) < 0) {
 		perror("Sendto failed");
 	}
 	else
 	{
-		printf("Send success\n");
+		printf("Send success, frame length: %d\n", len);
 	}
 
 	close(send_sock);
