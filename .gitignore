@@ -62,3 +62,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+------------------------
+-  Traffic Monitoring  -
+------------------------
+
+*.pcap

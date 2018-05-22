@@ -45,12 +45,21 @@
 #include <rte_ip.h>
 #include <rte_udp.h>
 #include <rte_byteorder.h>
+#include <rte_pdump.h>
 
 
 static volatile bool force_quit;
 
+/* Enable debug mode */
+static int debugging = 0;
+
 /* MAC updating enabled by default */
 static int mac_updating = 1;
+
+/* Disable packet capture by default
+ * Packet capture is supported by pdump library
+ * */
+static int packet_capturing = 0;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER1
 
@@ -75,7 +84,7 @@ static struct ether_addr dst_mac_addr;
 
 #define UDP_HDR_LEN 8
 #define MAX_UDP_DATA_LEN 512
-static char udp_data_buf[MAX_UDP_DATA_LEN];
+/*static char udp_data_buf[MAX_UDP_DATA_LEN];*/
 
 /*
  * Configurable number of RX/TX ring descriptors
@@ -248,35 +257,31 @@ udp_append_ts(struct rte_mbuf *m)
 	/* Get IHL */
 	uint8_t ihl = iph->version_ihl & 0x0F;
 	uint16_t iph_len = ihl * 32 / 8;
-	RTE_LOG(DEBUG, USER1, "IPv4 header length: %d bytes \n", iph_len);
-
+	RTE_LOG(DEBUG, USER1, "[Original] IPv4 header length: %d , total length: %d bytes \n",
+			iph_len, rte_be_to_cpu_16(iph->total_length)
+	       );
 	struct udp_hdr *udph;
 	udph = (struct udp_hdr *) ((char *) iph + iph_len);
-	RTE_LOG(DEBUG, USER1, "UDP src port: %d, dst port:%d, dgram_len: %d, data len: %d\n",
+	RTE_LOG(DEBUG, USER1, "[Original] UDP src port: %d, dst port:%d, dgram_len: %d, data len: %d\n",
 			rte_be_to_cpu_16(udph->src_port),
 			rte_be_to_cpu_16(udph->dst_port),
 			rte_be_to_cpu_16(udph->dgram_len),
 			(rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN)
 	       );
 	uint16_t data_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-	char *data = (char *) udph + UDP_HDR_LEN;
 
-	/* [DEBUG] */
-	snprintf(udp_data_buf, data_len + 1, "%s", data);
-	RTE_LOG(DEBUG, USER1, "Original UDP Data: %s\n",
-			udp_data_buf);
+	/* Append timestamps */
+	/* MARK: SHOULD append at the end of the mbuf */
+	char *append_data;
+	append_data = rte_pktmbuf_append(m, sizeof(micros));
+	if (unlikely(!append_data)) {
+		rte_exit(EXIT_FAILURE, "Can not append timestamps to the received UDP packet.\n");
+	}
+	rte_memcpy(append_data, &micros, sizeof(micros));
 
-	/* Append ts */
-	char *data_ed = data + data_len;
-	rte_memcpy(data_ed, &micros, sizeof(micros));
-	data_len += sizeof(micros);
-
-	/* [DEBUG] */
-	snprintf(udp_data_buf, data_len + 1, "%s", data);
-	RTE_LOG(DEBUG, USER1, "New UDP Data: %s\n", udp_data_buf);
-
+	data_len = data_len + sizeof(micros);
 	/* Update UDP and IP headers */
-	udph->dgram_len = rte_cpu_to_be_16(data_len);
+	udph->dgram_len = rte_cpu_to_be_16(data_len + UDP_HDR_LEN);
 	iph->total_length = rte_cpu_to_be_16(
 			rte_be_to_cpu_16(iph->total_length) + sizeof(micros)
 			);
@@ -285,11 +290,18 @@ udp_append_ts(struct rte_mbuf *m)
 
 	udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
 	iph->hdr_checksum = rte_ipv4_cksum(iph);
-	RTE_LOG(DEBUG, USER1, "UDP cksum:%d, IP cksum:%d\n",
+	RTE_LOG(DEBUG, USER1, "[New] IPv4 header length: %d , total length: %d bytes \n",
+			iph_len, rte_be_to_cpu_16(iph->total_length)
+	       );
+	RTE_LOG(DEBUG, USER1, "[New] UDP src port: %d, dst port:%d, dgram_len: %d, data len: %d\n",
+			rte_be_to_cpu_16(udph->src_port),
+			rte_be_to_cpu_16(udph->dst_port),
+			rte_be_to_cpu_16(udph->dgram_len),
+			(rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN)
+	       );
+	RTE_LOG(DEBUG, USER1, "[New] UDP cksum:%d, IP cksum:%d\n",
 			udph->dgram_cksum, iph->hdr_checksum
 	       );
-
-	/* MARK: GDB Break here */
 }
 
 /* TODO: Parse and log a Ethernet frame in details */
@@ -535,10 +547,17 @@ l2fwd_usage(const char *prgname)
 			"  -p PORTMASK: hexadecimal bitmask of ports to configure\n"
 			"  -q NQ: number of queue (=ports) per lcore (default is 1)\n"
 			"  -T PERIOD: statistics will be refreshed each PERIOD seconds (0 to disable, 10 default, 86400 maximum)\n"
+			" -d MAC: Destination MAC address presented in XX:XX:XX:XX:XX:XX format\n"
 			"  --[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
 			"      When enabled:\n"
 			"       - The source MAC address is replaced by the TX port MAC address\n"
-			"       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n",
+			"       - The destination MAC address is replaced by the MAC provided by -d option\n"
+			"  --[no-]packet-capturing: Enable or disable packet capturing (disabled by default)\n"
+			"      When enabled:\n"
+			"       - The the pdump capture framework is intialized, the packets can be captured by official pdump-tool\n"
+			"  --[no-]debugging: Enable or disable debugging mode (disabled by default)\n"
+			"      When enabled:\n"
+			"       - The logging level is set to DEBUG and additional debug variables are created. (May slow down the program)\n",
 			prgname);
 }
 
@@ -602,6 +621,10 @@ static const char short_options[] =
 
 #define CMD_LINE_OPT_MAC_UPDATING "mac-updating"
 #define CMD_LINE_OPT_NO_MAC_UPDATING "no-mac-updating"
+#define CMD_LINE_OPT_PACKET_CAPTURING "packet-capturing"
+#define CMD_LINE_OPT_NO_PACKET_CAPTURING "no-packet-capturing"
+#define CMD_LINE_OPT_DEBUGGING "debugging"
+#define CMD_LINE_OPT_NO_DEBUGGING "no-debugging"
 
 enum {
 	/* long options mapped to a short option */
@@ -614,6 +637,10 @@ enum {
 static const struct option lgopts[] = {
 	{ CMD_LINE_OPT_MAC_UPDATING, no_argument, &mac_updating, 1},
 	{ CMD_LINE_OPT_NO_MAC_UPDATING, no_argument, &mac_updating, 0},
+	{ CMD_LINE_OPT_PACKET_CAPTURING, no_argument, &packet_capturing, 1},
+	{ CMD_LINE_OPT_NO_PACKET_CAPTURING, no_argument, &packet_capturing, 0},
+	{ CMD_LINE_OPT_DEBUGGING, no_argument, &debugging, 1},
+	{ CMD_LINE_OPT_NO_DEBUGGING, no_argument, &debugging, 0},
 	{NULL, 0, 0, 0}
 };
 
@@ -664,6 +691,7 @@ l2fwd_parse_args(int argc, char **argv)
 				break;
 
 			case 'd':
+				/* TODO: Check if MAC addr is valid */
 				sscanf(optarg, "%02x:%02x:%02x:%02x:%02x:%02x",
 						&dst_mac[0], &dst_mac[1], &dst_mac[2], &dst_mac[3], &dst_mac[4], &dst_mac[5]);
 
@@ -782,11 +810,6 @@ main(int argc, char **argv)
 	argc -= ret;
 	argv += ret;
 
-	/* init logger */
-	rte_log_set_global_level(RTE_LOG_DEBUG);
-	rte_log_set_level(RTE_LOGTYPE_USER1 , RTE_LOG_DEBUG);
-	RTE_LOG(DEBUG, USER1, "Test debug logging...\n");
-
 	force_quit = false;
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
@@ -796,7 +819,27 @@ main(int argc, char **argv)
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "Invalid L2FWD arguments\n");
 
-	printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
+	RTE_LOG(INFO, USER1, "DEBUG mode: %s\n", debugging? "enabled" : "disabled");
+	if (debugging) {
+		/* init logger */
+		rte_log_set_global_level(RTE_LOG_DEBUG);
+		rte_log_set_level(RTE_LOGTYPE_USER1 , RTE_LOG_DEBUG);
+	}
+	else {
+		rte_log_set_global_level(RTE_LOG_INFO);
+		rte_log_set_level(RTE_LOGTYPE_USER1 , RTE_LOG_INFO);
+	}
+
+
+	RTE_LOG(INFO, USER1, "MAC updating: %s\n", mac_updating ? "enabled" : "disabled");
+
+	RTE_LOG(INFO, USER1, "Packet capturing: %s\n", packet_capturing? "enabled" : "disabled");
+	/* Initialise the pdump framework */
+	if (packet_capturing) {
+		ret = rte_pdump_init(NULL);
+		if (ret < 0)
+			rte_exit(EXIT_FAILURE, "Can not initialize the pdump framework.");
+	}
 
 	/* convert to number of cycles */
 	timer_period *= rte_get_timer_hz();
@@ -1000,6 +1043,8 @@ main(int argc, char **argv)
 		}
 	}
 
+	/* Cleanups */
+	RTE_LOG(INFO, EAL, "Run cleanups.\n");
 	RTE_ETH_FOREACH_DEV(portid) {
 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
 			continue;
@@ -1008,7 +1053,11 @@ main(int argc, char **argv)
 		rte_eth_dev_close(portid);
 		printf(" Done\n");
 	}
-	printf("Bye...\n");
+
+	if (packet_capturing)
+		rte_pdump_uninit();
+
+	RTE_LOG(INFO, EAL, "App exits.\n");
 
 	return ret;
 }
