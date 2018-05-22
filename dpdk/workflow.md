@@ -44,4 +44,4 @@ $ sudo ./helloworld -l 0,1
 * -l CORELIST: is a set of core numbers on which the application runs.
 
 
-Other generic opetions for DPDK application can be found [here](http://dpdk.org/doc/guides/linux_gsg/build_sample_apps.html#running-a-sample-application).
+Other generic options for DPDK application can be found [here](http://dpdk.org/doc/guides/linux_gsg/build_sample_apps.html#running-a-sample-application).
