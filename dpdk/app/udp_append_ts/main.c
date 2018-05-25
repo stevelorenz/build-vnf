@@ -61,16 +61,17 @@ static int mac_updating = 1;
  * */
 static int packet_capturing = 0;
 
-#define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER1
+/* Appending time stamps, default enabled */
+static int appending_ts = 1;
 
-/* Maximal received packets each time */
+/* Default maximal received packets each time */
 #define MAX_PKT_BURST 32
 
 #define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
 #define MEMPOOL_CACHE_SIZE 256
 
 /* Ethernet Frames */
-#define MAX_FRAM_SIZE = 1500
+#define MAX_FRAM_SIZE 1500
 
 /* Processing delay related */
 static uint64_t st_proc_tsc = 0;
@@ -80,11 +81,13 @@ static double proc_time = 0.0;
 static uint64_t nb_udp_dgrams = 0;
 
 static uint32_t dst_mac[ETHER_ADDR_LEN];
+static uint32_t src_mac[ETHER_ADDR_LEN];
+
 static struct ether_addr dst_mac_addr;
+static struct ether_addr src_mac_addr;
 
 #define UDP_HDR_LEN 8
 #define MAX_UDP_DATA_LEN 512
-/*static char udp_data_buf[MAX_UDP_DATA_LEN];*/
 
 /*
  * Configurable number of RX/TX ring descriptors
@@ -140,52 +143,6 @@ struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 /* A tsc-based timer responsible for triggering statistics printout */
 static uint64_t timer_period = 10; /* default period is 10 seconds */
 
-/* Print out statistics on packets dropped */
-/*static void*/
-/*print_stats(void)*/
-/*{*/
-/*uint64_t total_packets_dropped, total_packets_tx, total_packets_rx;*/
-/*unsigned portid;*/
-/**/
-/*total_packets_dropped = 0;*/
-/*total_packets_tx = 0;*/
-/*total_packets_rx = 0;*/
-/**/
-/*const char clr[] = { 27, '[', '2', 'J', '\0' };*/
-/*const char topLeft[] = { 27, '[', '1', ';', '1', 'H','\0' };*/
-/**/
-/*[> Clear screen and move to top left <]*/
-/*printf("%s%s", clr, topLeft);*/
-/**/
-/*printf("\nPort statistics ====================================");*/
-/**/
-/*for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++) {*/
-/*[> skip disabled ports <]*/
-/*if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)*/
-/*continue;*/
-/*printf("\nStatistics for port %u ------------------------------"*/
-/*"\nPackets sent: %24"PRIu64*/
-/*"\nPackets received: %20"PRIu64*/
-/*"\nPackets dropped: %21"PRIu64,*/
-/*portid,*/
-/*port_statistics[portid].tx,*/
-/*port_statistics[portid].rx,*/
-/*port_statistics[portid].dropped);*/
-/**/
-/*total_packets_dropped += port_statistics[portid].dropped;*/
-/*total_packets_tx += port_statistics[portid].tx;*/
-/*total_packets_rx += port_statistics[portid].rx;*/
-/*}*/
-/*printf("\nAggregate statistics ==============================="*/
-/*"\nTotal packets sent: %18"PRIu64*/
-/*"\nTotal packets received: %14"PRIu64*/
-/*"\nTotal packets dropped: %15"PRIu64,*/
-/*total_packets_tx,*/
-/*total_packets_rx,*/
-/*total_packets_dropped);*/
-/*printf("\n====================================================\n");*/
-/*}*/
-
 /**
  * @brief Convert Uint32 IP address to x.x.x.x format
  */
@@ -227,12 +184,6 @@ is_udp_dgram(struct rte_mbuf *m)
 		return false;
 }
 
-/* Checksum calculation, ref: testpmd */
-/*static uint16_t*/
-/*get_udp_cksum(void)*/
-/*{*/
-/*}*/
-
 /**
  * @brief Append timestamps at the end of UDP diagram
  */
@@ -259,7 +210,7 @@ udp_append_ts(struct rte_mbuf *m)
 	uint16_t iph_len = ihl * 32 / 8;
 	RTE_LOG(DEBUG, USER1, "[Original] IPv4 header length: %d , total length: %d bytes \n",
 			iph_len, rte_be_to_cpu_16(iph->total_length)
-	       );
+		   );
 	struct udp_hdr *udph;
 	udph = (struct udp_hdr *) ((char *) iph + iph_len);
 	RTE_LOG(DEBUG, USER1, "[Original] UDP src port: %d, dst port:%d, dgram_len: %d, data len: %d\n",
@@ -267,7 +218,7 @@ udp_append_ts(struct rte_mbuf *m)
 			rte_be_to_cpu_16(udph->dst_port),
 			rte_be_to_cpu_16(udph->dgram_len),
 			(rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN)
-	       );
+		   );
 	uint16_t data_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
 
 	/* Append timestamps */
@@ -292,30 +243,26 @@ udp_append_ts(struct rte_mbuf *m)
 	iph->hdr_checksum = rte_ipv4_cksum(iph);
 	RTE_LOG(DEBUG, USER1, "[New] IPv4 header length: %d , total length: %d bytes \n",
 			iph_len, rte_be_to_cpu_16(iph->total_length)
-	       );
+		   );
 	RTE_LOG(DEBUG, USER1, "[New] UDP src port: %d, dst port:%d, dgram_len: %d, data len: %d\n",
 			rte_be_to_cpu_16(udph->src_port),
 			rte_be_to_cpu_16(udph->dst_port),
 			rte_be_to_cpu_16(udph->dgram_len),
 			(rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN)
-	       );
+		   );
 	RTE_LOG(DEBUG, USER1, "[New] UDP cksum:%d, IP cksum:%d\n",
 			udph->dgram_cksum, iph->hdr_checksum
-	       );
+		   );
 }
 
-/* TODO: Parse and log a Ethernet frame in details */
-
 	static void
-l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_portid)
+l2fwd_mac_updating(struct rte_mbuf *m)
 {
 	struct ether_hdr *eth;
-
 	eth = rte_pktmbuf_mtod(m, struct ether_hdr *);
-
 	/* Update destination and source MAC addr */
+	ether_addr_copy(&src_mac_addr, &eth->s_addr);
 	ether_addr_copy(&dst_mac_addr, &eth->d_addr);
-	ether_addr_copy(&l2fwd_ports_eth_addr[dest_portid], &eth->s_addr);
 }
 
 	static void
@@ -328,7 +275,7 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 	dst_port = l2fwd_dst_ports[portid];
 
 	if (mac_updating)
-		l2fwd_mac_updating(m, dst_port);
+		l2fwd_mac_updating(m);
 
 	buffer = tx_buffer[dst_port];
 
@@ -336,10 +283,7 @@ l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 
 	/* Possible draining processes */
 	if (sent){
-		port_statistics[dst_port].tx += sent;
-	}
-	else {
-
+		RTE_LOG(DEBUG, USER1, "Put %d UDP packets in the tx buffer\n", sent);
 	}
 }
 
@@ -367,13 +311,13 @@ log_rx_pkt(struct rte_mbuf *m)
 	/* Convert addr_bytes into string with hexadecimal format */
 	snprintf(mac_addr, sizeof(mac_addr), "%02x:%02x:%02x:%02x:%02x:%02x",
 			addr_ptr[0], addr_ptr[1], addr_ptr[2], addr_ptr[3], addr_ptr[4], addr_ptr[5]
-		);
+			);
 	printf("SRC MAC: %s\n", mac_addr);
 
 	addr_ptr = eth->d_addr.addr_bytes;
 	snprintf(mac_addr, sizeof(mac_addr), "%02x:%02x:%02x:%02x:%02x:%02x",
 			addr_ptr[0], addr_ptr[1], addr_ptr[2], addr_ptr[3], addr_ptr[4], addr_ptr[5]
-		);
+			);
 	printf("DST MAC: %s\n", mac_addr);
 
 	/* IP header */
@@ -401,20 +345,20 @@ log_rx_pkt(struct rte_mbuf *m)
 	static void
 l2fwd_main_loop(void)
 {
-	/* Pakcets are read in a burst of size MAX_PKT_BURST */
+	/* MARK: Pakcets are read in a burst of size MAX_PKT_BURST
+	 * This is also a tunable parameter for latency
+	 * */
 	struct rte_mbuf *pkts_burst[MAX_PKT_BURST];
 	struct rte_mbuf *m;
 	int sent;
 	unsigned lcore_id;
-	uint64_t prev_tsc, diff_tsc, cur_tsc, timer_tsc;
+	uint64_t prev_tsc, diff_tsc, cur_tsc;
 	unsigned i, j, portid, nb_rx;
 	struct lcore_queue_conf *qconf;
 	const uint64_t drain_tsc = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S *
 		BURST_TX_DRAIN_US;
 	struct rte_eth_dev_tx_buffer *buffer;
 
-	prev_tsc = 0;
-	timer_tsc = 0;
 
 	lcore_id = rte_lcore_id();
 	qconf = &lcore_queue_conf[lcore_id];
@@ -424,7 +368,7 @@ l2fwd_main_loop(void)
 		return;
 	}
 
-	RTE_LOG(INFO, USER1, "entering main loop on lcore %u\n", lcore_id);
+	RTE_LOG(INFO, USER1, "Entering main loop on lcore %u\n", lcore_id);
 
 	for (i = 0; i < qconf->n_rx_port; i++) {
 
@@ -451,26 +395,8 @@ l2fwd_main_loop(void)
 
 				/* Drain all buffered packets in the tx queue */
 				sent = rte_eth_tx_buffer_flush(portid, 0, buffer);
-				if (sent)
-					port_statistics[portid].tx += sent;
-
-			}
-
-			/* if timer is enabled */
-			if (timer_period > 0) {
-
-				/* advance the timer */
-				timer_tsc += diff_tsc;
-
-				/* if timer has reached its timeout */
-				if (unlikely(timer_tsc >= timer_period)) {
-
-					/* do this only on master core */
-					if (lcore_id == rte_get_master_lcore()) {
-						/*print_stats();*/
-						/* reset the timer */
-						timer_tsc = 0;
-					}
+				if (sent) {
+					RTE_LOG(DEBUG, USER1, "Flush %d UDP packets", sent);
 				}
 			}
 
@@ -489,30 +415,24 @@ l2fwd_main_loop(void)
 			 * */
 			nb_rx = rte_eth_rx_burst(portid, 0,
 					pkts_burst, MAX_PKT_BURST);
+
 			st_proc_tsc = rte_rdtsc();
-
-			port_statistics[portid].rx += nb_rx;
-
 			if (nb_rx > 0) {
 				/* Loop over all received packets */
 				for (j = 0; j < nb_rx; j++) {
 					m = pkts_burst[j];
 					/* Filter out non-UDP packets */
-					if (is_ipv4_pkt(m)){
-						RTE_LOG(DEBUG, USER1, "Detect IPv4 packet.\n");
-						if (is_udp_dgram(m)) {
-							RTE_LOG(DEBUG, USER1, "Detect UDP datagram.\n");
-						}
-					}
 					if ( !(is_ipv4_pkt(m)) || !(is_udp_dgram(m)) ) {
 						RTE_LOG(DEBUG, USER1, "Frame is not a UDP datagram.\n");
+						rte_pktmbuf_free(m);
 						continue;
 					}
 					else {
 						nb_udp_dgrams += 1;
-						RTE_LOG(DEBUG, USER1, "Number of received UDP: %ld\n", nb_udp_dgrams);
-						/* Append ts to UDP packets */
-						udp_append_ts(m);
+						if (appending_ts) {
+							/* Append ts to UDP packets */
+							udp_append_ts(m);
+						}
 						rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 						/* Forwarding packets here */
 						l2fwd_simple_forward(m, portid);
@@ -525,7 +445,9 @@ l2fwd_main_loop(void)
 				end_proc_tsc = rte_rdtsc();
 				proc_tsc = end_proc_tsc - st_proc_tsc;
 				proc_time = (1.0 / rte_get_timer_hz()) * proc_tsc * 1000;
-				RTE_LOG(INFO, USER1, "Frames proc, TSC: %ld, time:%f ms\n", proc_tsc, proc_time);
+				RTE_LOG(INFO, USER1,
+						"Processing %d received frames, number of received UDP packets: %ld, TSC: %ld, time: %f ms\n",
+						nb_rx, nb_udp_dgrams, proc_tsc, proc_time);
 			}
 
 		}
@@ -547,6 +469,7 @@ l2fwd_usage(const char *prgname)
 			"  -p PORTMASK: hexadecimal bitmask of ports to configure\n"
 			"  -q NQ: number of queue (=ports) per lcore (default is 1)\n"
 			"  -T PERIOD: statistics will be refreshed each PERIOD seconds (0 to disable, 10 default, 86400 maximum)\n"
+			" -s MAC: Source MAC address presented in XX:XX:XX:XX:XX:XX format\n"
 			" -d MAC: Destination MAC address presented in XX:XX:XX:XX:XX:XX format\n"
 			"  --[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
 			"      When enabled:\n"
@@ -555,6 +478,8 @@ l2fwd_usage(const char *prgname)
 			"  --[no-]packet-capturing: Enable or disable packet capturing (disabled by default)\n"
 			"      When enabled:\n"
 			"       - The the pdump capture framework is intialized, the packets can be captured by official pdump-tool\n"
+			"  --[no-]appending-ts: Enable appending timestamps at the end of UDP payload (enabled by default)\n"
+			"      When disabled: The app just perform simple forwarding\n"
 			"  --[no-]debugging: Enable or disable debugging mode (disabled by default)\n"
 			"      When enabled:\n"
 			"       - The logging level is set to DEBUG and additional debug variables are created. (May slow down the program)\n",
@@ -616,6 +541,7 @@ static const char short_options[] =
 "p:"  /* portmask */
 "q:"  /* number of queues */
 "T:"  /* timer period */
+"s:"  /* source MAC address */
 "d:" /* destination MAC address */
 ;
 
@@ -625,6 +551,8 @@ static const char short_options[] =
 #define CMD_LINE_OPT_NO_PACKET_CAPTURING "no-packet-capturing"
 #define CMD_LINE_OPT_DEBUGGING "debugging"
 #define CMD_LINE_OPT_NO_DEBUGGING "no-debugging"
+#define CMD_LINE_OPT_APPENDING_TS "appending-ts"
+#define CMD_LINE_OPT_NO_APPENDING_TS "no-appending-ts"
 
 enum {
 	/* long options mapped to a short option */
@@ -641,6 +569,8 @@ static const struct option lgopts[] = {
 	{ CMD_LINE_OPT_NO_PACKET_CAPTURING, no_argument, &packet_capturing, 0},
 	{ CMD_LINE_OPT_DEBUGGING, no_argument, &debugging, 1},
 	{ CMD_LINE_OPT_NO_DEBUGGING, no_argument, &debugging, 0},
+	{ CMD_LINE_OPT_APPENDING_TS, no_argument, &appending_ts, 1},
+	{ CMD_LINE_OPT_NO_APPENDING_TS, no_argument, &appending_ts, 0},
 	{NULL, 0, 0, 0}
 };
 
@@ -648,7 +578,7 @@ static const struct option lgopts[] = {
 	static int
 l2fwd_parse_args(int argc, char **argv)
 {
-	int opt, ret, timer_secs;
+	int opt, ret, timer_secs, i;
 	char **argvopt;
 	int option_index;
 	char *prgname = argv[0];
@@ -663,7 +593,7 @@ l2fwd_parse_args(int argc, char **argv)
 			case 'p':
 				l2fwd_enabled_port_mask = l2fwd_parse_portmask(optarg);
 				if (l2fwd_enabled_port_mask == 0) {
-					printf("invalid portmask\n");
+					printf("Invalid portmask\n");
 					l2fwd_usage(prgname);
 					return -1;
 				}
@@ -673,7 +603,7 @@ l2fwd_parse_args(int argc, char **argv)
 			case 'q':
 				l2fwd_rx_queue_per_lcore = l2fwd_parse_nqueue(optarg);
 				if (l2fwd_rx_queue_per_lcore == 0) {
-					printf("invalid queue number\n");
+					printf("Invalid queue number\n");
 					l2fwd_usage(prgname);
 					return -1;
 				}
@@ -683,7 +613,7 @@ l2fwd_parse_args(int argc, char **argv)
 			case 'T':
 				timer_secs = l2fwd_parse_timer_period(optarg);
 				if (timer_secs < 0) {
-					printf("invalid timer period\n");
+					printf("Invalid timer period\n");
 					l2fwd_usage(prgname);
 					return -1;
 				}
@@ -691,15 +621,24 @@ l2fwd_parse_args(int argc, char **argv)
 				break;
 
 			case 'd':
-				/* TODO: Check if MAC addr is valid */
 				sscanf(optarg, "%02x:%02x:%02x:%02x:%02x:%02x",
 						&dst_mac[0], &dst_mac[1], &dst_mac[2], &dst_mac[3], &dst_mac[4], &dst_mac[5]);
 
 				RTE_LOG(INFO, USER1, "Destination MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
 						dst_mac[0], dst_mac[1], dst_mac[2], dst_mac[3], dst_mac[4], dst_mac[5]);
-				int i;
 				for (i = 0; i < ETHER_ADDR_LEN; ++i) {
 					dst_mac_addr.addr_bytes[i] = (uint8_t) dst_mac[i];
+				}
+				break;
+
+			case 's':
+				sscanf(optarg, "%02x:%02x:%02x:%02x:%02x:%02x",
+						&src_mac[0], &src_mac[1], &src_mac[2], &src_mac[3], &src_mac[4], &src_mac[5]);
+
+				RTE_LOG(INFO, USER1, "Destination MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+						src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+				for (i = 0; i < ETHER_ADDR_LEN; ++i) {
+					src_mac_addr.addr_bytes[i] = (uint8_t) src_mac[i];
 				}
 				break;
 
@@ -833,9 +772,12 @@ main(int argc, char **argv)
 
 	RTE_LOG(INFO, USER1, "MAC updating: %s\n", mac_updating ? "enabled" : "disabled");
 
+	RTE_LOG(INFO, USER1, "Appending timestamps: %s\n", appending_ts? "enabled" : "disabled");
+
 	RTE_LOG(INFO, USER1, "Packet capturing: %s\n", packet_capturing? "enabled" : "disabled");
 	/* Initialise the pdump framework */
 	if (packet_capturing) {
+		/* Initialise the pdump framework */
 		ret = rte_pdump_init(NULL);
 		if (ret < 0)
 			rte_exit(EXIT_FAILURE, "Can not initialize the pdump framework.");
@@ -844,18 +786,17 @@ main(int argc, char **argv)
 	/* convert to number of cycles */
 	timer_period *= rte_get_timer_hz();
 
-	nb_ports = rte_eth_dev_count_avail();
+	/* MARK: This function is not supported in DPDK 17.11 */
+	/*nb_ports = rte_eth_dev_count_avail();*/
+	nb_ports = 2;
 	RTE_LOG(DEBUG, USER1, "Number of detected ports: %d\n", nb_ports);
 	if (nb_ports == 0)
 		rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");
 
 	/* check port mask to possible port mask */
-
 	if (l2fwd_enabled_port_mask & ~((1 << nb_ports) - 1))
 		rte_exit(EXIT_FAILURE, "Invalid portmask; possible (0x%x)\n",
 				(1 << nb_ports) - 1);
-	uint16_t aval_pm = (1 << nb_ports) - 1;
-	printf("Possible portmask: %d\n", aval_pm);
 
 	/* reset l2fwd_dst_ports */
 	for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++)
@@ -880,7 +821,6 @@ main(int argc, char **argv)
 		nb_ports_in_mask++;
 	}
 	if (nb_ports_in_mask % 2) {
-		printf("Notice: odd number of ports in portmask.\n");
 		l2fwd_dst_ports[last_port] = last_port;
 	}
 
@@ -910,7 +850,7 @@ main(int argc, char **argv)
 
 		qconf->rx_port_list[qconf->n_rx_port] = portid;
 		qconf->n_rx_port++;
-		printf("Lcore %u: RX port %u\n", rx_lcore_id, portid);
+		RTE_LOG(INFO, USER1, "Lcore %u: RX port %u\n", rx_lcore_id, portid);
 	}
 
 	nb_mbufs = RTE_MAX(nb_ports * (nb_rxd + nb_txd + MAX_PKT_BURST +
@@ -932,13 +872,13 @@ main(int argc, char **argv)
 
 		/* skip ports that are not enabled */
 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0) {
-			printf("Skipping disabled port %u\n", portid);
+			RTE_LOG(INFO,USER1,"Skipping disabled port %u\n", portid);
 			continue;
 		}
 		nb_ports_available++;
 
 		/* init port */
-		printf("Initializing port %u... ", portid);
+		RTE_LOG(INFO, USER1, "Initializing port %u... \n", portid);
 		fflush(stdout);
 		rte_eth_dev_info_get(portid, &dev_info);
 		if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
@@ -1006,13 +946,12 @@ main(int argc, char **argv)
 		if (ret < 0)
 			rte_exit(EXIT_FAILURE, "rte_eth_dev_start:err=%d, port=%u\n",
 					ret, portid);
-
-		printf("done: \n");
+		RTE_LOG(INFO, USER1, "Device started for port: %d\n", portid);
 
 		/* MARK: Enable promiscuous mode in each enabled port */
 		rte_eth_promiscuous_enable(portid);
 
-		printf("Port %u, MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n\n",
+		RTE_LOG(INFO, USER1, "Port %u, MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n\n",
 				portid,
 				l2fwd_ports_eth_addr[portid].addr_bytes[0],
 				l2fwd_ports_eth_addr[portid].addr_bytes[1],
@@ -1048,16 +987,22 @@ main(int argc, char **argv)
 	RTE_ETH_FOREACH_DEV(portid) {
 		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
 			continue;
-		printf("Closing port %d...", portid);
+		RTE_LOG(INFO,USER1,"Closing port %d...", portid);
 		rte_eth_dev_stop(portid);
 		rte_eth_dev_close(portid);
-		printf(" Done\n");
+		RTE_LOG(INFO,USER1," Done\n");
 	}
 
 	if (packet_capturing)
 		rte_pdump_uninit();
 
 	RTE_LOG(INFO, EAL, "App exits.\n");
+	/* MARK: In DPDK 17.11-rc4, rte_eal_cleanup is depreciated, can not be used
+	 *		 So exiting the program results in leaking hugepages.
+	 *		 rte_eal_cleanup feature is provided by DPDK 18.02
+	 * */
+	/*RTE_LOG(INFO, EAL, "Release hugepages.\n");*/
+	/*rte_eal_cleanup();*/
 
 	return ret;
 }

@@ -85,7 +85,7 @@ static int packet_capturing = 0;
 #define MEMPOOL_CACHE_SIZE 256
 
 /* Ethernet Frames */
-#define MAX_FRAM_SIZE = 1500
+#define MAX_FRAM_SIZE 1500
 
 /* Processing delay related */
 static uint64_t st_proc_tsc = 0;
