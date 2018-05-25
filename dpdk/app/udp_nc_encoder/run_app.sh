@@ -1,0 +1,5 @@
+#!/bin/bash
+# About: An example of running the forwarding APP
+# Param: Use the first lcore for both rx and tx ports
+
+sudo ./build/udp_nc_encoder -l 0 -m 200 -- -p 0x3 -q 2 -d 9c:da:3e:6f:ba:df --encoding
