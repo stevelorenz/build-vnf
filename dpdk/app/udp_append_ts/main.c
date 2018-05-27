@@ -159,6 +159,15 @@ get_ip_str(uint32_t ip, char *ip_addr_str)
 	sprintf(ip_addr_str, "%d.%d.%d.%d", octet[3], octet[2], octet[1], octet[0]);
 }
 
+/**
+ * @brief Filter a Ethernet frame, return true if frame match the rules.
+ */
+	static bool
+filter_ether_frame(struct rte_mbuf *m)
+{
+
+}
+
 
 	static bool
 is_ipv4_pkt(struct rte_mbuf *m)
@@ -421,6 +430,10 @@ l2fwd_main_loop(void)
 				/* Loop over all received packets */
 				for (j = 0; j < nb_rx; j++) {
 					m = pkts_burst[j];
+					/* Filter out packets:
+					 * - Non-UDP packets
+					 * - Looping packets
+					 * */
 					/* Filter out non-UDP packets */
 					if ( !(is_ipv4_pkt(m)) || !(is_udp_dgram(m)) ) {
 						RTE_LOG(DEBUG, USER1, "Frame is not a UDP datagram.\n");
