@@ -1,8 +1,10 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-# About: Vagrant file for the test environment
+# About: Vagrant file for the development environment
+#        The measurements should be performed on the OpenStack cloud environment.
 #
-# Topo: Traffic Generator --- VNF (DPDK, BPF, Raw socket etc.)
+# Component: - Traffic Generator: trafficgen
+#            - VNF: vnf
 
 ###############
 #  Variables  #
