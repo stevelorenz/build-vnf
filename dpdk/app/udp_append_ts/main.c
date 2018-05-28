@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: BSD-3-Clause
  *
  * Copyright(c) 2010-2016 Intel Corporation
- * About : Append timestamps to all received UDP pakcets and log processing delays
- * MARK  : Pakcets are all processed in Layer 2 with MAC addresses
+ * About : Append timestamps to all received UDP packets and log processing delays
+ * MARK  : Packets are all processed in Layer 2 with MAC addresses
  */
 
 #include <stdio.h>
@@ -67,7 +67,7 @@ static int appending_ts = 1;
 /* Default maximal received packets each time */
 #define MAX_PKT_BURST 32
 
-#define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
+#define BURST_TX_DRAIN_US 100  /* TX drain every ~100us */
 #define MEMPOOL_CACHE_SIZE 256
 
 /* Ethernet Frames */
@@ -80,9 +80,9 @@ static uint64_t proc_tsc = 0;
 static double proc_time = 0.0;
 static uint64_t nb_udp_dgrams = 0;
 
+/* Source and destination MAC addresses used for sending frames */
 static uint32_t dst_mac[ETHER_ADDR_LEN];
 static uint32_t src_mac[ETHER_ADDR_LEN];
-
 static struct ether_addr dst_mac_addr;
 static struct ether_addr src_mac_addr;
 
@@ -97,7 +97,7 @@ static struct ether_addr src_mac_addr;
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
-/* ethernet addresses of ports */
+/* Ethernet addresses of ports */
 static struct ether_addr l2fwd_ports_eth_addr[RTE_MAX_ETHPORTS];
 
 /* mask of enabled ports */
@@ -137,6 +137,7 @@ struct l2fwd_port_statistics {
 	uint64_t rx;
 	uint64_t dropped;
 } __rte_cache_aligned;
+
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
 #define MAX_TIMER_PERIOD 86400 /* 1 day max */
@@ -162,14 +163,34 @@ get_ip_str(uint32_t ip, char *ip_addr_str)
 /**
  * @brief Filter a Ethernet frame, return true if frame match the rules.
  */
-	static bool
+	__attribute__((unused)) static int8_t
 filter_ether_frame(struct rte_mbuf *m)
 {
+	struct ether_hdr *ethh;
+	ethh = rte_pktmbuf_mtod(m, struct ether_hdr *);
+	/* Filter out non-IP packets */
+	if (ethh->ether_type != rte_cpu_to_be_16(ETHER_TYPE_IPv4))
+		return -1;
 
+	/* Filter out non-UDP packets */
+	struct ipv4_hdr *iph;
+	iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr *, ETHER_HDR_LEN);
+	if (iph->next_proto_id != IPPROTO_UDP)
+		return -2;
+
+	/* Filter out looping packets with source MAC address of any forwarding
+	 * ports  */
+	uint8_t i;
+	for (i = 0; i < sizeof(l2fwd_ports_eth_addr); ++i) {
+		if ( is_same_ether_addr(&(ethh->s_addr), &(l2fwd_ports_eth_addr[i])) )
+			return -3;
+	}
+
+	return 1;
 }
 
 
-	static bool
+	__attribute__((unused)) static bool
 is_ipv4_pkt(struct rte_mbuf *m)
 {
 	struct ether_hdr *ethh;
@@ -181,7 +202,7 @@ is_ipv4_pkt(struct rte_mbuf *m)
 		return false;
 }
 
-	static bool
+	__attribute__((unused)) static bool
 is_udp_dgram(struct rte_mbuf *m)
 {
 	struct ipv4_hdr *iph;
@@ -347,7 +368,7 @@ log_rx_pkt(struct rte_mbuf *m)
 	printf("--------------------------------------------------------------------------\n");
 }
 
-/* main processing loop
+/* Main forwarding and processing loop
  *
  * MARK: This function handles packet receiving, processing and transmitting.
  * */
@@ -363,14 +384,14 @@ l2fwd_main_loop(void)
 	unsigned lcore_id;
 	uint64_t prev_tsc, diff_tsc, cur_tsc;
 	unsigned i, j, portid, nb_rx;
+	uint8_t filter_ret = 0;
 	struct lcore_queue_conf *qconf;
 	const uint64_t drain_tsc = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S *
 		BURST_TX_DRAIN_US;
 	struct rte_eth_dev_tx_buffer *buffer;
 
-
 	lcore_id = rte_lcore_id();
-	qconf = &lcore_queue_conf[lcore_id];
+	qconf = &lcore_queue_conf[lcore_id];  /* queue configuration */
 
 	if (qconf->n_rx_port == 0) {
 		RTE_LOG(INFO, USER1, "lcore %u has nothing to do\n", lcore_id);
@@ -382,7 +403,7 @@ l2fwd_main_loop(void)
 	for (i = 0; i < qconf->n_rx_port; i++) {
 
 		portid = qconf->rx_port_list[i];
-		RTE_LOG(INFO, USER1, " -- lcoreid=%u portid=%u\n", lcore_id, portid);
+		RTE_LOG(INFO, USER1, "[RX Port] -- lcoreid=%u portid=%u\n", lcore_id, portid);
 	}
 
 	/* Loop for rx, proc and tx packets */
@@ -405,7 +426,7 @@ l2fwd_main_loop(void)
 				/* Drain all buffered packets in the tx queue */
 				sent = rte_eth_tx_buffer_flush(portid, 0, buffer);
 				if (sent) {
-					RTE_LOG(DEBUG, USER1, "Flush %d UDP packets", sent);
+					RTE_LOG(DEBUG, USER1, "Drain %d UDP packets in the tx queue", sent);
 				}
 			}
 
@@ -418,6 +439,8 @@ l2fwd_main_loop(void)
 		for (i = 0; i < qconf->n_rx_port; i++) {
 
 			portid = qconf->rx_port_list[i];
+			/* TODO: Check the link status before calling burst receiving */
+
 			/* MARK: A burst number of packets are returned by this
 			 * function, so can not get the recv ts for each packet
 			 * here.
@@ -434,9 +457,8 @@ l2fwd_main_loop(void)
 					 * - Non-UDP packets
 					 * - Looping packets
 					 * */
-					/* Filter out non-UDP packets */
-					if ( !(is_ipv4_pkt(m)) || !(is_udp_dgram(m)) ) {
-						RTE_LOG(DEBUG, USER1, "Frame is not a UDP datagram.\n");
+					if ( (filter_ret = filter_ether_frame(m)) != 1 ) {
+						RTE_LOG(DEBUG, USER1, "TSC: %ld, The frame doesn't pass the filter. Error code: %d\n", rte_rdtsc(), filter_ret);
 						rte_pktmbuf_free(m);
 						continue;
 					}
@@ -648,7 +670,7 @@ l2fwd_parse_args(int argc, char **argv)
 				sscanf(optarg, "%02x:%02x:%02x:%02x:%02x:%02x",
 						&src_mac[0], &src_mac[1], &src_mac[2], &src_mac[3], &src_mac[4], &src_mac[5]);
 
-				RTE_LOG(INFO, USER1, "Destination MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+				RTE_LOG(INFO, USER1, "Source MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
 						src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
 				for (i = 0; i < ETHER_ADDR_LEN; ++i) {
 					src_mac_addr.addr_bytes[i] = (uint8_t) src_mac[i];
@@ -802,9 +824,9 @@ main(int argc, char **argv)
 	/* MARK: This function is not supported in DPDK 17.11 */
 	/*nb_ports = rte_eth_dev_count_avail();*/
 	nb_ports = 2;
-	RTE_LOG(DEBUG, USER1, "Number of detected ports: %d\n", nb_ports);
-	if (nb_ports == 0)
-		rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");
+	RTE_LOG(INFO, USER1, "Number of to be used ports: %d\n", nb_ports);
+	/*if (nb_ports == 0)*/
+	/*rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");*/
 
 	/* check port mask to possible port mask */
 	if (l2fwd_enabled_port_mask & ~((1 << nb_ports) - 1))
@@ -817,6 +839,7 @@ main(int argc, char **argv)
 	last_port = 0;
 
 	/*
+	 * TODO: Check core affinity
 	 * Each logical core is assigned a dedicated TX queue on each port.
 	 */
 	RTE_ETH_FOREACH_DEV(portid) {
@@ -910,7 +933,7 @@ main(int argc, char **argv)
 					ret, portid);
 
 		/* [Zuo] Get MAC addresses of all enabled port */
-		rte_eth_macaddr_get(portid,&l2fwd_ports_eth_addr[portid]);
+		rte_eth_macaddr_get(portid, &l2fwd_ports_eth_addr[portid]);
 
 		/* init one RX queue */
 		fflush(stdout);

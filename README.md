@@ -1,18 +1,17 @@
-# Build VSF #
+# Build VNF #
 
-Try different tools to build simple Virtualized Service Function (VSF) or Virtualized Network Function (VNF) in virtual
-machine or containers.
+Try different packet processing tools to build simple Virtualized Network Function (VNFs) in virtual machines or
+containers. The main concern of performance is the **low latency**.
 
-Such VSFs should be latter integrated into the [SFC-Ostack](https://github.com/stevelorenz/sfc-ostack) framework.
+Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/stevelorenz/sfc-ostack) framework.
 
-## Tool ##
+## Packet Processing Tool ##
 
-- BPF
-- DPDK
+- Data Plane Development Kit (DPDK)
+- BPF + Packet Socket
+- eXpress Data Path (XDP)
 - User-space NIC Driver
-- Raw sockets
 
-## Katalog ##
-
+## Catalog ##
 
 ## TODO: Test Environment ##
