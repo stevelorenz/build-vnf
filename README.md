@@ -8,8 +8,7 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 ## Packet Processing Tool ##
 
 - Data Plane Development Kit (DPDK)
-- BPF + Packet Socket
-- eXpress Data Path (XDP)
+- IO Visor Project: eBPF + XDP
 - User-space NIC Driver
 
 ## Catalog ##

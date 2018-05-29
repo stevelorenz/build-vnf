@@ -5,6 +5,7 @@
 """
 About: UDP One-Way Delay (OWD) timer
        - Packets are sent via layer 4 socket (AF_INET, SOCK_DGRAM)
+       - Use synchronous and blocking IO
 
 Email: xianglinks@gmail.com
 """
@@ -19,11 +20,12 @@ import sys
 import time
 
 MAX_PAYLOAD_SIZE = 512
+MAX_SEND_SLOW_NUMBER = 10
 
 
 def run_client():
     """Run UDP client"""
-
+    send_slow_nb = 0
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     if BIND_SRC_ADDR:
         send_sock.bind((SRC_ADDR[0], SRC_ADDR[1]))
@@ -44,6 +46,13 @@ def run_client():
             send_dur = time.time() - st_send_ts
             if IPD - send_dur > 0:
                 time.sleep(IPD - send_dur)
+                send_slow_nb = 0
+            else:
+                send_slow_nb += 1
+                if send_slow_nb >= MAX_SEND_SLOW_NUMBER:
+                    raise Exception(
+                        "Client sends too slow, the IDP may be too small.")
+
             logger.debug('Packet Idx: %d, Send duration: %f, sleep time: %f, payload: %s',
                          send_idx, send_dur, IPD-send_dur, data_arr)
             send_idx += 1

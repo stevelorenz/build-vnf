@@ -8,6 +8,10 @@
  *
  *	 SPDX-License-Identifier: BSD-3-Clause
  *   Copyright(c) 2010-2016 Intel Corporation
+ *
+ *			 TODO:
+ *				- Focus on single ingress and egress queue, reduce the code.
+ *				- Bind the packet processing to another lcore
  * =====================================================================================
  */
 
