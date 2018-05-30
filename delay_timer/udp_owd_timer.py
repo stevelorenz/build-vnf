@@ -68,7 +68,6 @@ def run_client():
 def run_server():
     """Run UDP server"""
 
-    cur_n_packets = N_PACKETS
     recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM,
                               socket.IPPROTO_UDP)
 
@@ -88,33 +87,46 @@ def run_server():
 
     signal.signal(signal.SIGTERM, exit_server)
 
+    owd_result = list()
+    data_buffer = list()
+
     try:
         for rd in range(1, ROUND + 1):
             recv_idx = 0
+            owd_result.clear()
+            data_buffer.clear()
             logger.info('[Server] Current test round: %d' % rd)
-            owd_result = list()
-            while recv_idx < cur_n_packets:
+            logger.info(
+                '[Server] Try to receive %d packets... MARK: No check for the ordering during receiving' % N_PACKETS)
+            while recv_idx < N_PACKETS:
+                # MARK: Problem! If the calculation takes too much time, the
+                # server may not able to receive all incoming packets
+                # So now first try to receiving as fast as possible and
+                # calculate latter...
                 data = recv_sock.recv(SRV_BUFFER_SIZE)
                 recv_ts = int(time.time() * 1e6)
-                send_idx, send_ts = struct.unpack('!QQ', data[0:16])
-                if send_idx != recv_idx:
-                    recv_idx = send_idx + 1
-                    cur_n_packets = cur_n_packets - (send_idx + 1)
-                    logger.debug(
-                        '[Server] Packet order is not right! send_idx: %d, recv_idx: %d, cur_n_packet: %d',
-                        send_idx, recv_idx, cur_n_packets
-                    )
-                    # Start calculating OWD from the next packet
-                    continue
-                owd = recv_ts - send_ts  # in microsecond
-                logger.debug('Recv a UDP packet, idx: %d, send_ts: %d, OWD: %d us',
-                             send_idx, send_ts, owd)
-                owd_result.append(owd)
+                data_buffer.append((data, recv_ts))
                 recv_idx += 1
-            csv_file.write(
-                ','.join(map(str, owd_result))
-            )
-            csv_file.write('\n')
+            else:
+                # Check if receive all packets
+                if len(data_buffer) != N_PACKETS:
+                    raise Exception("[Server] Not all packets are received.")
+                logger.info(
+                    "[Server] Finish receiving packets, check ordering and calculate OWDs")
+                for recv_idx, (data, recv_ts) in enumerate(data_buffer):
+                    send_idx, send_ts = struct.unpack('!QQ', data[0:16])
+                    if recv_idx != send_idx:
+                        raise Exception(
+                            "The packet order is not right!, send_idx:%d, recv_idx:%d"
+                            % (send_idx, recv_idx)
+                        )
+                    owd = recv_ts - send_ts
+                    owd_result.append(owd)
+
+                csv_file.write(
+                    ','.join(map(str, owd_result))
+                )
+                csv_file.write('\n')
 
     except Exception as e:
         csv_file.write(str(e))
