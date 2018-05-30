@@ -33,15 +33,14 @@ def run_client():
     data_arr = bytearray(MAX_PAYLOAD_SIZE)
     # MARK: First 16 bytes: send_idx(uint64_t) + time_stamp(uint64_t)
     data_arr[16:PAYLOAD_SIZE] = b'a' * (PAYLOAD_SIZE - 16)
+
     try:
-        while send_idx < N_PACKETS:
+        while True:
             # MARK: uint64_t is used for timestamps in the VNF
             data_arr[0:15] = struct.pack('!QQ', send_idx,
                                          # Get time stamp in microseconds.
                                          int(time.time() * 1e6))
             st_send_ts = time.time()
-            # import ipdb
-            # ipdb.set_trace()
             send_sock.sendto(data_arr[0:PAYLOAD_SIZE], SRV_ADDR)
             send_dur = time.time() - st_send_ts
             if IPD - send_dur > 0:
@@ -56,6 +55,10 @@ def run_client():
             logger.debug('Packet Idx: %d, Send duration: %f, sleep time: %f, payload: %s',
                          send_idx, send_dur, IPD-send_dur, data_arr)
             send_idx += 1
+
+            if CLIENT_MODE == 0:
+                if send_idx == N_PACKETS:
+                    break
 
     except KeyboardInterrupt:
         logger.info('KeyboardInterrupt detected, exit.')
@@ -149,6 +152,12 @@ if __name__ == "__main__":
     parser.add_argument("--ipd", type=float, default=1.0,
                         help='Inter-packet delay in seconds')
 
+    parser.add_argument('-m', type=int, default=0,
+                        help="""Client send mode\n
+\t 0: Send n_packets number of packets and stop.\n
+\t 1: Keep sending until interrupt.\n
+                        """)
+
     parser.add_argument('-n', '--n_packets', type=int,
                         help='Number of sent packets', default=10)
     parser.add_argument('-l', '--log_level', type=str, help='Logging level',
@@ -190,8 +199,9 @@ if __name__ == "__main__":
             SRC_ADDR = (ip, int(port))
         IPD = args.ipd
         PAYLOAD_SIZE = args.payload_size
+        CLIENT_MODE = args.m
         logger.info(
-            'Run in UDP client mode. Bind to %s:%d, Dst: %s:%d. IPD: %f sec, Payload Size: %d byte',
-            SRC_ADDR[0], SRC_ADDR[1], SRV_ADDR[0], SRV_ADDR[1],  IPD, PAYLOAD_SIZE
+            'Run in UDP client mode. Send mode: %d, Bind to %s:%d, Dst: %s:%d. IPD: %f sec, Payload Size: %d byte',
+            CLIENT_MODE, SRC_ADDR[0], SRC_ADDR[1], SRV_ADDR[0], SRV_ADDR[1],  IPD, PAYLOAD_SIZE
         )
         run_client()

@@ -177,3 +177,9 @@ venv.bak/
 ------------------------
 
 *.pcap
+
+----------------
+-  Monitoring  -
+----------------
+
+resource_monitor/*.csv
