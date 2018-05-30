@@ -172,15 +172,16 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-------------------------
--  Traffic Monitoring  -
-------------------------
-
-*.pcap
-
 ----------------
 -  Monitoring  -
 ----------------
 
+*.pcap
 resource_monitor/*.csv
 delay_timer/*.csv
+
+----------------
+-  Evaluation  -
+----------------
+*.pdf
+*.png
