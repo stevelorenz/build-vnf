@@ -1,1 +1,9 @@
+bcc==0.1.8
+decorator==4.3.0
+ipython-genutils==0.2.0
+numpy==1.14.3
 psutil==5.4.5
+pyroute2==0.5.1
+six==1.11.0
+traitlets==4.3.2
+traittypes==0.2.0

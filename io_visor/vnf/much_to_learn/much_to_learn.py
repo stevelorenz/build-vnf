@@ -15,6 +15,7 @@ from bcc import BPF
 
 
 def test_trace_block_io():
+    """Test BCC block IO tracing"""
     b = BPF(text="""
     #include <uapi/linux/ptrace.h>
     #include <linux/blkdev.h>

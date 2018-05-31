@@ -2,9 +2,6 @@
 # vi: set ft=ruby :
 # About: Vagrant file for the development environment
 #        The measurements should be performed on the OpenStack cloud environment.
-#
-# Component: - Traffic Generator: trafficgen
-#            - VNF: vnf
 
 ###############
 #  Variables  #
@@ -21,20 +18,19 @@ BOX = "bento/ubuntu-16.04"
 
 Vagrant.configure("2") do |config|
 
-    # --- VM for VNF ---
-    config.vm.define "vnf" do |vnf|
-        vnf.vm.box = BOX
-        vnf.vm.hostname = "vnf"
-
-        # Create a private network, which allows host-only access to the machine using a specific IP.
+    # --- VM for DPDK development ---
+    config.vm.define "dpdk" do |dpdk|
+        dpdk.vm.box = BOX
+        dpdk.vm.hostname = "dpdk"
+        # Create private networks, which allows host-only access to the machine using a specific IP.
         # This option is needed otherwise the Intel DPDK takes over the entire adapter
-        vnf.vm.network "private_network", ip: "10.0.0.11"
-        vnf.vm.network "private_network", ip: "10.0.0.12"
-        vnf.vm.provision :shell, path: "bootstrap.sh"
+        dpdk.vm.network "private_network", ip: "10.0.0.11"
+        dpdk.vm.network "private_network", ip: "10.0.0.12"
+        dpdk.vm.provision :shell, path: "bootstrap.sh"
 
         # VirtualBox-specific configuration
-        vnf.vm.provider "virtualbox" do |vb|
-            vb.name = "ubuntu-16.04-vnf"
+        dpdk.vm.provider "virtualbox" do |vb|
+            vb.name = "ubuntu-16.04-dpdk"
             vb.memory = RAM
             vb.cpus = CPUS
             # MARK: The CPU should enable SSE3 or SSE4 to compile DPDK
@@ -43,13 +39,34 @@ Vagrant.configure("2") do |config|
         end
     end
 
+    # --- VM for BCC development ---
+    config.vm.define "bcc" do |bcc|
+        bcc.vm.box = BOX
+        bcc.vm.hostname = "bcc"
+
+        # MARK: Virtio supports XDP with Kernel version after 4.10
+        bcc.vm.network "private_network", ip: "10.0.0.15",
+            nic_type: "82540EM"
+        bcc.vm.network "private_network", ip: "10.0.0.16",
+            nic_type: "82540EM"
+        bcc.vm.provision :shell, path: "bootstrap.sh"
+
+        # VirtualBox-specific configuration
+        bcc.vm.provider "virtualbox" do |vb|
+            vb.name = "ubuntu-16.04-bcc"
+            vb.memory = RAM
+            vb.cpus = CPUS
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+            vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+        end
+    end
+
     # --- VM for Traffic Generator ---
     config.vm.define "trafficgen" do |trafficgen|
         trafficgen.vm.box = BOX
         trafficgen.vm.hostname = "trafficgen"
 
-        # Create a private network, which allows host-only access to the machine using a specific IP.
-        # This option is needed otherwise the Intel DPDK takes over the entire adapter
         trafficgen.vm.network "private_network", ip: "10.0.0.13"
         trafficgen.vm.network "private_network", ip: "10.0.0.14"
         trafficgen.vm.provision :shell, path: "bootstrap.sh"
