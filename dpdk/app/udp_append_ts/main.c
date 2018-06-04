@@ -80,9 +80,10 @@ static int appending_ts = 1;
 
 /* Burst-based packet processing */
 #define MAX_PKT_BURST 32 /* Default maximal received packets each time */
-#define BURST_RX_TRY_US 100  /* Try to receive from the RX every X microseconds */
-#define RX_LONG_SLEEP_US 1000
-#define MAX_BURST_RX_TRY 10
+/* Make these parameters tunable */
+static int poll_short_interval_us; /* Try to receive from the RX every X microseconds */
+static int max_poll_short_try;
+static int poll_long_interval_us;
 
 #define BURST_TX_DRAIN_US 100  /* TX drain every ~100us */
 #define MEMPOOL_CACHE_SIZE 256
@@ -92,7 +93,6 @@ static int appending_ts = 1;
 
 /* Processing delay of frames */
 static uint64_t st_proc_tsc = 0;
-static uint64_t end_proc_tsc = 0;
 static uint64_t proc_tsc = 0;
 static double proc_time = 0.0;
 static uint64_t nb_udp_dgrams = 0;
@@ -163,8 +163,6 @@ struct l2fwd_port_statistics {
 } __rte_cache_aligned;
 
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
-
-#define MAX_TIMER_PERIOD 86400 /* 1 day max */
 
 /**
  * @brief Convert Uint32 IP address to x.x.x.x format
@@ -447,13 +445,30 @@ l2fwd_main_loop(void)
 			if (qconf->start_rx_flag[i]) {
 				nb_rx = rte_eth_rx_burst(portid, 0, pkts_burst, MAX_PKT_BURST);
 				if (likely(nb_rx == 0)) {
+					if (max_poll_short_try == 0) {
+						/* Keep polling, SHOULD use 100% of CPU */
+						continue;
+					}
 					/* execute "pause" instruction to avoid context switch for
 					 * short sleep */
-					qconf->rx_burst_try[i] += 1;
-					rte_delay_us(BURST_RX_TRY_US);
+					if (qconf->rx_burst_try[i] < max_poll_short_try) {
+						qconf->rx_burst_try[i] += 1;
+						rte_delay_us(poll_short_interval_us);
+						RTE_LOG(DEBUG, USER1,
+								"A short sleep for %d us is performed, try number:%d\n",
+								poll_short_interval_us, qconf->rx_burst_try[i]);
+					}
+					else {
+						/* Long sleep force running thread to suspend */
+						RTE_LOG(DEBUG, USER1,
+								"A long sleep for %d us is performed, try number:%d\n",
+								poll_long_interval_us, qconf->rx_burst_try[i]);
+						usleep(poll_long_interval_us);
+					}
 				}
 				else {
 					/* Process received burst packets */
+					/* Handle prefetches */
 					st_proc_tsc = rte_rdtsc();
 					for (j = 0; j < nb_rx; j++) {
 						m = pkts_burst[j];
@@ -461,7 +476,7 @@ l2fwd_main_loop(void)
 						 * - Non-UDP packets
 						 * - Looping packets
 						 * */
-						/* TODO: Handle prefetches */
+						rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 						if ( (filter_ret = filter_ether_frame(m)) != 1 ) {
 							RTE_LOG(DEBUG, USER1, "TSC: %ld, The frame doesn't pass the filter. Error code: %d\n", rte_rdtsc(), filter_ret);
 							rte_pktmbuf_free(m);
@@ -473,7 +488,6 @@ l2fwd_main_loop(void)
 								/* Append timestamp to a  UDP packet */
 								udp_append_ts(m);
 							}
-							rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 							l2fwd_simple_forward(m, portid);
 						}
 					}
@@ -488,14 +502,9 @@ l2fwd_main_loop(void)
 					/* Reset rx try times */
 					qconf->rx_burst_try[i] = 0;
 				}
-				if (qconf->rx_burst_try[i] >= MAX_BURST_RX_TRY) {
-					/* Long sleep force running thread to suspend */
-					usleep(RX_LONG_SLEEP_US);
-					/* TODO: Check the link status(relative costly) and update rx flags */
-				}
 			}
 			else {
-				/* TODO(Maybe): Check the link status and update start_rx flags */
+				/* TODO (Maybe): Check the link status and update start_rx flags */
 			}
 
 		}
@@ -514,22 +523,25 @@ l2fwd_launch_one_lcore(__attribute__((unused)) void *dummy)
 l2fwd_usage(const char *prgname)
 {
 	printf("%s [EAL options] -- -p PORTMASK [-q NQ]\n"
-			"  -p PORTMASK: hexadecimal bitmask of ports to configure\n"
-			"  -q NQ: number of queue (=ports) per lcore (default is 1)\n"
-			" -s MAC: Source MAC address presented in XX:XX:XX:XX:XX:XX format\n"
-			" -d MAC: Destination MAC address presented in XX:XX:XX:XX:XX:XX format\n"
-			"  --[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
-			"      When enabled:\n"
+			"-p PORTMASK: hexadecimal bitmask of ports to configure\n"
+			"-q NQ: number of queue (=ports) per lcore (default is 1)\n"
+			"-s MAC: Source MAC address presented in XX:XX:XX:XX:XX:XX format\n"
+			"-d MAC: Destination MAC address presented in XX:XX:XX:XX:XX:XX format\n"
+			"-i max_poll_short_try,poll_short_interval_us,poll_long_interval_us\n"
+			"	Comma split numbers for rx polling try number and intervals(in microseconds).\n"
+			"   For example it can be 10,10,1000:"
+			"--[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
+			"	When enabled:\n"
 			"       - The source MAC address is replaced by the TX port MAC address\n"
 			"       - The destination MAC address is replaced by the MAC provided by -d option\n"
-			"  --[no-]packet-capturing: Enable or disable packet capturing (disabled by default)\n"
-			"      When enabled:\n"
-			"       - The the pdump capture framework is intialized, the packets can be captured by official pdump-tool\n"
-			"  --[no-]appending-ts: Enable appending timestamps at the end of UDP payload (enabled by default)\n"
-			"      When disabled: The app just perform simple forwarding\n"
-			"  --[no-]debugging: Enable or disable debugging mode (disabled by default)\n"
-			"      When enabled:\n"
-			"       - The logging level is set to DEBUG and additional debug variables are created. (May slow down the program)\n",
+			"--[no-]packet-capturing: Enable or disable packet capturing (disabled by default)\n"
+			"   When enabled:\n"
+			"		- The the pdump capture framework is initialized, the packets can be captured by official pdump-tool\n"
+			"--[no-]appending-ts: Enable appending timestamps at the end of UDP payload (enabled by default)\n"
+			"	When disabled: The app just perform simple forwarding\n"
+			"--[no-]debugging: Enable or disable debugging mode (disabled by default)\n"
+			"	When enabled:\n"
+			"		- The logging level is set to DEBUG and additional debug variables are created. (May slow down the program)\n",
 			prgname);
 }
 
@@ -568,28 +580,13 @@ l2fwd_parse_nqueue(const char *q_arg)
 	return n;
 }
 
-	__attribute__((unused)) static int
-l2fwd_parse_timer_period(const char *q_arg)
-{
-	char *end = NULL;
-	int n;
-
-	/* parse number string */
-	n = strtol(q_arg, &end, 10);
-	if ((q_arg[0] == '\0') || (end == NULL) || (*end != '\0'))
-		return -1;
-	if (n >= MAX_TIMER_PERIOD)
-		return -1;
-
-	return n;
-}
-
 static const char short_options[] =
 "p:"  /* portmask */
 "q:"  /* number of queues */
 "s:"  /* source MAC address */
 "d:" /* destination MAC address */
 "v:" /* verbose level */
+"i:" /* rx polling parameters */
 ;
 
 #define CMD_LINE_OPT_MAC_UPDATING "mac-updating"
@@ -672,6 +669,11 @@ l2fwd_parse_args(int argc, char **argv)
 				for (i = 0; i < ETHER_ADDR_LEN; ++i) {
 					src_mac_addr.addr_bytes[i] = (uint8_t) src_mac[i];
 				}
+				break;
+
+			case 'i':
+				sscanf(optarg, "%d,%d,%d",
+						&max_poll_short_try, &poll_short_interval_us, &poll_long_interval_us);
 				break;
 
 			case 'v':
@@ -826,6 +828,12 @@ main(int argc, char **argv)
 		if (ret < 0)
 			rte_exit(EXIT_FAILURE, "Can not initialize the pdump framework.");
 	}
+
+	RTE_LOG(
+		INFO, USER1, "RX polling parameters: max_poll_short_try:%d, poll_short_interval_us:%d, poll_long_interval_us:%d\n",
+		max_poll_short_try, poll_short_interval_us, poll_long_interval_us
+		);
+
 
 	/* MARK: This function is not supported in DPDK 17.11 */
 	/*nb_ports = rte_eth_dev_count_avail();*/
