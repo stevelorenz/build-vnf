@@ -10,17 +10,17 @@ Problem: The program doesn't know when receiving starts and ends, so it's
          diffcult to perfrom event based measurement.
 """
 
+import argparse
 import sched
 import sys
 import time
 
 import psutil
 
-GET_CPU_PERIOD_S = 0.01
-LOG_CPU_PERIOD_S = 3
-CPU_LOG_FILE = "./cpu_usage.csv"
 CPU_USAGE = list()
-VNF_PROC_NAME = "udp_append_ts"
+GET_CPU_PERIOD_S = 0.5
+LOG_CPU_PERIOD_S = 3
+CPU_LOG_FILE = 'cpu_usage.csv'
 
 
 def find_proc(proc_name):
@@ -49,7 +49,27 @@ def log_cpu_usage(scheduler):
                     argument=(scheduler, ))
 
 
+def stop_monitor():
+    print('Stop monitoring. Exit...')
+    sys.exit(0)
+
+
 def main():
+    # Parse args
+    parser = argparse.ArgumentParser(
+        description='Resource monitoring for VNF.',
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument('-p', type=str, default='udp_append_ts',
+                        help='Name of to be monitored process.')
+    parser.add_argument('-t', type=float, default=5,
+                        help='Monitoring time in seconds.')
+
+    args = parser.parse_args()
+
+    VNF_PROC_NAME = args.p
+    MTR_TIME = args.t
+
     # Wait until the VNF proc is running
     while True:
         vnf_p = find_proc(VNF_PROC_NAME)
@@ -60,7 +80,7 @@ def main():
 
     time.sleep(1)  # Wait for the init procs
     # Start monitoring CPU usage
-    print("[INFO] Start monitoring CPU usage...")
+    print("[INFO] Start monitoring CPU usage of proc: %s..." % VNF_PROC_NAME)
     # MARK: Currently not so optimized for automatic tests
     with open(CPU_LOG_FILE, 'a+') as log_file:
         log_file.write('\n')
@@ -69,6 +89,8 @@ def main():
                     argument=(scheduler, vnf_p))
     scheduler.enter(LOG_CPU_PERIOD_S, 2, log_cpu_usage,
                     argument=(scheduler, ))
+
+    scheduler.enter(MTR_TIME, 3, stop_monitor)
 
     try:
         scheduler.run(blocking=True)
