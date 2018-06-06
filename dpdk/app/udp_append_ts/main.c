@@ -115,6 +115,9 @@ static struct ether_addr src_mac_addr;
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
+/* Maximal number of ports used as ingress and egress interfaces of a VNF */
+#define MAX_VNF_ETHPORTS 2
+
 /* Ethernet addresses of ports */
 static struct ether_addr l2fwd_ports_eth_addr[RTE_MAX_ETHPORTS];
 
@@ -201,7 +204,7 @@ filter_ether_frame(struct rte_mbuf *m)
 	/* Filter out looping packets with source MAC address of any forwarding
 	 * ports  */
 	uint8_t i;
-	for (i = 0; i < sizeof(l2fwd_ports_eth_addr); ++i) {
+	for (i = 0; i < MAX_VNF_ETHPORTS; ++i) {
 		if ( is_same_ether_addr(&(ethh->s_addr), &(l2fwd_ports_eth_addr[i])) )
 			return -3;
 	}
@@ -383,7 +386,7 @@ l2fwd_main_loop(void)
 	struct rte_mbuf *m;
 	unsigned lcore_id;
 	unsigned i, j, portid, nb_rx;
-	uint8_t filter_ret = 0;
+	int8_t filter_ret = 0;
 	struct lcore_queue_conf *qconf;
 	uint64_t prev_tsc, diff_tsc, cur_tsc;
 	uint16_t sent;
@@ -391,6 +394,8 @@ l2fwd_main_loop(void)
 	/* MARK: Why there is a US_PER_S - 1 is added? Maybe check jiffes */
 	const uint64_t drain_tsc = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_TX_DRAIN_US;
 	struct rte_eth_dev_tx_buffer *buffer;
+
+	prev_tsc = 0;
 
 	lcore_id = rte_lcore_id();
 	qconf = &lcore_queue_conf[lcore_id];  /* queue configuration */

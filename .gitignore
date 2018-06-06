@@ -185,4 +185,4 @@ delay_timer/*.csv
 ----------------
 *.pdf
 *.png
-*.csv
+evaluation/one_way_delay/results/*.csv

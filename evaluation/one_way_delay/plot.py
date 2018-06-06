@@ -77,5 +77,9 @@ def plot_dpdk():
     save_fig(fig, './dpdk_udp_ipd')
 
 
+def plot_poll_interval():
+    pass
+
+
 if __name__ == '__main__':
     plot_dpdk()
