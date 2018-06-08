@@ -25,8 +25,8 @@ Vagrant.configure("2") do |config|
         # Create private networks, which allows host-only access to the machine using a specific IP.
         # This option is needed otherwise the Intel DPDK takes over the entire adapter
 		# 10.0.0.11 is always used for receiving packets ---> Use fix MAC address
-        dpdk.vm.network "private_network", ip: "10.0.0.11", mac: "08:00:27:ba:f4:c6"
-        dpdk.vm.network "private_network", ip: "10.0.0.12", mac: "08:00:27:3c:97:68"
+        dpdk.vm.network "private_network", ip: "10.0.0.11", mac: "080027baf4c6"
+        dpdk.vm.network "private_network", ip: "10.0.0.12", mac: "0800273c9768"
         dpdk.vm.provision :shell, path: "bootstrap.sh"
 
         # VirtualBox-specific configuration
