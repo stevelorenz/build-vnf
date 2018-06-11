@@ -5,6 +5,7 @@
 sudo apt update
 sudo apt install -y git pkg-config gdb
 sudo apt install -y bash-completion htop dfc
+sudo apt install -y iperf iperf3
 
 # Add termite infos
 wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
