@@ -80,15 +80,15 @@ def plot_dpdk():
 
 def plot_poll_interval():
     slp_lst = [0]
-    slp_lst.extend([10 ** x for x in range(1, 6)])
+    slp_lst.extend([10 ** x for x in range(0, 6)])
     # Calc
     owd_result_lst = list()
     for slp in slp_lst:
         tmp_list = list()
         if slp == 0:
-            csv_name = 'slp_0_0_%s.csv' % (slp)
+            csv_name = 'slp30_0_0_%s.csv' % (slp)
         else:
-            csv_name = 'slp_10_10_%s.csv' % (slp)
+            csv_name = 'slp30_10_10_%s.csv' % (slp)
         csv_path = os.path.join('./results/slp_data', csv_name)
         owd_arr = np.genfromtxt(csv_path, delimiter=',') / 1000.0
         owd_arr = owd_arr[:, WARM_UP_NUM:]
@@ -102,7 +102,7 @@ def plot_poll_interval():
     # CPU usage
     cpu_usage_lst = list()
     for slp in slp_lst[1:]:
-        csv_name = 'cpu_10_10_%s.csv' % (slp)
+        csv_name = 'cpu30_10_10_%s.csv' % (slp)
         csv_path = os.path.join('./results/cpu_data', csv_name)
         cpu_arr = np.genfromtxt(csv_path, delimiter=',',
                                 usecols=range(0, 545))

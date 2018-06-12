@@ -24,7 +24,7 @@ Vagrant.configure("2") do |config|
         dpdk.vm.hostname = "dpdk"
         # Create private networks, which allows host-only access to the machine using a specific IP.
         # This option is needed otherwise the Intel DPDK takes over the entire adapter
-		# 10.0.0.11 is always used for receiving packets ---> Use fix MAC address
+        # 10.0.0.11 is always used for receiving packets ---> Use fix MAC address
         dpdk.vm.network "private_network", ip: "10.0.0.11", mac: "080027baf4c6"
         dpdk.vm.network "private_network", ip: "10.0.0.12", mac: "0800273c9768"
         dpdk.vm.provision :shell, path: "bootstrap.sh"
@@ -55,6 +55,28 @@ Vagrant.configure("2") do |config|
         # VirtualBox-specific configuration
         bcc.vm.provider "virtualbox" do |vb|
             vb.name = "ubuntu-16.04-bcc"
+            vb.memory = RAM
+            vb.cpus = CPUS
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+            vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+        end
+    end
+
+    # --- VM for Click OS development ---
+    config.vm.define "clickos" do |clickos|
+        clickos.vm.box = BOX
+        clickos.vm.hostname = "clickos"
+
+        clickos.vm.network "private_network", ip: "10.0.0.17",
+            nic_type: "82540EM"
+        clickos.vm.network "private_network", ip: "10.0.0.18",
+            nic_type: "82540EM"
+        clickos.vm.provision :shell, path: "bootstrap.sh"
+
+        # VirtualBox-specific configuration
+        clickos.vm.provider "virtualbox" do |vb|
+            vb.name = "ubuntu-16.04-clickos"
             vb.memory = RAM
             vb.cpus = CPUS
             vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]

@@ -56,6 +56,9 @@ def run_client():
                          send_idx, send_dur, IPD-send_dur, data_arr)
             send_idx += 1
 
+            if send_idx > int(2e18-1):
+                raise RuntimeError('Send index out of range.')
+
             if CLIENT_MODE == 0:
                 if send_idx == N_PACKETS:
                     break
