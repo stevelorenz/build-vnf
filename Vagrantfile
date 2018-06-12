@@ -64,19 +64,19 @@ Vagrant.configure("2") do |config|
     end
 
     # --- VM for Click OS development ---
-    config.vm.define "clickos" do |clickos|
-        clickos.vm.box = BOX
-        clickos.vm.hostname = "clickos"
+    config.vm.define "click" do |click|
+        click.vm.box = BOX
+        click.vm.hostname = "click"
 
-        clickos.vm.network "private_network", ip: "10.0.0.17",
+        click.vm.network "private_network", ip: "10.0.0.17",
             nic_type: "82540EM"
-        clickos.vm.network "private_network", ip: "10.0.0.18",
+        click.vm.network "private_network", ip: "10.0.0.18",
             nic_type: "82540EM"
-        clickos.vm.provision :shell, path: "bootstrap.sh"
+        click.vm.provision :shell, path: "bootstrap.sh"
 
         # VirtualBox-specific configuration
-        clickos.vm.provider "virtualbox" do |vb|
-            vb.name = "ubuntu-16.04-clickos"
+        click.vm.provider "virtualbox" do |vb|
+            vb.name = "ubuntu-16.04-click"
             vb.memory = RAM
             vb.cpus = CPUS
             vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]

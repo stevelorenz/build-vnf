@@ -9,7 +9,8 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
 - Data Plane Development Kit (DPDK)
 - IO Visor Project: eBPF + XDP
-- User-space NIC Driver
+- Click Modular Router
+- User-space NIC Driver (TBD)
 
 ## Catalog ##
 
