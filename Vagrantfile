@@ -11,6 +11,8 @@ CPUS = 2
 RAM = 2048
 
 BOX = "bento/ubuntu-16.04"
+BOX_1404 = "bento/ubuntu-14.04"
+BOX_1404_316 = "novael_de/ubuntu-trusty64"
 
 ####################
 #  Vagrant Config  #
@@ -63,7 +65,7 @@ Vagrant.configure("2") do |config|
         end
     end
 
-    # --- VM for Click OS development ---
+    # --- VM for Click user space driver development ---
     config.vm.define "click" do |click|
         click.vm.box = BOX
         click.vm.hostname = "click"
@@ -77,6 +79,28 @@ Vagrant.configure("2") do |config|
         # VirtualBox-specific configuration
         click.vm.provider "virtualbox" do |vb|
             vb.name = "ubuntu-16.04-click"
+            vb.memory = RAM
+            vb.cpus = CPUS
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+            vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+        end
+    end
+
+    # --- VM for Click Kernel driver development ---
+    config.vm.define "click_kernel" do |click_kernel|
+        click_kernel.vm.box = BOX_1404_316
+        click_kernel.vm.hostname = "clickkernel"
+
+        click_kernel.vm.network "private_network", ip: "10.0.0.19",
+            nic_type: "82540EM"
+        click_kernel.vm.network "private_network", ip: "10.0.0.20",
+            nic_type: "82540EM"
+        click_kernel.vm.provision :shell, path: "bootstrap.sh"
+
+        # VirtualBox-specific configuration
+        click_kernel.vm.provider "virtualbox" do |vb|
+            vb.name = "ubuntu-14.04-click-kernel"
             vb.memory = RAM
             vb.cpus = CPUS
             vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]

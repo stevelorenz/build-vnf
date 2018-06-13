@@ -35,6 +35,24 @@ def save_fig(fig, path, fmt=FIG_FMT):
                 bbox_inches='tight', dpi=400, format=fmt)
 
 
+def calc_owd_lst(subdir, csv_tpl, var_lst):
+    """Calculate the OWD"""
+    owd_result_lst = list()
+    for var in var_lst:
+        tmp_list = list()
+        csv_name = csv_tpl % (var)
+        csv_path = os.path.join(subdir, csv_name)
+        owd_arr = np.genfromtxt(csv_path, delimiter=',') / 1000.0
+        owd_arr = owd_arr[:, WARM_UP_NUM:]
+        tmp_list = np.average(owd_arr, axis=1)
+        owd_result_lst.append(
+            # Average value and confidence interval
+            (np.average(tmp_list), calc_hwci(tmp_list, confidence=0.99))
+        )
+    print(owd_result_lst)
+    return owd_result_lst
+
+
 def plot_dpdk():
 
     ### Calc ###
@@ -154,10 +172,40 @@ def plot_poll_interval():
     save_fig(fig, './dpdk_poll_interval')
 
 
+def plot_ipd():
+    ipd_lst = [1, 2, 3, 4, 5, 10, 20]
+    owd_result_lst = calc_owd_lst('./results/ipd_data/',
+                                  'kern_%sms.csv', ipd_lst)
+    tex.setup(width=1, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17,
+              params={})
+
+    fig, base_ax = plt.subplots()
+    owd_ax = base_ax
+
+    owd_ax.errorbar(ipd_lst, [t[0] for t in owd_result_lst],
+                    yerr=[t[1] for t in owd_result_lst],
+                    marker='o', markerfacecolor='None', markeredgewidth=1,
+                    markeredgecolor='blue',
+                    color='blue', ecolor='red',
+                    label='Kernel IP Forwarding', linestyle='--'
+                    )
+
+    owd_ax.set_ylabel('One Way Delay (ms)')
+    # base_ax.set_xscale('symlog')
+    base_ax.set_xlabel('Probing Interval (ms)')
+
+    handles, labels = owd_ax.get_legend_handles_labels()
+    owd_ax.legend(handles, labels, loc='best')
+
+    save_fig(fig, './ipd')
+
+
 if __name__ == '__main__':
     if len(sys.argv) == 3:
         FIG_FMT = sys.argv[2]
     if sys.argv[1] == 'pi':
         plot_poll_interval()
+    elif sys.argv[1] == 'ipd':
+        plot_ipd()
     else:
         plot_poll_interval()

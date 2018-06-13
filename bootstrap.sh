@@ -13,3 +13,4 @@ tic -x /home/vagrant/termite.terminfo
 
 # Get zuo's dotfiles
 git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
+cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
