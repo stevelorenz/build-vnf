@@ -173,30 +173,33 @@ def plot_poll_interval():
 
 
 def plot_ipd():
-    ipd_lst = [1, 2, 3, 4, 5, 10, 20]
-    owd_result_lst = calc_owd_lst('./results/ipd_data/',
-                                  'kern_%sms.csv', ipd_lst)
     tex.setup(width=1, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17,
               params={})
+    ipd_lst = [1, 2, 3, 4, 5, 10, 20]
+    cmap = cm.get_cmap('tab10')
+    techs = [x+'_%sms.csv' for x in ('kern', 'dpdk')]
+    labels = ('Kernel IP Forwarding', 'DPDK Appending Timestamps')
+    colors = [cmap(x) for x in range(len(techs))]
 
-    fig, base_ax = plt.subplots()
-    owd_ax = base_ax
+    fig, owd_ax = plt.subplots()
+    for tech, label, color in zip(techs, labels, colors):
+        owd_result_lst = calc_owd_lst('./results/ipd_data/', tech, ipd_lst)
 
-    owd_ax.errorbar(ipd_lst, [t[0] for t in owd_result_lst],
-                    yerr=[t[1] for t in owd_result_lst],
-                    marker='o', markerfacecolor='None', markeredgewidth=1,
-                    markeredgecolor='blue',
-                    color='blue', ecolor='red',
-                    label='Kernel IP Forwarding', linestyle='--'
-                    )
+        owd_ax.errorbar(ipd_lst, [t[0] for t in owd_result_lst],
+                        yerr=[t[1] for t in owd_result_lst],
+                        marker='o', markerfacecolor='None', markeredgewidth=1,
+                        markeredgecolor=color,
+                        color=color, ecolor='red',
+                        label=label, linestyle='--'
+                        )
 
     owd_ax.set_ylabel('One Way Delay (ms)')
     # base_ax.set_xscale('symlog')
-    base_ax.set_xlabel('Probing Interval (ms)')
-
+    owd_ax.set_xlabel('Probing Interval (ms)')
+    owd_ax.set_xticks(ipd_lst)
     handles, labels = owd_ax.get_legend_handles_labels()
     owd_ax.legend(handles, labels, loc='best')
-
+    owd_ax.grid(linestyle='--')
     save_fig(fig, './ipd')
 
 
