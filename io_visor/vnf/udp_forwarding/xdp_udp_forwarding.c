@@ -1,5 +1,4 @@
 /*
- *
  =====================================================================================
  *
  *       Filename:  xdp_udp_forwarding.c
@@ -11,6 +10,14 @@
  =====================================================================================
  */
 
+/*
+ * MARK:
+ *       - For any bytes modifications, you MUST make sure the bytes you want to
+ *       read are within the packet's range BEFORE reading them! Otherwise the
+ *       compiler(BPF verifier) throws Permission denied (Invalid access to the
+ *       packet).
+ * */
+
 #define KBUILD_MODNAME "xdp_udp_forwarding"
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
@@ -20,7 +27,14 @@
 #include <linux/ipv6.h>
 #include <uapi/linux/bpf.h>
 
-/* Array for number of received packets */
+enum OPT_STATE { OPT_SUC = 10, OPT_FAIL = 0 };
+
+enum ACTION { DROP = 0, BOUNCE, REDIRECT };
+typedef enum ACTION ACTION;
+
+/* Map for TX port */
+BPF_DEVMAP(tx_port, 1);
+/* Map for number of received packets */
 BPF_PERCPU_ARRAY(udp_nb, long, 1);
 
 /* Functions for frame filtering */
@@ -28,7 +42,7 @@ static inline uint16_t parse_eth(void* data, uint64_t nh_off, void* data_end)
 {
     struct ethhdr* eth = data + nh_off;
     if (data + nh_off > data_end) {
-	return XDP_DROP;
+	return OPT_FAIL;
     }
     return eth->h_proto;
 }
@@ -38,7 +52,7 @@ static inline uint16_t parse_ipv4(void* data, uint64_t nh_off, void* data_end)
     struct iphdr* iph = data + nh_off;
 
     if ((void*)&iph[1] > data_end) {
-	return XDP_DROP;
+	return OPT_FAIL;
     }
     return iph->protocol;
 }
@@ -50,75 +64,84 @@ static inline uint8_t* ether_aton(const uint8_t* asc)
     return ether_addr;
 }
 
-/* Permission Denied ... */
-static inline void dprint_mac(uint8_t* ether_addr)
+static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end)
 {
-    bpf_trace_printk("%x:%x:%x:", ether_addr[0], ether_addr[1], ether_addr[2]);
-    bpf_trace_printk("%x:%x:%x", ether_addr[3], ether_addr[4], ether_addr[5]);
-    bpf_trace_printk("\n");
-}
-
-static inline void rewrite_src_dst_mac(void* data, uint64_t nh_off)
-{
-
     /*struct ethhdr {*/
     /*unsigned char	h_dest[ETH_ALEN];	[> destination eth addr	<]*/
     /*unsigned char	h_source[ETH_ALEN];	[> source ether addr	<]*/
     /*__be16		h_proto;		[> packet type ID field	<]*/
     /*} __attribute__((packed));*/
-    uint8_t* pt = data;
-	uint8_t i = 0;
-
+    struct ethhdr* eth = data + nh_off;
+    if (eth + sizeof(struct ethhdr) > data_end) {
+	return OPT_FAIL;
+    }
     /* MARK: To be used source and destination are hard coded here */
-    uint8_t src_mac[ETH_ALEN] = { 1, 1, 1, 1, 1, 1 };
-    uint8_t dst_mac[ETH_ALEN] = { 2, 2, 2, 2, 2, 2 };
-
-	/* TODO: Find proper method to modify bytes in the frame */
-    unsigned short dst[3];
-	pt[0] = dst_mac[0];
-
-	/* Destination MAC */
-	for (i = 0; i < ETH_ALEN; ++i) {
-		/*pt[i] = dst_mac[i];*/
-	}
+    /*08:00:27:d6:69:61*/
+    uint8_t src_mac[ETH_ALEN] = { 8, 0, 39, 214, 105, 97 };
+    /*08:00:27:e1:f1:7d*/
+    uint8_t dst_mac[ETH_ALEN] = { 8, 0, 39, 225, 241, 125 };
+    __builtin_memcpy(eth->h_source, src_mac, ETH_ALEN);
+    __builtin_memcpy(eth->h_dest, dst_mac, ETH_ALEN);
+    return OPT_SUC;
 }
 
-/* UDP forwarding function */
-int xdp_udp_forwarding(struct xdp_md* ctx)
+static inline uint8_t swap_mac(void* data, uint64_t nh_off, void* data_end)
+{
+    struct ethhdr* eth = data + nh_off;
+    if (eth + sizeof(struct ethhdr) > data_end) {
+	return XDP_DROP;
+    }
+    uint8_t tmp[ETH_ALEN];
+    __builtin_memcpy(tmp, eth->h_source, ETH_ALEN);
+    __builtin_memcpy(eth->h_source, eth->h_dest, ETH_ALEN);
+    __builtin_memcpy(eth->h_dest, tmp, ETH_ALEN);
+}
+
+/* UDP forwarding functions */
+uint16_t ingress_xdp_redirect(struct xdp_md* ctx)
 {
     void* data_end = (void*)(long)ctx->data_end;
     void* data = (void*)(long)ctx->data;
 
     long* value;
-    uint16_t h_proto, ret;
+    uint16_t h_proto;
+    /*ACTION action = BOUNCE;*/
+    ACTION action = REDIRECT;
     uint64_t nh_off = 0;
     uint32_t key = 0;
-    /*uint16_t debug_flag;*/
 
-    /*debug_flag = data_end - data;*/
-    /*bpf_trace_printk("Data length: %d\\n", debug_flag);*/
+    /* TODO: Filter received Ethernet frame -> Only handle UDP segments */
 
-    /* Filter received Ethernet frame */
-    h_proto = parse_eth(data, nh_off, data_end);
-    if (h_proto != htons(ETH_P_IP)) {
-	XDP_DROP;
-    }
-    nh_off += sizeof(struct ethhdr);
-    h_proto = parse_ipv4(data, nh_off, data_end);
-    if (h_proto != htons(IPPROTO_UDP)) {
-	XDP_DROP;
-    }
-    bpf_trace_printk("[DEBUG] Recv a UDP segment.\n");
-    /* Increase UDP segment counter */
+    bpf_trace_printk("[INGRESS] Recv a UDP segment.\n");
     value = udp_nb.lookup(&key);
     if (value) {
 	*value += 1;
     }
-
-    /* Rewrite MAC addresses */
     nh_off = 0;
-    rewrite_src_dst_mac(data, nh_off);
 
-    /* Pass to kernel networking stack -> Used for tcpdump */
-    return XDP_PASS;
+    if (action == BOUNCE) {
+	if (rewrite_mac(data, nh_off, data_end) == OPT_FAIL) {
+	    return XDP_DROP;
+	}
+	bpf_trace_printk(
+	    "[INGRESS] MAC rewrite finished. Bounce back the frame.\n");
+	return XDP_TX;
+    }
+
+    if (action == REDIRECT) {
+	if (rewrite_mac(data, nh_off, data_end) == OPT_FAIL) {
+	    return XDP_DROP;
+	}
+	bpf_trace_printk(
+	    "[INGRESS] MAC rewrite finished. Redirct the frame.\n");
+	return tx_port.redirect_map(0, 0);
+    }
+
+    return XDP_DROP;
+}
+
+uint16_t egress_xdp_tx(struct xdp_md* ctx)
+{
+    bpf_trace_printk("[EGRESS] Recv a frame from redirection\n");
+    return XDP_TX;
 }

@@ -15,6 +15,7 @@ Ref  : - bcc/example/networking/xdp
        - http://docs.cilium.io/en/latest/bpf/#xdp
 """
 
+import ctypes as ct
 import sys
 import time
 
@@ -22,32 +23,48 @@ from bcc import BPF
 
 import pyroute2
 
+DEBUG = True
+
 
 def usage():
-    print("Usage: {0} <ifdev>".format(sys.argv[0]))
-    print("\te.g.: {0} eth0\n".format(sys.argv[0]))
+    print("Usage: {0} <ingress ifdev> <egress ifdev>".format(sys.argv[0]))
+    print("\te.g.: {0} eth0 eth1\n".format(sys.argv[0]))
     sys.exit(1)
 
 
-if len(sys.argv) != 2:
+if len(sys.argv) != 3:
     usage()
 else:
-    if_dev = sys.argv[1]
+    in_if_dev = sys.argv[1]
+    eg_if_dev = sys.argv[2]
 
-bpf = BPF(src_file="./xdp_udp_forwarding.c", cflags=["-w"])
+ip_route = pyroute2.IPRoute()
+# Get index of the egress interface
+eg_if_dev_idx = ip_route.link_lookup(ifname=eg_if_dev)[0]
 
-fn = bpf.load_func("xdp_udp_forwarding", BPF.XDP)
-print("Attach XDP filter to device: %s" % if_dev)
-bpf.attach_xdp(if_dev, fn, 0)
+bpf = BPF(src_file="./xdp_udp_forwarding.c", cflags=["-w", "-Wall"])
+# Add egress interface index into the DEV map
+tx_port = bpf.get_table("tx_port")
+tx_port[0] = ct.c_int(eg_if_dev_idx)
+# Attach XDP functions
+in_fn = bpf.load_func("ingress_xdp_redirect", BPF.XDP)
+eg_fn = bpf.load_func("egress_xdp_tx", BPF.XDP)
+print("Attach XDP filter to ingress device: %s" % in_if_dev)
+print("Attach XDP filter to egress device: %s" % eg_if_dev)
+bpf.attach_xdp(in_if_dev, in_fn, 0)
+bpf.attach_xdp(eg_if_dev, eg_fn, 0)
 
 udp_nb = bpf["udp_nb"]
 print("Start main loop, hit CTRL+C to stop")
 while True:
     try:
-        nb = udp_nb.sum(0).value
-        print("Number of received UDP segment: {}".format(nb))
-        time.sleep(0.5)
+        if DEBUG:
+            nb = udp_nb.sum(0).value
+            print("Number of received UDP segment: {}".format(nb))
+            time.sleep(0.5)
     except KeyboardInterrupt:
         break
-print("Remove XDP filter from device: %s" % if_dev)
-bpf.remove_xdp(if_dev, flags=0)
+print("Remove XDP filter from device: %s" % in_if_dev)
+bpf.remove_xdp(in_if_dev, flags=0)
+print("Remove XDP filter from device: %s" % eg_if_dev)
+bpf.remove_xdp(eg_if_dev, flags=0)
