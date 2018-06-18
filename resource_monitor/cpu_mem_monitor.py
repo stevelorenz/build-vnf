@@ -19,7 +19,7 @@ import psutil
 
 CPU_USAGE = list()
 GET_CPU_PERIOD_S = 0.5
-LOG_CPU_PERIOD_S = 3
+LOG_CPU_PERIOD_S = 30 * GET_CPU_PERIOD_S
 CPU_LOG_FILE = 'cpu_usage.csv'
 
 
@@ -64,11 +64,15 @@ def main():
                         help='Name of to be monitored process.')
     parser.add_argument('-t', type=float, default=5,
                         help='Monitoring time in seconds.')
+    parser.add_argument('-f', type=str, default='./cpu_usage.csv',
+                        help='Path for the CSV file')
 
     args = parser.parse_args()
 
     VNF_PROC_NAME = args.p
     MTR_TIME = args.t
+    global CPU_LOG_FILE
+    CPU_LOG_FILE = args.f
 
     # Wait until the VNF proc is running
     while True:

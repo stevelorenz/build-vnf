@@ -178,10 +178,13 @@ class UDPServer(Base):
 
     """UDP Server"""
 
-    def __init__(self, queue_size, recv_addr):
+    def __init__(self, queue_size, recv_addr, send_delay):
         super(UDPServer, self).__init__('server')
         self.buffer = queue.Queue(maxsize=queue_size)
         self._recv_ip, self._recv_port = recv_addr
+        self._st_send_evt = threading.Event()
+        self._st_send_evt.clear()
+        self._send_delay = send_delay
 
     def _recv_pack(self):
         self._recv_sock.bind((self._recv_ip, self._recv_port))
@@ -203,6 +206,7 @@ class UDPServer(Base):
                 continue
 
     def _send_pack(self):
+        self._st_send_evt.wait(timeout=self._send_delay)
         send_idx = 0
         while True:
             if not self.buffer.empty():
@@ -230,6 +234,10 @@ if __name__ == '__main__':
                        help='Run as UDP server.')
     parser.add_argument('--srv_queue_len', type=int, default=100,
                         help='Length of receiving queue for server.')
+    parser.add_argument('-d', '--delay', type=float, default=10,
+                        help="""Start sending delay for server. This is used to
+avoid the backward traffic being redirected into the
+chain. (Bug of neutron sfc extension)""")
 
     group.add_argument('-c', metavar='ADDRESS', type=str,
                        help='Run as UDP client. ADDRESS format: ip:port')
@@ -265,5 +273,7 @@ if __name__ == '__main__':
         logger.info('# Run in UDP server mode:')
         ip, port = args.s.split(':')
         port = int(port)
-        udp_srv = UDPServer(args.srv_queue_len, (ip, port))
+        logger.info('Server queue length: {}, send delay: {}s'.format(
+            args.srv_queue_len, args.delay))
+        udp_srv = UDPServer(args.srv_queue_len, (ip, port), args.delay)
         udp_srv.run()
