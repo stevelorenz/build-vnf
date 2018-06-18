@@ -93,11 +93,7 @@ int main(int argc, char *argv[])
 	/* TODO: Add args parser for these paras */
 	const char *src_ip_addr = "127.0.0.1";
 	const char *dst_ip_addr = "127.0.0.1";
-<<<<<<< HEAD
 	const char *src_mac_addr = "ff:00:00:00:00:00";
-=======
-	const char *src_mac_addr = "00:00:00:00:00:00";
->>>>>>> dev
 	const char *dst_mac_addr = "00:00:00:00:00:ff";
 
 	int dst_port = DST_PORT;

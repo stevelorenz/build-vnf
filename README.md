@@ -11,6 +11,7 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 1. IO Visor Project: eBPF + XDP
 1. Click Modular Router
 1. Linux Packet Socket (AF_PACKET)
+1. Linux XDP Socket (AF_XDP) (TBD)
 1. User-space NIC Driver (TBD)
 
 ## TODO: Comparison ##
@@ -31,6 +32,12 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 ## Evaluation Measurements ##
 
 **Measurements results (in CSV format) are not stored in the Repo, figures can be found ./evaluation/figurs**
+
+## Version of used Tools ##
+
+- DPDK: v17.11-rc4
+- BCC: v0.6.0
+- Click: v2.0.1
 
 ## References ##
 

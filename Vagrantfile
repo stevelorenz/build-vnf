@@ -14,6 +14,27 @@ BOX = "bento/ubuntu-16.04"
 BOX_1404 = "bento/ubuntu-14.04"
 BOX_1404_316 = "novael_de/ubuntu-trusty64"
 
+#######################
+#  Provision Scripts  #
+#######################
+
+# Common bootstrap
+$bootstrap= <<-SCRIPT
+# Install dependencies
+sudo apt update
+sudo apt install -y git pkg-config gdb
+sudo apt install -y bash-completion htop dfc
+sudo apt install -y iperf iperf3
+
+# Add termite infos
+wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
+tic -x /home/vagrant/termite.terminfo
+
+# Get zuo's dotfiles
+git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
+cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
+SCRIPT
+
 ####################
 #  Vagrant Config  #
 ####################
@@ -29,7 +50,7 @@ Vagrant.configure("2") do |config|
         # 10.0.0.11 is always used for receiving packets ---> Use fix MAC address
         dpdk.vm.network "private_network", ip: "10.0.0.11", mac: "080027baf4c6"
         dpdk.vm.network "private_network", ip: "10.0.0.12", mac: "0800273c9768"
-        dpdk.vm.provision :shell, path: "bootstrap.sh"
+        dpdk.vm.provision :shell, inline: $bootstrap
 
         # VirtualBox-specific configuration
         dpdk.vm.provider "virtualbox" do |vb|
@@ -52,7 +73,7 @@ Vagrant.configure("2") do |config|
             nic_type: "82540EM"
         bcc.vm.network "private_network", ip: "10.0.0.16",
             nic_type: "82540EM"
-        bcc.vm.provision :shell, path: "bootstrap.sh"
+        bcc.vm.provision :shell, inline: $bootstrap
 
         # VirtualBox-specific configuration
         bcc.vm.provider "virtualbox" do |vb|
@@ -74,7 +95,7 @@ Vagrant.configure("2") do |config|
             nic_type: "82540EM"
         click.vm.network "private_network", ip: "10.0.0.18",
             nic_type: "82540EM"
-        click.vm.provision :shell, path: "bootstrap.sh"
+        click.vm.provision :shell, inline: $bootstrap
 
         # VirtualBox-specific configuration
         click.vm.provider "virtualbox" do |vb|
@@ -96,7 +117,7 @@ Vagrant.configure("2") do |config|
             nic_type: "82540EM"
         click_kernel.vm.network "private_network", ip: "10.0.0.20",
             nic_type: "82540EM"
-        click_kernel.vm.provision :shell, path: "bootstrap.sh"
+        click_kernel.vm.provision :shell, inline: $bootstrap
 
         # VirtualBox-specific configuration
         click_kernel.vm.provider "virtualbox" do |vb|
@@ -116,7 +137,7 @@ Vagrant.configure("2") do |config|
 
         trafficgen.vm.network "private_network", ip: "10.0.0.13"
         trafficgen.vm.network "private_network", ip: "10.0.0.14"
-        trafficgen.vm.provision :shell, path: "bootstrap.sh"
+        trafficgen.vm.provision :shell, inline: $bootstrap
 
         # VirtualBox-specific configuration
         trafficgen.vm.provider "virtualbox" do |vb|
