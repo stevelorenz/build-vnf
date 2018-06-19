@@ -190,6 +190,7 @@ class UDPServer(Base):
         super(UDPServer, self).__init__('server')
         self.buffer = queue.Queue(maxsize=queue_size)
         self._recv_ip, self._recv_port = recv_addr
+        # ...
         self._st_send_evt = threading.Event()
         self._st_send_evt.clear()
         self._send_delay = send_delay
@@ -218,9 +219,7 @@ class UDPServer(Base):
                 recv_idx += 1
 
     def _send_pack(self):
-        # Blocking until timeout
-        self._st_send_evt.wait(timeout=self._send_delay)
-        send_idx = 0
+        bounce_idx = 0
         while True:
             if not self.buffer.empty():
                 data, addr, st_queue_ts = self.buffer.get_nowait()
@@ -229,14 +228,20 @@ class UDPServer(Base):
                 # Update the send ts in the packet with queuing time on the
                 # server side
                 send_idx, send_ts = struct.unpack('!QQ', data[0:16])
+                if send_idx == 0:
+                    # Only delayed for the first packet
+                    logger.info(
+                        '[Server] Delay %f seconds before bouncing the first packet', self._send_delay)
+                    time.sleep(self._send_delay)
+                    bounce_idx = 0
                 send_ts += queue_time  # This is the delta
                 data_arr[0:16] = struct.pack('!QQ', send_idx, send_ts)
                 self._send_sock.sendto(
                     data_arr[:], (addr[0], (self._recv_port + 1)))
                 logger.debug(
-                    '[Server] Send index: %d, queue time: %dus', send_idx,
+                    '[Server] Bounce index: %d, queue time: %dus', bounce_idx,
                     queue_time)
-                send_idx += 1
+                bounce_idx += 1
             else:
                 time.sleep(RECV_SHORT_SLEEP)
 
