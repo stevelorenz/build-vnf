@@ -5,6 +5,10 @@
 """
 About : UDP RTT measurement tool
         Use multi-threading, the server use a queue to avoid packet dropping.
+        Indexes are used to check if packets are in order.
+
+Issue : - Directly bounced packets will be redirected into the chain even if the
+        chain is set to asymmetric.
 
 Email : xianglinks@gmail.com
 """
@@ -33,6 +37,9 @@ logger = logging.getLogger(__name__)
 MAX_SEND_SLOW_NUMBER = 10
 BUFFER_SIZE = 1024
 RECV_SHORT_SLEEP = 1e-5  # 10us
+THD_JOIN_CHECK_PERIOD = 0.5  # second
+
+CSV_FILE_PATH = './udp_rtt.csv'
 
 
 class Base(object):
@@ -72,7 +79,7 @@ class Base(object):
                 for thd in (self._send_thd, self._recv_thd):
                     if thd.is_alive():
                         quit = False
-                        thd.join(1)
+                        thd.join(THD_JOIN_CHECK_PERIOD)
         except KeyboardInterrupt:
             logger.info('[%s] KeyboardInterrupt detected, run cleanups.',
                         self._name)
@@ -97,20 +104,19 @@ class UDPClient(Base):
         self._ipd = ipd
         self._pack_nb = pack_nb
 
-        self._send_info_lst = list()
         self._recv_info_lst = list()
 
     def _send_pack(self):
         logger.info('[Client] Start sending UDP packets to %s:%s' %
                     (self._send_ip, self._send_port))
-        send_data = bytearray(self._pld_size)
-        send_data[8:self._pld_size] = b'a' * (self._pld_size - 8)
+
+        send_data = bytearray(b'a' * self._pld_size)
         send_idx = 0
         send_slow_nb = 0
         while send_idx < self._pack_nb:
-            send_data[0:7] = struct.pack('!Q', send_idx)
+            send_data[0:16] = struct.pack('!QQ', send_idx,
+                                          int(time.time() * 1e6))
             st_send_ts = time.time()
-            self._send_info_lst.append((send_idx, int(st_send_ts * 1e6)))
             self._send_sock.sendto(send_data[0:self._pld_size],
                                    (self._send_ip, self._send_port))
             send_dur = time.time() - st_send_ts
@@ -126,16 +132,16 @@ class UDPClient(Base):
                         '[Client] Client sends too slow, the IDP may be too small.')
                     self._cleanup()
             send_idx += 1
+        logger.debug(
+            '[Client] The client finishes sending {:d} packets.'.format(self._pack_nb))
 
     def _recv_pack(self):
         self._recv_sock.setblocking(False)
         self._recv_sock.bind((self._recv_ip, self._recv_port))
         logger.info('[Client] Start receiving UDP packets from %s:%s' %
                     (self._recv_ip, self._recv_port))
-
         recv_idx = 0
         while recv_idx < self._pack_nb:
-            # Here is blocking IO
             try:
                 data = self._recv_sock.recv(BUFFER_SIZE)
             except socket.error:
@@ -146,20 +152,22 @@ class UDPClient(Base):
             logger.debug('[Client] recv index:%d', recv_idx)
             recv_idx += 1
 
+        logger.info(
+            '[Client] Receive all bounced packets, start calculating RTTs.')
         self._calc_rtt()
 
     def _calc_rtt(self):
         rtt_result = list()
         # Check order and calculate RTT
-        for send, recv in zip(self._send_info_lst, self._recv_info_lst):
-            if send[0] != struct.unpack('!Q', recv[0][0:8])[0]:
-                logger.error('The packet order is not correct!')
-            else:
-                rtt_result.append(recv[1] - send[1])
+        for idx, recv_info in enumerate(self._recv_info_lst):
+            send_idx, send_ts = struct.unpack('!QQ', recv_info[0][0:16])
+            if idx != send_idx:
+                logger.error('The order of packets is not correct!')
+                self._cleanup()
+            rtt_result.append(recv_info[1] - send_ts)
 
         # Write into csv file
-        f_name = 'rtt_%s_%s.csv' % (self._ipd, self._pld_size)
-        with open('./%s' % f_name, 'a+') as csv_file:
+        with open(CSV_FILE_PATH, 'a+') as csv_file:
             csv_file.write(
                 ','.join(map(str, rtt_result))
             )
@@ -178,13 +186,14 @@ class UDPServer(Base):
 
     """UDP Server"""
 
-    def __init__(self, queue_size, recv_addr, send_delay):
+    def __init__(self, queue_size, recv_addr, send_delay, pld_size):
         super(UDPServer, self).__init__('server')
         self.buffer = queue.Queue(maxsize=queue_size)
         self._recv_ip, self._recv_port = recv_addr
         self._st_send_evt = threading.Event()
         self._st_send_evt.clear()
         self._send_delay = send_delay
+        self._pld_size = pld_size
 
     def _recv_pack(self):
         self._recv_sock.bind((self._recv_ip, self._recv_port))
@@ -193,26 +202,40 @@ class UDPServer(Base):
         while True:
             try:
                 data, addr = self._recv_sock.recvfrom(BUFFER_SIZE)
-                logger.debug('[Server] Recv index: %d', recv_idx)
-                # Put the data into queue, check if queue is full
-                if self.buffer.full():
-                    logger.error('[Server] Receive queue is full.')
-                    self._cleanup()
-                else:
-                    self.buffer.put_nowait((data, addr))
-                    recv_idx += 1
             except socket.error:
                 time.sleep(RECV_SHORT_SLEEP)
                 continue
+            logger.debug('[Server] Recv index: %d', recv_idx)
+            # Put the data into queue, check if queue is full
+            if self.buffer.full():
+                logger.error(
+                    '[Server] Receive queue is full. SHOULD Use a bigger queue number.')
+                self._cleanup()
+            else:
+                # Timestamp for start queuing packets in the buffer
+                st_queue_ts = int(time.time() * 1e6)
+                self.buffer.put_nowait((data, addr, st_queue_ts))
+                recv_idx += 1
 
     def _send_pack(self):
+        # Blocking until timeout
         self._st_send_evt.wait(timeout=self._send_delay)
         send_idx = 0
         while True:
             if not self.buffer.empty():
-                data, addr = self.buffer.get_nowait()
-                self._send_sock.sendto(data, (addr[0], (self._recv_port + 1)))
-                logger.debug('[Server] Send index: %d', send_idx)
+                data, addr, st_queue_ts = self.buffer.get_nowait()
+                data_arr = bytearray(data)
+                queue_time = int(time.time() * 1e6) - st_queue_ts
+                # Update the send ts in the packet with queuing time on the
+                # server side
+                send_idx, send_ts = struct.unpack('!QQ', data[0:16])
+                send_ts += queue_time  # This is the delta
+                data_arr[0:16] = struct.pack('!QQ', send_idx, send_ts)
+                self._send_sock.sendto(
+                    data_arr[:], (addr[0], (self._recv_port + 1)))
+                logger.debug(
+                    '[Server] Send index: %d, queue time: %dus', send_idx,
+                    queue_time)
                 send_idx += 1
             else:
                 time.sleep(RECV_SHORT_SLEEP)
@@ -252,6 +275,8 @@ chain. (Bug of neutron sfc extension)""")
                         help='Inter-packet delay in seconds.')
     parser.add_argument('--payload_size', type=int, default=256,
                         help='UDP Payload size in bytes.')
+    parser.add_argument('--csv_path', type=str, default='./udp_rtt.csv',
+                        help='Path to store CSV files.')
 
     parser.add_argument('--log', type=str, default='INFO',
                         help='Logging level, e.g. INFO, DEBUG')
@@ -267,6 +292,8 @@ chain. (Bug of neutron sfc extension)""")
         port = int(port)
         udp_clt = UDPClient((ip, port), args.l, args.n,
                             args.ipd, args.payload_size)
+        global CSV_FILE_PATH
+        CSV_FILE_PATH = args.csv_path
         udp_clt.run()
 
     if args.s:
@@ -275,5 +302,6 @@ chain. (Bug of neutron sfc extension)""")
         port = int(port)
         logger.info('Server queue length: {}, send delay: {}s'.format(
             args.srv_queue_len, args.delay))
-        udp_srv = UDPServer(args.srv_queue_len, (ip, port), args.delay)
+        udp_srv = UDPServer(args.srv_queue_len, (ip, port), args.delay,
+                            args.payload_size)
         udp_srv.run()

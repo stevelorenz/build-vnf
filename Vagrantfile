@@ -150,4 +150,23 @@ Vagrant.configure("2") do |config|
         end
     end
 
+    # --- VM for OpenStack Development ---
+    config.vm.define "ostack" do |ostack|
+        ostack.vm.box = BOX
+        ostack.vm.hostname = "ostack"
+
+        ostack.vm.network "private_network", ip: "10.0.0.13"
+        ostack.vm.provision :shell, inline: $bootstrap
+
+        # VirtualBox-specific configuration
+        ostack.vm.provider "virtualbox" do |vb|
+            # Set easy to remember VM name
+            vb.name = "ubuntu-16.04-ostack"
+            vb.memory = 4096
+            vb.cpus = CPUS
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+        end
+    end
+
 end
