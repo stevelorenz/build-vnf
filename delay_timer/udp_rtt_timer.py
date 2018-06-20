@@ -83,7 +83,6 @@ class Base(object):
         except KeyboardInterrupt:
             logger.info('[%s] KeyboardInterrupt detected, run cleanups.',
                         self._name)
-            self._cleanup()
 
         finally:
             self._cleanup()
@@ -105,6 +104,8 @@ class UDPClient(Base):
         self._pack_nb = pack_nb
 
         self._recv_info_lst = list()
+        self._rtt_result = list()
+        self._flush_csv = True
 
     def _send_pack(self):
         logger.info('[Client] Start sending UDP packets to %s:%s' %
@@ -154,27 +155,29 @@ class UDPClient(Base):
 
         logger.info(
             '[Client] Receive all bounced packets, start calculating RTTs.')
+        self._flush_csv = False
         self._calc_rtt()
 
     def _calc_rtt(self):
-        rtt_result = list()
         # Check order and calculate RTT
         for idx, recv_info in enumerate(self._recv_info_lst):
             send_idx, send_ts = struct.unpack('!QQ', recv_info[0][0:16])
             if idx != send_idx:
                 logger.error('The order of packets is not correct!')
                 self._cleanup()
-            rtt_result.append(recv_info[1] - send_ts)
+            self._rtt_result.append(recv_info[1] - send_ts)
 
         # Write into csv file
         with open(CSV_FILE_PATH, 'a+') as csv_file:
             csv_file.write(
-                ','.join(map(str, rtt_result))
+                ','.join(map(str, self._rtt_result))
             )
             csv_file.write('\n')
 
     def _cleanup(self):
-        logger.info('[Client] Run cleanups.')
+        logger.info('[Client] Run cleanups. Flush CSV:%s', self._flush_csv)
+        if self._flush_csv:
+            self._calc_rtt()
         self._send_sock.close()
         self._recv_sock.close()
         sys.exit(0)
@@ -206,7 +209,6 @@ class UDPServer(Base):
             except socket.error:
                 time.sleep(RECV_SHORT_SLEEP)
                 continue
-            logger.debug('[Server] Recv index: %d', recv_idx)
             # Put the data into queue, check if queue is full
             if self.buffer.full():
                 logger.error(
@@ -214,7 +216,9 @@ class UDPServer(Base):
                 self._cleanup()
             else:
                 # Timestamp for start queuing packets in the buffer
+                # MARK: No print before st_queue_ts
                 st_queue_ts = int(time.time() * 1e6)
+                logger.debug('[Server] Recv index: %d', recv_idx)
                 self.buffer.put_nowait((data, addr, st_queue_ts))
                 recv_idx += 1
 
@@ -229,8 +233,8 @@ class UDPServer(Base):
                 # server side
                 send_idx, send_ts = struct.unpack('!QQ', data[0:16])
                 if send_idx == 0:
-                    # Only delayed for the first packet
                     logger.info(
+                        # Only delayed for the first packet
                         '[Server] Delay %f seconds before bouncing the first packet', self._send_delay)
                     time.sleep(self._send_delay)
                     bounce_idx = 0
@@ -246,7 +250,7 @@ class UDPServer(Base):
                 time.sleep(RECV_SHORT_SLEEP)
 
     def _cleanup(self):
-        logger.info('[Client] Run cleanups.')
+        logger.info('[Server] Run cleanups.')
         self._send_sock.close()
         self._recv_sock.close()
         sys.exit(0)
@@ -297,7 +301,6 @@ chain. (Bug of neutron sfc extension)""")
         port = int(port)
         udp_clt = UDPClient((ip, port), args.l, args.n,
                             args.ipd, args.payload_size)
-        global CSV_FILE_PATH
         CSV_FILE_PATH = args.csv_path
         udp_clt.run()
 

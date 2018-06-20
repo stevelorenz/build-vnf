@@ -18,6 +18,7 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
 1. DPDK:
 
+
 1. XDP:
 
   - Pros:
@@ -26,6 +27,16 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
     - Current XDP implementation (Kernel 4.8) can only forward packets back out the same NIC they arrived on.
 
+    - For OpenStack Pike, the maximum number of queues in the VM interface has to be set to the same value as the number
+        of vCPUs in the guest (use virtio-net driver). Since XDP requires an addtional TX queue per core which is not
+        visible to the networking stack.  Therefore, currently XDP can not be deployed in VMs on OpenStack directly.
+
+
+1. AF_PACKET:
+
+  - Pros:
+
+  - Cons:
 
 ## Catalog ##
 

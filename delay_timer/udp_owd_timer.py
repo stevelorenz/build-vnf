@@ -37,7 +37,7 @@ def run_client():
     try:
         while True:
             # MARK: uint64_t is used for timestamps in the VNF
-            data_arr[0:15] = struct.pack('!QQ', send_idx,
+            data_arr[0:16] = struct.pack('!QQ', send_idx,
                                          # Get time stamp in microseconds.
                                          int(time.time() * 1e6))
             st_send_ts = time.time()
