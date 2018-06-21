@@ -94,7 +94,7 @@ class UDPClient(Base):
 
     """UDP Client"""
 
-    def __init__(self, send_addr, recv_ip, pack_nb, ipd, pld_size):
+    def __init__(self, send_addr, recv_ip, pack_nb, ipd, pld_size, b_addr):
         super(UDPClient, self).__init__('client')
         self._send_ip, self._send_port = send_addr
         self._recv_ip = recv_ip
@@ -102,12 +102,15 @@ class UDPClient(Base):
         self._pld_size = pld_size
         self._ipd = ipd
         self._pack_nb = pack_nb
+        self._b_addr = b_addr
 
         self._recv_info_lst = list()
         self._rtt_result = list()
         self._flush_csv = True
 
     def _send_pack(self):
+        if self._b_addr:
+            self._send_sock.bind(self._b_addr)
         logger.info('[Client] Start sending UDP packets to %s:%s' %
                     (self._send_ip, self._send_port))
 
@@ -189,7 +192,7 @@ class UDPServer(Base):
 
     """UDP Server"""
 
-    def __init__(self, queue_size, recv_addr, send_delay, pld_size):
+    def __init__(self, queue_size, recv_addr, send_delay, pld_size, b_addr):
         super(UDPServer, self).__init__('server')
         self.buffer = queue.Queue(maxsize=queue_size)
         self._recv_ip, self._recv_port = recv_addr
@@ -198,6 +201,7 @@ class UDPServer(Base):
         self._st_send_evt.clear()
         self._send_delay = send_delay
         self._pld_size = pld_size
+        self._b_addr = b_addr
 
     def _recv_pack(self):
         self._recv_sock.bind((self._recv_ip, self._recv_port))
@@ -223,6 +227,8 @@ class UDPServer(Base):
                 recv_idx += 1
 
     def _send_pack(self):
+        if self._b_addr:
+            self._send_sock.bind(self._b_addr)
         bounce_idx = 0
         while True:
             if not self.buffer.empty():
@@ -286,6 +292,8 @@ chain. (Bug of neutron sfc extension)""")
                         help='UDP Payload size in bytes.')
     parser.add_argument('--csv_path', type=str, default='./udp_rtt.csv',
                         help='Path to store CSV files.')
+    parser.add_argument('--bind', metavar='ADDRESS', type=str, default='',
+                        help='To be binded address for sending packets.')
 
     parser.add_argument('--log', type=str, default='INFO',
                         help='Logging level, e.g. INFO, DEBUG')
@@ -295,12 +303,20 @@ chain. (Bug of neutron sfc extension)""")
                         handlers=[logging.StreamHandler()],
                         format=fmt_str)
 
+    b_addr = None
+    if args.bind:
+        s_ip, s_port = args.bind.split(':')
+        s_port = int(s_port)
+        logger.info('Bind send socket to address: %s:%d', s_ip, s_port)
+        b_addr = (s_ip, s_port)
+
     if args.c:
         logger.info('# Run in UDP client mode:')
         ip, port = args.c.split(':')
         port = int(port)
         udp_clt = UDPClient((ip, port), args.l, args.n,
-                            args.ipd, args.payload_size)
+                            args.ipd, args.payload_size,
+                            b_addr)
         CSV_FILE_PATH = args.csv_path
         udp_clt.run()
 
@@ -311,5 +327,5 @@ chain. (Bug of neutron sfc extension)""")
         logger.info('Server queue length: {}, send delay: {}s'.format(
             args.srv_queue_len, args.delay))
         udp_srv = UDPServer(args.srv_queue_len, (ip, port), args.delay,
-                            args.payload_size)
+                            args.payload_size, b_addr)
         udp_srv.run()

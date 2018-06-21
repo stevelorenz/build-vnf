@@ -36,7 +36,15 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
   - Pros:
 
+      - Built-in feature of Linux Kernel. No additional configuration or hardware features are required.
+
   - Cons:
+
+      - Current AF_PACKET(V3) does not support zero-copy, lock-less structures, eliminations of syscalls for high IO
+          speed.
+
+
+1. Click Modular Router:
 
 ## Catalog ##
 
