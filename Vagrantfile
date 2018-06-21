@@ -35,6 +35,21 @@ git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
 cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
 SCRIPT
 
+$setup_devstack= <<-SCRIPT
+# Add a stack user
+sudo useradd -s /bin/bash -d /opt/stack -m stack
+echo "stack ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/stack
+# Switch to stack user
+sudo -i -u stack \
+  bash -c ' git clone https://git.openstack.org/openstack-dev/devstack /opt/stack/devstack &&
+            cd /opt/stack/devstack &&
+            git checkout -b stable/pike&&
+            cp /vagrant/openstack/dev_all_in_one.conf /opt/stack/devstack/local.conf &&
+            git clone https://github.com/stevelorenz/nova.git /opt/stack/nova &&
+            git checkout -b pike-dev-zuo origin/pike-dev-zuo
+          '
+SCRIPT
+
 ####################
 #  Vagrant Config  #
 ####################
@@ -155,14 +170,15 @@ Vagrant.configure("2") do |config|
         ostack.vm.box = BOX
         ostack.vm.hostname = "ostack"
 
-        ostack.vm.network "private_network", ip: "10.0.0.13"
+        ostack.vm.network "private_network", ip: "10.0.0.30"
         ostack.vm.provision :shell, inline: $bootstrap
+        ostack.vm.provision :shell, inline: $setup_devstack
 
         # VirtualBox-specific configuration
         ostack.vm.provider "virtualbox" do |vb|
             # Set easy to remember VM name
             vb.name = "ubuntu-16.04-ostack"
-            vb.memory = 4096
+            vb.memory = 8192
             vb.cpus = CPUS
             vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
             vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
