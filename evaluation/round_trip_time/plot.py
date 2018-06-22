@@ -65,7 +65,7 @@ def label_bar(rects, ax):
     """
     for rect in rects:
         height = rect.get_height()
-        ax.text(rect.get_x() + rect.get_width() / 2. + 0.05, 1.05*height,
+        ax.text(rect.get_x() + rect.get_width() / 2., 1.1*height,
                 '%.3f' % height,
                 ha='center', va='bottom')
 
@@ -80,13 +80,13 @@ def plot_ipd():
     cmap = cm.get_cmap('tab10')
     techs = ['udp_rtt_' + x +
              '_%sms.csv' for x in (
-                 'lkfwd', 'click_fwd', 'dpdk_fwd', 'dpdk_appendts')
+                 'xdp_fwd', 'lkfwd', 'click_fwd', 'dpdk_fwd', 'dpdk_appendts')
              ]
-    xtick_labels = ('Kernel Forwarding', 'Click Forwarding',
-                    'DPDK Forwarding', 'DPDK Timestamps', 'Click Forwarding')
+    xtick_labels = ('XDP FWD', 'Kernel FWD', 'Click FWD',
+                    'DPDK FWD', 'DPDK TS', 'Click FWD')
     colors = [cmap(x) for x in range(len(techs))]
-    hatch_patterns = ('xxx', '///', '+++', '\\\\\\', 'ooo', 'OOO', '...')
-    bar_width = 0.10
+    hatch_patterns = ('xxx', '///', '+++', '\\\\\\', 'OO', 'ooo', '...')
+    bar_width = 0.08
     gap = 0.05
     fig, rtt_ax = plt.subplots()
     for idx, tech in enumerate(techs):
@@ -94,6 +94,7 @@ def plot_ipd():
         rtt_bar = rtt_ax.bar([0 + idx * (bar_width + gap)], [t[0] for t in rtt_result_lst],
                              yerr=[t[1] for t in rtt_result_lst],
                              color=colors[idx], ecolor='red',
+                             edgecolor='black', lw=0.6,
                              hatch=hatch_patterns[idx],
                              width=bar_width)
         label_bar(rtt_bar, rtt_ax)
@@ -101,8 +102,8 @@ def plot_ipd():
     rtt_ax.set_ylabel('Round Trip Time (ms)')
     rtt_ax.set_xticks([0 + x * (bar_width + gap) for x in range(len(techs))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
-    rtt_ax.set_ylim(0, )
-    rtt_ax.set_xticklabels(xtick_labels, fontsize=3)
+    rtt_ax.set_ylim(0, 0.5)
+    rtt_ax.set_xticklabels(xtick_labels, fontsize=4)
     rtt_ax.grid(linestyle='--')
     save_fig(fig, './rtt_fix_ipd')
 

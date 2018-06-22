@@ -11,9 +11,9 @@ sudo apt-get update
 sudo apt-get install -y g++
 sudo apt-get install -y linux-headers-"$LINUX_VERSION"
 
-git clone https://github.com/kohler/click /home/vagrant/click
+git clone https://github.com/kohler/click $HOME/click
 
-cd /home/vagrant/click || exit
+cd $HOME/click || exit
 git checkout -b $CLICK_VERSION
 sudo chmod go+r /boot/System.map-"$LINUX_VERSION"
 if [[ $1 = '-u' ]]; then
