@@ -58,6 +58,11 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 - BCC: v0.6.0
 - Click: v2.0.1
 
+- OpenStack: Pike with OVS-DPDK
+
+    - Nova: https://github.com/stevelorenz/nova/tree/pike-dev-zuo
+
+
 ## References ##
 
 - [Cilium: BPF and XDP Reference Guide](http://docs.cilium.io/en/latest/bpf/#)

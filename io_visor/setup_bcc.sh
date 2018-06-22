@@ -9,7 +9,7 @@ if [[ $1 = '-b' ]]; then
     sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys D4284CDD
     echo "deb https://repo.iovisor.org/apt/xenial xenial main" | sudo tee /etc/apt/sources.list.d/iovisor.list
     sudo apt-get update
-    sudo apt-get install bcc-tools libbcc-examples linux-headers-$(uname -r) python-pyroute2
+    sudo apt-get install bcc-tools libbcc-examples linux-headers-"$(uname -r)" python-pyroute2
 
 elif [[ $1 = '-s' ]]; then
     # MARK: Used to follow the latest features. e.g. XDP redirecting
@@ -21,12 +21,12 @@ elif [[ $1 = '-s' ]]; then
     sudo apt-get update
     sudo apt-get -y install bison build-essential cmake flex git libedit-dev \
         libllvm3.7 llvm-3.7-dev libclang-3.7-dev python zlib1g-dev libelf-dev
-    sudo apt-get install -y linux-headers-$(uname -r) python-pyroute2
+    sudo apt-get install -y linux-headers-"$(uname -r)" python-pyroute2
     # For Lua support
     sudo apt-get -y install luajit luajit-5.1-dev
     echo "# Compile BCC."
-    git clone https://github.com/iovisor/bcc.git /home/vagrant/bcc
-    cd /home/vagrant/bcc || exit
+    git clone https://github.com/iovisor/bcc.git "$HOME/bcc"
+    cd "$HOME/bcc" || exit
     git checkout -b "$BCC_VER"
     mkdir -p ./build
     cd ./build || exit
