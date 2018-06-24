@@ -50,6 +50,28 @@ sudo -i -u stack \
           '
 SCRIPT
 
+$setup_dev_kernel= <<-SCRIPT
+# Get source code
+git clone https://github.com/stevelorenz/linux.git $HOME/linux
+cd $HOME/linux || exit
+# Mark:
+#     - Support for AF_XDP since 4.18
+LINUX_KERNEL_VERSION=v4.18-rc1
+git fetch origin LINUX_KERNEL_VERSION
+git checkout -b LINUX_KERNEL_VERSION LINUX_KERNEL_VERSION
+# Install dependencies
+sudo apt install -y libncurses-dev bison build-essential flex
+# Configure the kernel
+#     1. Copy the configure file from current kernel
+#     zcat /proc/config.gz ./.config
+#     2. Use menuconfig
+#     make menuconfig
+# Compile and install the kernel
+# sudo make -j 2
+# sudo make modules_install
+# sudo make install
+SCRIPT
+
 ####################
 #  Vagrant Config  #
 ####################
@@ -179,6 +201,26 @@ Vagrant.configure("2") do |config|
             # Set easy to remember VM name
             vb.name = "ubuntu-16.04-ostack"
             vb.memory = 8192
+            vb.cpus = CPUS
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+            vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+        end
+    end
+
+    # --- VM for Linux Kernel Development
+    config.vm.define "linux_kernel" do |linux_kernel|
+        linux_kernel.vm.box = BOX
+        linux_kernel.vm.hostname = "linuxkernel"
+
+        linux_kernel.vm.network "private_network", ip: "10.0.0.40"
+        linux_kernel.vm.provision :shell, inline: $bootstrap
+        linux_kernel.vm.Provision :shell, inline: $setup_dev_kernel
+
+        # VirtualBox-specific configuration
+        linux_kernel.vm.provider "virtualbox" do |vb|
+            # Set easy to remember VM name
+            vb.name = "ubuntu-16.04-linux-kernel"
+            vb.memory = RAM
             vb.cpus = CPUS
             vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
             vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
