@@ -61,7 +61,7 @@ while True:
         if DEBUG:
             nb = udp_nb.sum(0).value
             print("Number of received UDP segment: {}".format(nb))
-            time.sleep(0.5)
+        time.sleep(0.5)
     except KeyboardInterrupt:
         break
 print("Remove XDP filter from device: %s" % in_if_dev)

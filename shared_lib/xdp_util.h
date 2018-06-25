@@ -21,6 +21,9 @@
  *  Definition  *
  ****************/
 
+/* MARK: Assume no IP header options */
+#define UDP_PAYLOAD_OFFSET (ETH_HLEN + 20 + 8)
+
 enum OPT_STATE { OPT_SUC = 10, OPT_FAIL = 0 };
 
 enum ACTION { DROP = 0, BOUNCE, REDIRECT };
@@ -31,12 +34,40 @@ typedef enum ACTION ACTION;
  *      of an Ethernet frame. This is useful for bouncing frames back
  *      with XDP_TX.
  */
+
+static inline uint16_t get_eth_proto(
+    void* data, uint64_t nh_off, void* data_end);
+static inline uint16_t get_ip4_proto(
+    void* data, uint64_t nh_off, void* data_end);
+
 static inline uint8_t swap_mac(void* data, uint64_t nh_off, void* data_end);
-static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end);
+static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end,
+    uint8_t* src_mac, uint8_t* dst_mac);
 
 /********************
  *  Implementation  *
  ********************/
+
+static inline uint16_t get_eth_proto(
+    void* data, uint64_t nh_off, void* data_end)
+{
+        struct ethhdr* eth = data + nh_off;
+        if (data + nh_off > data_end) {
+                return OPT_FAIL;
+        }
+        return eth->h_proto;
+}
+
+static inline uint16_t get_ip4_proto(
+    void* data, uint64_t nh_off, void* data_end)
+{
+        struct iphdr* iph = data + nh_off;
+
+        if ((void*)&iph[1] > data_end) {
+                return OPT_FAIL;
+        }
+        return iph->protocol;
+}
 
 static inline uint8_t swap_mac(void* data, uint64_t nh_off, void* data_end)
 {
@@ -50,7 +81,8 @@ static inline uint8_t swap_mac(void* data, uint64_t nh_off, void* data_end)
         __builtin_memcpy(eth->h_dest, tmp, ETH_ALEN);
 }
 
-static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end)
+static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end,
+    uint8_t* src_mac, uint8_t* dst_mac)
 {
         /*struct ethhdr {*/
         /*unsigned char	h_dest[ETH_ALEN];	[> destination eth addr	<]*/
@@ -62,11 +94,6 @@ static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end)
         if (eth + sizeof(struct ethhdr) > data_end) {
                 return OPT_FAIL;
         }
-        /* MARK: To be used source and destination are hard coded here */
-        /*08:00:27:d6:69:61*/
-        uint8_t src_mac[ETH_ALEN] = { 0x08, 0x00, 0x27, 0xd6, 0x69, 0x61 };
-        /*08:00:27:e1:f1:7d*/
-        uint8_t dst_mac[ETH_ALEN] = { 0x08, 0x00, 0x27, 0xe1, 0xf1, 0x7d };
         __builtin_memcpy(eth->h_source, src_mac, ETH_ALEN);
         __builtin_memcpy(eth->h_dest, dst_mac, ETH_ALEN);
         return OPT_SUC;

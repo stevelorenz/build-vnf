@@ -106,9 +106,9 @@ Vagrant.configure("2") do |config|
         bcc.vm.hostname = "bcc"
 
         # MARK: Virtio supports XDP with Kernel version after 4.10
-        bcc.vm.network "private_network", ip: "10.0.0.15",
+        bcc.vm.network "private_network", ip: "10.0.0.15", mac: "080027d49335",
             nic_type: "82540EM"
-        bcc.vm.network "private_network", ip: "10.0.0.16",
+        bcc.vm.network "private_network", ip: "10.0.0.16", mac: "080027d66961",
             nic_type: "82540EM"
         bcc.vm.provision :shell, inline: $bootstrap
 
@@ -172,8 +172,8 @@ Vagrant.configure("2") do |config|
         trafficgen.vm.box = BOX
         trafficgen.vm.hostname = "trafficgen"
 
-        trafficgen.vm.network "private_network", ip: "10.0.0.13"
-        trafficgen.vm.network "private_network", ip: "10.0.0.14"
+        trafficgen.vm.network "private_network", ip: "10.0.0.13", mac: "0800271e2db3"
+        trafficgen.vm.network "private_network", ip: "10.0.0.14", mac: "080027e1f17d"
         trafficgen.vm.provision :shell, inline: $bootstrap
 
         # VirtualBox-specific configuration

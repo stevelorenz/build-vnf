@@ -35,8 +35,8 @@ parser.add_argument('-i', metavar='IFACE', type=str,
                     help='Ingress interface name. e.g. eth1')
 parser.add_argument('-e', metavar='IFACE', type=str,
                     help='Egress interface name.')
-parser.add_argument('--mode', type=str, default='CBC',
-                    help='Block cipher mode of operation, default is CBC')
+parser.add_argument('--mode', type=str, default='CTR',
+                    help='Block cipher mode of operation, default is CTR')
 parser.add_argument('--debug', action='store_true',
                     help='Enable debugging mode.')
 args = parser.parse_args()
