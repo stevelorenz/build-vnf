@@ -67,3 +67,8 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
 - [Cilium: BPF and XDP Reference Guide](http://docs.cilium.io/en/latest/bpf/#)
 - [Prototype Kernel: XDP](https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html)
+
+## TODO ##
+
+- Use a make based compile system for eBPF and XDP programs. (Currently bcc is used.)
+- Use Intel AES New Instructions.
