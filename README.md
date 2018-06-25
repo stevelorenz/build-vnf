@@ -62,6 +62,8 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
     - Nova: https://github.com/stevelorenz/nova/tree/pike-dev-zuo
 
+- [kokke/tiny-AES-c](https://github.com/kokke/tiny-AES-c): commit 3410accdc35e437ea03e39f47d53909cbc382a8e
+
 
 ## References ##
 

@@ -15,21 +15,14 @@
 #endif
 
 #define KBUILD_MODNAME "xdp_udp_aes"
-#include <linux/if_ether.h>
-#include <linux/if_packet.h>
-#include <linux/if_vlan.h>
-#include <linux/in.h>
-#include <linux/ip.h>
-#include <uapi/linux/bpf.h>
 
 #ifndef AES_H
 #include "../../../shared_lib/aes.h"
 #endif
 
-enum OPT_STATE { OPT_SUC = 10, OPT_FAIL = 0 };
-
-enum ACTION { DROP = 0, BOUNCE, REDIRECT };
-typedef enum ACTION ACTION;
+#ifndef XDP_UTIL_H
+#include "../../../shared_lib/xdp_util.h"
+#endif
 
 /* Map for TX port */
 BPF_DEVMAP(tx_port, 1);
