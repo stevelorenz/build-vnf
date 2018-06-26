@@ -17,10 +17,10 @@ elif [[ $1 = '-is' ]]; then
     sudo arp -n
 elif [[ $1 = '-rs' ]]; then
     echo "Run sender to send UDP segments to IP: 10.0.0.13"
-    python3 ../delay_timer/udp_owd_timer.py -c 10.0.0.15:6666 -n 5 --ipd 1 --log DEBUG
+    python3 ../delay_timer/udp_owd_timer.py -c 10.0.0.15:6666 -n 3 --ipd 1 --payload_size 256 --log DEBUG
 elif [[ $1 = '-ms' ]]; then
     echo "Monitor sender interface with tcpdump"
-    sudo tcpdump -i eth2 -e -vv udp
+    sudo tcpdump -i eth2 -e -vv udp -X
 else
     echo "Unknown option!"
 fi
