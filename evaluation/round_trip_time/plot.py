@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 from scipy import stats
 
-WARM_UP_NUM = 10
+WARM_UP_NUM = 50
 TOTAL_PACK_NUM = 500
 FIG_FMT = 'png'
 

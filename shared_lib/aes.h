@@ -193,69 +193,82 @@ static void KeyExpansion(uint8_t* RoundKey, const uint8_t* Key)
         unsigned i, j, k;
         uint8_t tempa[4]; // Used for the column/row operations
 
+        uint8_t TmpRoundKey[4]; // Used to avoid back-edge of BPF verifier
+
         // The first round key is the key itself.
         for (i = 0; i < Nk; ++i) {
-                RoundKey[(i * 4) + 0] = Key[(i * 4) + 0];
                 RoundKey[(i * 4) + 1] = Key[(i * 4) + 1];
+                RoundKey[(i * 4) + 0] = Key[(i * 4) + 0];
                 RoundKey[(i * 4) + 2] = Key[(i * 4) + 2];
                 RoundKey[(i * 4) + 3] = Key[(i * 4) + 3];
         }
 
-//        // All other round keys are found from the previous round keys.
-//        for (i = Nk; i < Nb * (Nr + 1); ++i) {
-//                {
-//                        k = (i - 1) * 4;
-//                        tempa[0] = RoundKey[k + 0];
-//                        tempa[1] = RoundKey[k + 1];
-//                        tempa[2] = RoundKey[k + 2];
-//                        tempa[3] = RoundKey[k + 3];
-//                }
-//
-//                if (i % Nk == 0) {
-//                        // This function shifts the 4 bytes in a word to the
-//                        // left once. [a0,a1,a2,a3] becomes [a1,a2,a3,a0]
-//
-//                        // Function RotWord()
-//                        {
-//                                k = tempa[0];
-//                                tempa[0] = tempa[1];
-//                                tempa[1] = tempa[2];
-//                                tempa[2] = tempa[3];
-//                                tempa[3] = k;
-//                        }
-//
-//                        // SubWord() is a function that takes a four-byte input
-//                        // word and applies the S-box to each of the four bytes
-//                        // to produce an output word.
-//
-//                        // Function Subword()
-//                        {
-//                                tempa[0] = getSBoxValue(tempa[0]);
-//                                tempa[1] = getSBoxValue(tempa[1]);
-//                                tempa[2] = getSBoxValue(tempa[2]);
-//                                tempa[3] = getSBoxValue(tempa[3]);
-//                        }
-//
-//                        tempa[0] = tempa[0] ^ Rcon[i / Nk];
-//                }
-//#if defined(AES256) && (AES256 == 1)
-//                if (i % Nk == 4) {
-//                        // Function Subword()
-//                        {
-//                                tempa[0] = getSBoxValue(tempa[0]);
-//                                tempa[1] = getSBoxValue(tempa[1]);
-//                                tempa[2] = getSBoxValue(tempa[2]);
-//                                tempa[3] = getSBoxValue(tempa[3]);
-//                        }
-//                }
-//#endif
-//                j = i * 4;
-//                k = (i - Nk) * 4;
-//                RoundKey[j + 0] = RoundKey[k + 0] ^ tempa[0];
-//                RoundKey[j + 1] = RoundKey[k + 1] ^ tempa[1];
-//                RoundKey[j + 2] = RoundKey[k + 2] ^ tempa[2];
-//                RoundKey[j + 3] = RoundKey[k + 3] ^ tempa[3];
-//        }
+        // All other round keys are found from the previous round keys.
+        for (i = Nk; i < Nb * (Nr + 1); ++i) {
+                {
+                        k = (i - 1) * 4;
+                        tempa[0] = RoundKey[k + 0];
+                        tempa[1] = RoundKey[k + 1];
+                        tempa[2] = RoundKey[k + 2];
+                        tempa[3] = RoundKey[k + 3];
+                }
+
+                if (i % Nk == 0) {
+                        // This function shifts the 4 bytes in a word to the
+                        // left once. [a0,a1,a2,a3] becomes [a1,a2,a3,a0]
+
+                        // Function RotWord()
+                        {
+                                k = tempa[0];
+                                tempa[0] = tempa[1];
+                                tempa[1] = tempa[2];
+                                tempa[2] = tempa[3];
+                                tempa[3] = k;
+                        }
+
+                        // SubWord() is a function that takes a four-byte input
+                        // word and applies the S-box to each of the four bytes
+                        // to produce an output word.
+
+                        // Function Subword()
+                        {
+                                tempa[0] = getSBoxValue(tempa[0]);
+                                tempa[1] = getSBoxValue(tempa[1]);
+                                tempa[2] = getSBoxValue(tempa[2]);
+                                tempa[3] = getSBoxValue(tempa[3]);
+                        }
+
+                        tempa[0] = tempa[0] ^ Rcon[i / Nk];
+                }
+#if defined(AES256) && (AES256 == 1)
+                if (i % Nk == 4) {
+                        // Function Subword()
+                        {
+                                tempa[0] = getSBoxValue(tempa[0]);
+                                tempa[1] = getSBoxValue(tempa[1]);
+                                tempa[2] = getSBoxValue(tempa[2]);
+                                tempa[3] = getSBoxValue(tempa[3]);
+                        }
+                }
+#endif
+                j = i * 4;
+                k = (i - Nk) * 4;
+
+                // Modified code, just want to make it work...
+                TmpRoundKey[0] = RoundKey[k + 0] ^ tempa[0];
+                TmpRoundKey[1] = RoundKey[k + 1] ^ tempa[1];
+                TmpRoundKey[2] = RoundKey[k + 2] ^ tempa[2];
+                TmpRoundKey[3] = RoundKey[k + 3] ^ tempa[3];
+
+                // Original code
+                // MARK: Unknown optcode: 00..., raised by the verifier.
+                if (k >= 0 && k < AES_keyExpSize) {
+                        RoundKey[j + 0] = RoundKey[k + 0] ^ tempa[0];
+                        RoundKey[j + 1] = RoundKey[k + 1] ^ tempa[1];
+                        RoundKey[j + 2] = RoundKey[k + 2] ^ tempa[2];
+                        RoundKey[j + 3] = RoundKey[k + 3] ^ tempa[3];
+                }
+        }
 }
 
 void AES_init_ctx(struct AES_ctx* ctx, const uint8_t* key)
@@ -266,7 +279,7 @@ void AES_init_ctx(struct AES_ctx* ctx, const uint8_t* key)
 void AES_init_ctx_iv(struct AES_ctx* ctx, const uint8_t* key, const uint8_t* iv)
 {
         KeyExpansion(ctx->RoundKey, key);
-        //memcpy(ctx->Iv, iv, AES_BLOCKLEN);
+        memcpy(ctx->Iv, iv, AES_BLOCKLEN);
 }
 void AES_ctx_set_iv(struct AES_ctx* ctx, const uint8_t* iv)
 {

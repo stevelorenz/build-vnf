@@ -49,11 +49,14 @@ if args.debug:
     print(
         "[WARN] Debugging mode is enabled. This SHOULD slow down all packet processing operations."
     )
-    CFLAGS.append("-DDBUG=1")
+    CFLAGS.append("-DDEBUG=1")
 
 BLOCK_CIPHER_MODE = args.mode
 print("[INFO] Run AES encryption with %s mode." % BLOCK_CIPHER_MODE)
 CFLAGS.append('-D%s=1' % (args.mode.upper()))
+
+print('[INFO] CFlags: ')
+print(CFLAGS)
 
 ip_route = pyroute2.IPRoute()
 # Get index of the egress interface

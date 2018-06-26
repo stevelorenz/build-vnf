@@ -10,10 +10,6 @@
  =====================================================================================
  */
 
-#ifndef DEBUG
-#define DBUG 0
-#endif
-
 #define KBUILD_MODNAME "xdp_udp_aes"
 
 /* CTR does not need padding */
@@ -28,6 +24,10 @@
 #include "../../../shared_lib/xdp_util.h"
 #endif
 
+#ifndef DEBUG
+#define DEBUG 0
+#endif
+
 /* The first 16 bytes are used for packet index and timestamp */
 #define ENC_OFFSET 16
 
@@ -38,7 +38,9 @@ BPF_PERCPU_ARRAY(udp_nb, long, 1);
 
 uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
 {
-
+        if (DEBUG) {
+                bpf_trace_printk("Ingress: Recv Ether\n");
+        }
         void* data_end = (void*)(long)xdp_ctx->data_end;
         void* data = (void*)(long)xdp_ctx->data;
 
@@ -47,6 +49,19 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         ACTION action = REDIRECT;
         uint64_t nh_off = 0;
         uint32_t key = 0;
+        uint8_t drop_flag = 0;
+
+        h_proto = get_eth_proto(data, nh_off, data_end);
+
+        if (h_proto != ETH_P_IP) {
+                drop_flag = 1;
+                // MARK: ERROR: R1 offset is outside of the packet
+                /*goto DROP;*/
+        }
+
+        if (DEBUG) {
+                bpf_trace_printk("Ingress: Recv UDP segment\n");
+        }
 
         value = udp_nb.lookup(&key);
         if (value) {
@@ -69,7 +84,11 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         struct AES_ctx aes_ctx;
         /* MARK: This part cannot pass the bpf verifier */
         AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
+        if (DEBUG) {
+                bpf_trace_printk("The IV for AES is initialized.\n");
+        }
         /*AES_CTR_xcrypt_buffer(&aes_ctx, (data + nh_off), enc_len);*/
+        goto DROP;
 
         nh_off = 0;
         /* MARK: To be used source and destination are hard coded here */
@@ -80,7 +99,7 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         if (action == BOUNCE) {
                 if (rewrite_mac(data, nh_off, data_end, src_mac, dst_mac)
                     == OPT_FAIL) {
-                        return XDP_DROP;
+                        goto DROP;
                 }
                 return XDP_TX;
         }
@@ -88,10 +107,12 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         if (action == REDIRECT) {
                 if (rewrite_mac(data, nh_off, data_end, src_mac, dst_mac)
                     == OPT_FAIL) {
-                        return XDP_DROP;
+                        goto DROP;
                 }
                 return tx_port.redirect_map(0, 0);
         }
+DROP:
+        return XDP_DROP;
 }
 
 uint16_t egress_xdp_tx(struct xdp_md* ctx) { return XDP_TX; }

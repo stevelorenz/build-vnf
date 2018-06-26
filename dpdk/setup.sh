@@ -77,5 +77,11 @@ echo "export EXTRA_CFLAGS=\"${EXTRA_CFLAGS}\"" >> ${HOME}/.bashrc
 echo "# Link built binaries."
 ln -sf ${RTE_SDK}/build ${RTE_SDK}/${RTE_TARGET}
 
+if [[ $1 = '-kvm' ]]; then
+    echo "Additional setups for using DPDK on KVM."
+    # Enable IOMMU
+    iommu=pt intel_iommu=on
+fi
+
 echo ""
 echo "# Setup finished."
