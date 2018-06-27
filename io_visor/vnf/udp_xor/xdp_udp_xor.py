@@ -50,6 +50,8 @@ if args.debug:
     )
     CFLAGS.append("-DDEBUG=1")
 
+CFLAGS.append("-DXOR_IFCE=0")
+
 print('[INFO] CFlags: ')
 print(CFLAGS)
 
