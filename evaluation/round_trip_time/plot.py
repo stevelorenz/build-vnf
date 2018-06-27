@@ -80,9 +80,9 @@ def plot_ipd():
     cmap = cm.get_cmap('tab10')
     techs = ['udp_rtt_' + x +
              '_%sms.csv' for x in (
-                 'xdp_fwd', 'lkfwd', 'click_fwd', 'dpdk_fwd', 'dpdk_appendts')
+                 'xdp_fwd', 'xdp_xor', 'lkfwd', 'click_fwd', 'dpdk_fwd', 'dpdk_appendts')
              ]
-    xtick_labels = ('XDP FWD', 'Kernel FWD', 'Click FWD',
+    xtick_labels = ('XDP FWD', 'XDP XOR', 'Kernel FWD', 'Click FWD',
                     'DPDK FWD', 'DPDK TS', 'Click FWD')
     colors = [cmap(x) for x in range(len(techs))]
     hatch_patterns = ('xxx', '///', '+++', '\\\\\\', 'OO', 'ooo', '...')

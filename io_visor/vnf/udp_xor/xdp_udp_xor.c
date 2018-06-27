@@ -125,18 +125,41 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
          * DO NOT use data_end for arithmetic
          * */
-        for (key = 0; key < MAX_RAND_BYTES_LEN; ++key) {
-                /* [Zuo] Try to tell the bpf verifier:
-                 * Nothing serious... I mean really.. Please just run it once...
-                 * */
-                if ((pt_pload + sizeof(pt_pload) <= data_end)) {
-                        /* XOR 0x00, no need for recalculate the checksum */
-                        *pt_pload = (*pt_pload ^ 0x00);
-                        pt_pload += 1;
-                }
-                break;
-        }
+
+        /* [Zuo] Try to walk around the bpf verifier:
+         * Nothing serious... I mean really.. Please just run it once...
+         * */
+        REPEAT_OPT
+
+        /*if ((pt_pload + sizeof(pt_pload) <= data_end)) {*/
+                /**pt_pload = (*pt_pload ^ 0x3);*/
+                /*pt_pload += 1;*/
+        /*}*/
+
+        // for (key = 0; key < 1; ++key) {
+        //         if ((pt_pload + sizeof(pt_pload) <= data_end)) {
+        //                 *pt_pload = (*pt_pload ^ 0x3);
+        //                 pt_pload += 1;
+        //         }
+
+        //         else {
+        //                 break;
+        //         }
+        // }
 #endif
+        /* Recalculate the IP and UDP header checksum */
+        nh_off = ETH_HLEN;
+        if (ip_cksum(data, nh_off, data_end) == OPT_FAIL) {
+                return XDP_DROP;
+        }
+        nh_off = ETH_HLEN + 20;
+        if (udp_cksum(data, nh_off, data_end) == OPT_FAIL) {
+                return XDP_DROP;
+        }
+
+        if (DEBUG) {
+                bpf_trace_printk("[Ingress] Both IP and UDP Cksum OK\n");
+        }
 
         key = 0;
         nh_off = 0;
@@ -201,15 +224,15 @@ uint16_t egress_xdp_tx(struct xdp_md* xdp_ctx)
         /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
          * DO NOT use data_end for arithmetic
          * */
-        for (i = 0; i < MAX_RAND_BYTES_LEN; ++i) {
-                if ((pt_pload + sizeof(pt_pload) <= data_end)
-                    && (pt_xor_byte < sizeof(xor_bytes_arr))) {
-                        *pt_pload = *pt_pload ^ *pt_xor_byte;
-                        pt_pload += 1;
-                        pt_xor_byte += 1;
-                }
-                break;
-        }
+        // for (i = 0; i < MAX_RAND_BYTES_LEN; ++i) {
+        //         if ((pt_pload + sizeof(pt_pload) <= data_end)
+        //             && (pt_xor_byte < sizeof(xor_bytes_arr))) {
+        //                 *pt_pload = *pt_pload ^ *pt_xor_byte;
+        //                 pt_pload += 1;
+        //                 pt_xor_byte += 1;
+        //         }
+        //         break;
+        // }
 #endif
 
         return XDP_TX;

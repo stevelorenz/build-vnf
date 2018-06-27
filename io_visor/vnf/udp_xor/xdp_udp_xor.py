@@ -36,10 +36,14 @@ parser.add_argument('-i', metavar='IFACE', type=str,
                     help='Ingress interface name. e.g. eth1')
 parser.add_argument('-e', metavar='IFACE', type=str,
                     help='Egress interface name.')
+parser.add_argument('--size', type=int, default=128,
+                    help='UDP payload size in bytes. Maximal 128 bytes.')
 parser.add_argument('--debug', action='store_true',
                     help='Enable debugging mode.')
 args = parser.parse_args()
 
+UDP_PAYLOAD_SIZE = args.size
+print('[INFO] UDP payload size: {} bytes'.format(UDP_PAYLOAD_SIZE))
 in_if_dev = args.i
 eg_if_dev = args.e
 
@@ -63,7 +67,23 @@ ip_route = pyroute2.IPRoute()
 eg_if_dev_idx = ip_route.link_lookup(ifname=eg_if_dev)[0]
 load_st_ts = time.time()
 
-bpf = BPF(src_file="./xdp_udp_xor.c", cflags=CFLAGS)
+with open("./xdp_udp_xor.c", "r") as src_file:
+    src_code = src_file.read()
+# MARK: Really do not want to do this... ugly code here...
+# BUT It works!
+if UDP_PAYLOAD_SIZE > 0:
+    repeat_opt = """
+            if ((pt_pload + sizeof(pt_pload) <= data_end)) {
+                    *pt_pload = (*pt_pload ^ 0x3);
+                    pt_pload += 1;
+            }
+    """ * (UDP_PAYLOAD_SIZE)
+else:
+    repeat_opt = ""
+src_code = src_code.replace('REPEAT_OPT', repeat_opt, 1)
+
+bpf = BPF(text=src_code, cflags=CFLAGS)
+
 # Add egress interface index into the DEV map
 tx_port = bpf.get_table("tx_port")
 tx_port[0] = ct.c_int(eg_if_dev_idx)

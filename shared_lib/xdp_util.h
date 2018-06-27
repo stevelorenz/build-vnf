@@ -15,7 +15,12 @@
 #include <linux/if_packet.h>
 #include <linux/in.h>
 #include <linux/ip.h>
+#include <linux/udp.h>
 #include <uapi/linux/bpf.h>
+
+#ifndef CKSUM_H
+#include "cksum.h"
+#endif
 
 /****************
  *  Definition  *
@@ -44,6 +49,8 @@ static inline uint8_t swap_mac(void* data, uint64_t nh_off, void* data_end);
 static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end,
     uint8_t* src_mac, uint8_t* dst_mac);
 
+static inline uint8_t ip_cksum(void* data, uint16_t ip_h_off, void* data_end);
+
 /********************
  *  Implementation  *
  ********************/
@@ -62,7 +69,7 @@ static inline uint16_t get_ip4_proto(
     void* data, uint64_t nh_off, void* data_end)
 {
         struct iphdr* iph = data + nh_off;
-
+        /* MARK: Do not understand &iph[1] */
         if ((void*)&iph[1] > data_end) {
                 return OPT_FAIL;
         }
@@ -96,6 +103,28 @@ static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end,
         }
         __builtin_memcpy(eth->h_source, src_mac, ETH_ALEN);
         __builtin_memcpy(eth->h_dest, dst_mac, ETH_ALEN);
+        return OPT_SUC;
+}
+
+static inline uint8_t ip_cksum(void* data, uint16_t ip_h_off, void* data_end)
+{
+        struct iphdr* iph = data + ip_h_off;
+        if ((void*)&iph[1] > data_end) {
+                return OPT_FAIL;
+        }
+        iph->check = 0;
+        iph->check = htons(cksum((uint8_t*)iph, 20, 0));
+        return OPT_SUC;
+}
+
+static inline uint8_t udp_cksum(void* data, uint16_t udp_h_off, void* data_end)
+{
+        struct udphdr* udph = data + udp_h_off;
+        if (udph + sizeof(struct udphdr) > data_end) {
+                return OPT_FAIL;
+        }
+        // TODO: Calculate the UDP checksum properly
+        udph->check = htons(0);
         return OPT_SUC;
 }
 
