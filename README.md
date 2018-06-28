@@ -14,12 +14,12 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 1. Linux XDP Socket (AF_XDP) (TBD)
 1. User-space NIC Driver (TBD)
 
-## TODO: Comparison ##
+## Brief Comparison ##
 
 1. DPDK:
 
 
-1. XDP:
+2. XDP:
 
   - Pros:
 
@@ -32,17 +32,17 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
   - Cons:
 
-    - Current XDP implementation (Kernel 4.8) can only forward packets back out the same NIC they arrived on.
-        (Update) The XDP__REDIRECT operation works on Kernel 4.17.
+      - Current XDP implementation (Kernel 4.8) can only forward packets back out the same NIC they arrived on.
+          (Update) The XDP REDIRECT operation works on Kernel 4.17.
 
-    - Implementation pitfalls and limitations: Check the BPF documentation provided by the Cilium.
+      - Implementation pitfalls and limitations: Check the BPF documentation provided by the Cilium.
 
-    - For OpenStack Pike, the maximum number of queues in the VM interface has to be set to the same value as the number
-        of vCPUs in the guest (use virtio-net driver). Since XDP requires an addtional TX queue per core which is not
-        visible to the networking stack.  Therefore, currently XDP can not be deployed in VMs on OpenStack directly.
+      - For OpenStack Pike, the maximum number of queues in the VM interface has to be set to the same value as the number
+          of vCPUs in the guest (use virtio-net driver). Since XDP requires an addtional TX queue per core which is not
+          visible to the networking stack.  Therefore, currently XDP can not be deployed in VMs on OpenStack directly.
 
 
-1. AF_PACKET:
+3. AF_PACKET:
 
   - Pros:
 
@@ -54,7 +54,7 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
           speed.
 
 
-1. Click Modular Router:
+4. Click Modular Router:
 
 ## Catalog ##
 
@@ -81,13 +81,14 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
 - [kokke/tiny-AES-c](https://github.com/kokke/tiny-AES-c): commit 3410accdc35e437ea03e39f47d53909cbc382a8e
 
-
 ## References ##
 
 - [Cilium: BPF and XDP Reference Guide](http://docs.cilium.io/en/latest/bpf/#)
 - [Prototype Kernel: XDP](https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html)
+- [DPDK Developer Documentation](http://doc.dpdk.org/guides/prog_guide/)
+- [BCC Reference Guide](https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md)
 
-## TODO ##
+## TODO List ##
 
 - Use a make based compile system for eBPF and XDP programs. (Currently bcc is used.)
 - Use Intel AES New Instructions.
