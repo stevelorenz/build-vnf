@@ -23,9 +23,19 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
   - Pros:
 
+      - XDP provides bare metal packet processing at the lowest point in the software stack.
+
+      - New functions can be implemented dynamically with the integrated fast path without kernel modification.
+
+      - It does not replace the kernel TCP/IP stack and can utilize all features provided by the Kernel networking
+          stack.
+
   - Cons:
 
     - Current XDP implementation (Kernel 4.8) can only forward packets back out the same NIC they arrived on.
+        (Update) The XDP__REDIRECT operation works on Kernel 4.17.
+
+    - Implementation pitfalls and limitations: Check the BPF documentation provided by the Cilium.
 
     - For OpenStack Pike, the maximum number of queues in the VM interface has to be set to the same value as the number
         of vCPUs in the guest (use virtio-net driver). Since XDP requires an addtional TX queue per core which is not
@@ -53,6 +63,13 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 **Measurements results (in CSV format) are not stored in the Repo, figures can be found ./evaluation/figurs**
 
 ## Version of used Tools ##
+
+- Linux Distribution: Vagrant box: bento/ubuntu-16.04
+
+- Linux Kernel:
+
+    - For BCC: 4.17.0-041700-generic
+    - For DPDK, Click: Default version in bento/ubuntu-16.04
 
 - DPDK: v17.11-rc4
 - BCC: v0.6.0
