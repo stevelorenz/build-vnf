@@ -2,7 +2,7 @@
 # Copyright(c) 2010-2014 Intel Corporation
 
 # binary name
-APP = udp_append_ts
+APP = udp_test
 
 # all source are stored in SRCS-y
 SRCS-y := main.c
@@ -15,7 +15,7 @@ all: shared
 .PHONY: shared static
 shared: build/$(APP)-shared
 	ln -sf $(APP)-shared build/$(APP)
-static: build/$(APP)-static
+	static: build/$(APP)-static
 	ln -sf $(APP)-static build/$(APP)
 
 PC_FILE := $(shell pkg-config --path libdpdk)
@@ -40,7 +40,7 @@ clean:
 else # Build using legacy build system
 
 ifeq ($(RTE_SDK),)
-$(error "Please define RTE_SDK environment variable")
+	$(error "Please define RTE_SDK environment variable")
 endif
 
 # Default target, can be overridden by command line or environment
