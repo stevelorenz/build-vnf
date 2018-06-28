@@ -36,7 +36,7 @@ def save_fig(fig, path, fmt=FIG_FMT):
                 bbox_inches='tight', dpi=400, format=fmt)
 
 
-def calc_rtt_lst(subdir, csv_tpl, var_lst):
+def calc_rtt_lst(subdir, csv_tpl, var_lst, grp_step=10):
     rtt_result_lst = list()
     for var in var_lst:
         tmp_list = list()
@@ -44,7 +44,16 @@ def calc_rtt_lst(subdir, csv_tpl, var_lst):
         csv_path = os.path.join(subdir, csv_name)
         rtt_arr = np.genfromtxt(csv_path, delimiter=',',
                                 usecols=list(range(0, TOTAL_PACK_NUM))) / 1000.0
+
         rtt_arr = rtt_arr[:, WARM_UP_NUM:]
+        # Calc hwci step by step to check if more measurements should be
+        # performed
+        print('Current csv template: %s' % csv_tpl)
+        for step in range(grp_step, rtt_arr.shape[0] + 1, grp_step):
+            print('Current group step: %d' % step)
+            step_rtt_arr = rtt_arr[:step, :]
+            print('HWCI: %.10f'
+                  % calc_hwci(np.average(step_rtt_arr, axis=1), 0.99))
         # Check nagative values
         signs = np.sign(rtt_arr).flatten()
         neg_sign = -1
@@ -55,6 +64,7 @@ def calc_rtt_lst(subdir, csv_tpl, var_lst):
             # Average value and confidence interval
             (np.average(tmp_list), calc_hwci(tmp_list, confidence=0.99))
         )
+    print('Final result list: ')
     print(rtt_result_lst)
     return rtt_result_lst
 
@@ -80,12 +90,12 @@ def plot_ipd():
     cmap = cm.get_cmap('tab10')
     techs = ['udp_rtt_' + x +
              '_%sms.csv' for x in (
-                 'xdp_fwd', 'xdp_xor', 'lkfwd', 'click_fwd', 'dpdk_fwd', 'dpdk_appendts')
+                 'xdp_fwd', 'xdp_xor_1400B', 'lkfwd', 'click_fwd', 'dpdk_fwd', 'dpdk_appendts')
              ]
     xtick_labels = ('XDP FWD', 'XDP XOR', 'Kernel FWD', 'Click FWD',
-                    'DPDK FWD', 'DPDK TS', 'Click FWD')
+                    'DPDK FWD', 'DPDK TS')
     colors = [cmap(x) for x in range(len(techs))]
-    hatch_patterns = ('xxx', '///', '+++', '\\\\\\', 'OO', 'ooo', '...')
+    hatch_patterns = ('x', 'xx', '+', '\\', '/', '//')
     bar_width = 0.08
     gap = 0.05
     fig, rtt_ax = plt.subplots()

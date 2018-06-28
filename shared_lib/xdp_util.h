@@ -50,6 +50,8 @@ static inline uint8_t rewrite_mac(void* data, uint64_t nh_off, void* data_end,
     uint8_t* src_mac, uint8_t* dst_mac);
 
 static inline uint8_t ip_cksum(void* data, uint16_t ip_h_off, void* data_end);
+static inline uint8_t udp_cksum(
+    void* data, uint16_t ip_h_off, uint16_t udp_h_off, void* data_end);
 
 /********************
  *  Implementation  *
@@ -117,14 +119,21 @@ static inline uint8_t ip_cksum(void* data, uint16_t ip_h_off, void* data_end)
         return OPT_SUC;
 }
 
-static inline uint8_t udp_cksum(void* data, uint16_t udp_h_off, void* data_end)
+static inline uint8_t udp_cksum(
+    void* data, uint16_t ip_h_off, uint16_t udp_h_off, void* data_end)
 {
+        struct iphdr* iph = data + ip_h_off;
+        if ((void*)&iph[1] > data_end) {
+                return OPT_FAIL;
+        }
+        iph->check = 0;
         struct udphdr* udph = data + udp_h_off;
         if (udph + sizeof(struct udphdr) > data_end) {
                 return OPT_FAIL;
         }
-        // TODO: Calculate the UDP checksum properly
-        udph->check = htons(0);
+        udph->check = 0;
+        /* MARK: generic UDP checksum is disabled because of eBPF verifier */
+        // udph->check = htons(cksum((uint8_t*)iph, 272, 1));
         return OPT_SUC;
 }
 

@@ -16,6 +16,7 @@
 
 /**
  * @brief Calculate the checksum for IP/TCP/UDP headers
+ *        type: 0->IP, 1->UDP, 2->TCP
  *
  * @return The checksum with unsigned integer format.
  */

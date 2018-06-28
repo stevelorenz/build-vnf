@@ -132,8 +132,8 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         REPEAT_OPT
 
         /*if ((pt_pload + sizeof(pt_pload) <= data_end)) {*/
-                /**pt_pload = (*pt_pload ^ 0x3);*/
-                /*pt_pload += 1;*/
+        /**pt_pload = (*pt_pload ^ 0x3);*/
+        /*pt_pload += 1;*/
         /*}*/
 
         // for (key = 0; key < 1; ++key) {
@@ -149,11 +149,10 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
 #endif
         /* Recalculate the IP and UDP header checksum */
         nh_off = ETH_HLEN;
-        if (ip_cksum(data, nh_off, data_end) == OPT_FAIL) {
+        if (udp_cksum(data, nh_off, nh_off + 20, data_end) == OPT_FAIL) {
                 return XDP_DROP;
         }
-        nh_off = ETH_HLEN + 20;
-        if (udp_cksum(data, nh_off, data_end) == OPT_FAIL) {
+        if (ip_cksum(data, nh_off, data_end) == OPT_FAIL) {
                 return XDP_DROP;
         }
 
