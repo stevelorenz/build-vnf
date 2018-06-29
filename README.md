@@ -87,6 +87,7 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 - [Prototype Kernel: XDP](https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html)
 - [DPDK Developer Documentation](http://doc.dpdk.org/guides/prog_guide/)
 - [BCC Reference Guide](https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md)
+- [Scaling virtual machine network performance for network intensive workloads](https://www.redhat.com/blog/verticalindustries/scaling-virtual-machine-network-performance-for-network-intensive-workloads/)
 
 ## TODO List ##
 

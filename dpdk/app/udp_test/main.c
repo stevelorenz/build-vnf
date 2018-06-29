@@ -15,8 +15,9 @@
  *   Copyright(c) 2010-2016 Intel Corporation
  *
  *	     TODO:
- *		    - Focus on single ingress and egress queue, reduce the code.
- *		    - Bind the packet processing to another lcore
+ *		    - Refactor the code to avoid nested if and loops
+ *		    - Utilize multi-core feature, bind processing and IO to
+ *		      different lcores.
  * =====================================================================================
  */
 
@@ -63,10 +64,15 @@
 #include <rte_random.h>
 #include <rte_udp.h>
 
-static volatile bool force_quit;
+typedef void (*UDP_OPT_FUNC)(struct rte_mbuf*);
 
-/* Verbose level */
-static int verbose = 0;
+#define XOR_OFFSET 16
+
+/**********************
+ *  Global Variables  *
+ **********************/
+
+static volatile bool force_quit;
 
 /* Enable debug mode */
 static int debugging = 0;
@@ -79,22 +85,25 @@ static int mac_updating = 1;
  * */
 static int packet_capturing = 0;
 
-/* Appending time stamps, default enabled */
-static int appending_ts = 1;
+/* Flag for processing operation of UDP segments */
+static int udp_proc_opt = 0;
 
 /* Burst-based packet processing */
-#define MAX_PKT_BURST 32 /* Default maximal received packets each time */
+/* Default maximal received packets each time
+ * Smaller pkt_burst -> lower latency -> lower bandwidth
+ * */
+static int max_pkt_burst = 32;
 /* Make these parameters tunable */
 static int poll_short_interval_us; /* Try to receive from the RX every X
                                       microseconds */
 static int max_poll_short_try;
 static int poll_long_interval_us;
 
-#define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
+#define BURST_TX_DRAIN_US 10
+static int burst_tx_drain_us = 10;
 #define MEMPOOL_CACHE_SIZE 256
 
-/* Ethernet Frames */
-#define MAX_FRAM_SIZE 1500
+#define MTU_SIZE 1500
 
 /* Processing delay of frames */
 static uint64_t st_proc_tsc = 0;
@@ -174,6 +183,16 @@ struct l2fwd_port_statistics {
 
 struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
+/****************
+ *  Prototypes  *
+ ****************/
+
+UDP_OPT_FUNC get_opt_func(int opt_type);
+
+/******************************
+ *  Function Implementations  *
+ ******************************/
+
 /**
  * @brief Convert Uint32 IP address to x.x.x.x format
  */
@@ -238,8 +257,12 @@ __attribute__((unused)) static bool is_udp_dgram(struct rte_mbuf* m)
                 return false;
 }
 
+/*****************************
+ *  UDP Segments Operations  *
+ *****************************/
+
 /**
- * @brief Append timestamps at the end of UDP diagram
+ * @brief Append timestamps at the end of UDP segment
  */
 static void udp_append_ts(struct rte_mbuf* m)
 {
@@ -285,6 +308,48 @@ static void udp_append_ts(struct rte_mbuf* m)
         udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
         iph->hdr_checksum = rte_ipv4_cksum(iph);
 }
+
+/**
+ * @brief XOR UDP payload with a fixed key
+ */
+static void udp_xor_key(struct rte_mbuf* m)
+{
+        struct ipv4_hdr* iph;
+        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
+        /* Get IHL */
+        uint8_t ihl = iph->version_ihl & 0x0F;
+        uint16_t iph_len = ihl * 32 / 8;
+
+        struct udp_hdr* udph;
+        udph = (struct udp_hdr*)((char*)iph + iph_len);
+        uint16_t data_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
+        /* XOR payload with a static offset */
+        uint8_t* p_data = (uint8_t*)(udph) + 8 + XOR_OFFSET;
+        /* Thx god, I can use loop in DPDK... */
+        uint16_t i = 0;
+        for (i = 0; i < data_len; ++i) {
+                *(p_data + i) = *(p_data + i) ^ 0x03;
+        }
+        /* Update UDP and IP headers */
+        udph->dgram_cksum = 0;
+        iph->hdr_checksum = 0;
+        udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
+        iph->hdr_checksum = rte_ipv4_cksum(iph);
+}
+
+UDP_OPT_FUNC get_opt_func(int opt_type)
+{
+        if (opt_type == 1) {
+                return udp_append_ts;
+        } else if (opt_type == 2) {
+                return udp_xor_key;
+        }
+        return NULL;
+}
+
+/*******************************
+ *  Ethernet Frame Operations  *
+ *******************************/
 
 static void l2fwd_mac_updating(struct rte_mbuf* m)
 {
@@ -369,8 +434,6 @@ __attribute__((unused)) static void log_rx_pkt(struct rte_mbuf* m)
                "-----------\n");
 }
 
-/* Check Link Status */
-
 /* Main forwarding and processing loop
  *
  * MARK: This function handles packet receiving, processing and transmitting.
@@ -380,7 +443,7 @@ static void l2fwd_main_loop(void)
         /* MARK: Packets are read in a burst of size MAX_PKT_BURST
          * This is also a tunable parameter for latency
          * */
-        struct rte_mbuf* pkts_burst[MAX_PKT_BURST];
+        struct rte_mbuf* pkts_burst[max_pkt_burst];
         struct rte_mbuf* m;
         unsigned lcore_id;
         unsigned i, j, portid, nb_rx;
@@ -389,9 +452,11 @@ static void l2fwd_main_loop(void)
         uint64_t prev_tsc, diff_tsc, cur_tsc;
         uint16_t sent;
 
-        /* MARK: Why there is a US_PER_S - 1 is added? Maybe check jiffes */
+        static void (*p_udp_opt)(struct rte_mbuf*);
+
+        /* MARK: Why there is a US_PER_S - 1 is added? Maybe check jiffies */
         const uint64_t drain_tsc
-            = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * BURST_TX_DRAIN_US;
+            = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * burst_tx_drain_us;
         struct rte_eth_dev_tx_buffer* buffer;
 
         prev_tsc = 0;
@@ -414,6 +479,7 @@ static void l2fwd_main_loop(void)
 
         /* Main loop for receiving, processing and sending packets
          * Currently use synchronous and non-blocking IO functions
+         * TODO: Refactor the code here
          * */
         while (!force_quit) {
 
@@ -454,7 +520,7 @@ static void l2fwd_main_loop(void)
                          * */
                         if (qconf->start_rx_flag[i]) {
                                 nb_rx = rte_eth_rx_burst(
-                                    portid, 0, pkts_burst, MAX_PKT_BURST);
+                                    portid, 0, pkts_burst, max_pkt_burst);
                                 if (likely(nb_rx == 0)) {
                                         if (max_poll_short_try == 0) {
                                                 /* Keep polling, SHOULD use 100%
@@ -511,13 +577,12 @@ static void l2fwd_main_loop(void)
                                                         continue;
                                                 } else {
                                                         nb_udp_dgrams += 1;
-                                                        if (appending_ts) {
-                                                                /* Append
-                                                                 * timestamp to
-                                                                 * a  UDP packet
-                                                                 */
-                                                                udp_append_ts(
-                                                                    m);
+
+                                                        p_udp_opt
+                                                            = get_opt_func(
+                                                                udp_proc_opt);
+                                                        if (p_udp_opt != NULL) {
+                                                                p_udp_opt(m);
                                                         }
                                                         l2fwd_simple_forward(
                                                             m, portid);
@@ -525,7 +590,7 @@ static void l2fwd_main_loop(void)
                                         }
                                         /* Evaluate processing delay of burst
                                          * packets */
-                                        if (verbose == 1) {
+                                        if (debugging == 1) {
                                                 proc_tsc
                                                     = rte_rdtsc() - st_proc_tsc;
                                                 proc_time
@@ -628,12 +693,15 @@ static unsigned int l2fwd_parse_nqueue(const char* q_arg)
         return n;
 }
 
-static const char short_options[] = "p:" /* portmask */
-                                    "q:" /* number of queues */
-                                    "s:" /* source MAC address */
-                                    "d:" /* destination MAC address */
-                                    "v:" /* verbose level */
-                                    "i:" /* rx polling parameters */
+static const char short_options[]
+    = "p:" /* portmask */
+      "q:" /* number of queues */
+      "s:" /* source MAC address */
+      "d:" /* destination MAC address */
+      "i:" /* rx polling parameters */
+      "o:" /* UDP processing operation flag */
+      "b:" /* maximal number of burst packets */
+      "t:" /* period for draining the tx queue in us */
     ;
 
 #define CMD_LINE_OPT_MAC_UPDATING "mac-updating"
@@ -642,8 +710,6 @@ static const char short_options[] = "p:" /* portmask */
 #define CMD_LINE_OPT_NO_PACKET_CAPTURING "no-packet-capturing"
 #define CMD_LINE_OPT_DEBUGGING "debugging"
 #define CMD_LINE_OPT_NO_DEBUGGING "no-debugging"
-#define CMD_LINE_OPT_APPENDING_TS "appending-ts"
-#define CMD_LINE_OPT_NO_APPENDING_TS "no-appending-ts"
 
 enum {
         /* long options mapped to a short option */
@@ -660,8 +726,6 @@ static const struct option lgopts[] = { { CMD_LINE_OPT_MAC_UPDATING,
         { CMD_LINE_OPT_NO_PACKET_CAPTURING, no_argument, &packet_capturing, 0 },
         { CMD_LINE_OPT_DEBUGGING, no_argument, &debugging, 1 },
         { CMD_LINE_OPT_NO_DEBUGGING, no_argument, &debugging, 0 },
-        { CMD_LINE_OPT_APPENDING_TS, no_argument, &appending_ts, 1 },
-        { CMD_LINE_OPT_NO_APPENDING_TS, no_argument, &appending_ts, 0 },
         { NULL, 0, 0, 0 } };
 
 /* Parse the argument given in the command line of the application */
@@ -726,8 +790,16 @@ static int l2fwd_parse_args(int argc, char** argv)
                             &poll_short_interval_us, &poll_long_interval_us);
                         break;
 
-                case 'v':
-                        verbose = strtol(optarg, &end, 10);
+                case 'o':
+                        udp_proc_opt = strtol(optarg, &end, 10);
+                        break;
+
+                case 'b':
+                        max_pkt_burst = strtol(optarg, &end, 10);
+                        break;
+
+                case 't':
+                        burst_tx_drain_us = strtol(optarg, &end, 10);
                         break;
 
                         /* long options */
@@ -830,10 +902,10 @@ int main(int argc, char** argv)
         unsigned int nb_lcores = 0;
         unsigned int nb_mbufs;
 
-        /* init EAL */
         ret = rte_eal_init(argc, argv);
-        if (ret < 0)
+        if (ret < 0) {
                 rte_exit(EXIT_FAILURE, "Invalid EAL arguments\n");
+        }
         argc -= ret;
         argv += ret;
 
@@ -857,8 +929,6 @@ int main(int argc, char** argv)
                 rte_log_set_level(RTE_LOGTYPE_USER1, RTE_LOG_INFO);
         }
 
-        RTE_LOG(INFO, USER1, "Verbose level: %d\n", verbose);
-
         RTE_LOG(INFO, USER1, "MAC updating: %s\n",
             mac_updating ? "enabled" : "disabled");
 
@@ -872,9 +942,6 @@ int main(int argc, char** argv)
                     dst_mac[0], dst_mac[1], dst_mac[2], dst_mac[3], dst_mac[4],
                     dst_mac[5]);
         }
-
-        RTE_LOG(INFO, USER1, "Appending timestamps: %s\n",
-            appending_ts ? "enabled" : "disabled");
 
         RTE_LOG(INFO, USER1, "Packet capturing: %s\n",
             packet_capturing ? "enabled" : "disabled");
@@ -898,6 +965,15 @@ int main(int argc, char** argv)
         RTE_LOG(INFO, USER1, "Number of to be used ports: %d\n", nb_ports);
         /*if (nb_ports == 0)*/
         /*rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");*/
+
+        RTE_LOG(
+            INFO, USER1, "UDP processing operation flag: %d\n", udp_proc_opt);
+
+        RTE_LOG(INFO, USER1, "Maximal number of burst packets: %d\n",
+            max_pkt_burst);
+
+        RTE_LOG(
+            INFO, USER1, "Drain tx queue period: %d us\n", burst_tx_drain_us);
 
         /* check port mask to possible port mask */
         if (l2fwd_enabled_port_mask & ~((1 << nb_ports) - 1))
@@ -963,11 +1039,14 @@ int main(int argc, char** argv)
         }
 
         nb_mbufs = RTE_MAX(nb_ports
-                * (nb_rxd + nb_txd + MAX_PKT_BURST
+                * (nb_rxd + nb_txd + max_pkt_burst
                       + nb_lcores * MEMPOOL_CACHE_SIZE),
             8192U);
 
-        /* create the mbuf pool */
+        /* create the mbuf pool
+         * RTE_MBUF_DEFAULT_BUF_SIZE = (RTE_MBUF_DEFAULT_DATAROOM +
+         * RTE_PKTMBUF_HEADROOM)
+         * */
         l2fwd_pktmbuf_pool = rte_pktmbuf_pool_create("mbuf_pool", nb_mbufs,
             MEMPOOL_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
         if (l2fwd_pktmbuf_pool == NULL)
@@ -1039,14 +1118,14 @@ int main(int argc, char** argv)
 
                 /* Initialize TX buffers */
                 tx_buffer[portid] = rte_zmalloc_socket("tx_buffer",
-                    RTE_ETH_TX_BUFFER_SIZE(MAX_PKT_BURST), 0,
+                    RTE_ETH_TX_BUFFER_SIZE(max_pkt_burst), 0,
                     rte_eth_dev_socket_id(portid));
                 if (tx_buffer[portid] == NULL)
                         rte_exit(EXIT_FAILURE,
                             "Cannot allocate buffer for tx on port %u\n",
                             portid);
 
-                rte_eth_tx_buffer_init(tx_buffer[portid], MAX_PKT_BURST);
+                rte_eth_tx_buffer_init(tx_buffer[portid], max_pkt_burst);
 
                 ret = rte_eth_tx_buffer_set_err_callback(tx_buffer[portid],
                     rte_eth_tx_buffer_count_callback,
@@ -1065,7 +1144,7 @@ int main(int argc, char** argv)
                 RTE_LOG(INFO, USER1, "Device started for port: %d\n", portid);
 
                 /* MARK: Enable promiscuous mode in each enabled port */
-                rte_eth_promiscuous_enable(portid);
+                /*rte_eth_promiscuous_enable(portid);*/
 
                 RTE_LOG(INFO, USER1,
                     "Port %u, MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n\n",
