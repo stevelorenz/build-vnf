@@ -128,9 +128,9 @@ Vagrant.configure("2") do |config|
         click.vm.box = BOX
         click.vm.hostname = "click"
 
-        click.vm.network "private_network", ip: "10.0.0.17",
+        click.vm.network "private_network", ip: "10.0.0.17", mac:"0800278794f9",
             nic_type: "82540EM"
-        click.vm.network "private_network", ip: "10.0.0.18",
+        click.vm.network "private_network", ip: "10.0.0.18", mac:"080027bae814",
             nic_type: "82540EM"
         click.vm.provision :shell, inline: $bootstrap
 
