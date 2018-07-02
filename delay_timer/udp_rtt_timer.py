@@ -196,9 +196,12 @@ class UDPServer(Base):
         super(UDPServer, self).__init__('server')
         self.buffer = queue.Queue(maxsize=queue_size)
         self._recv_ip, self._recv_port = recv_addr
-        # ...
+
         self._st_send_evt = threading.Event()
-        self._st_send_evt.clear()
+        self._st_send_evt.set()
+        self._wait_zero = threading.Event()
+        self._wait_zero.set()
+
         self._send_delay = send_delay
         self._pld_size = pld_size
         self._b_addr = b_addr
@@ -216,8 +219,13 @@ class UDPServer(Base):
             # Put the data into queue, check if queue is full
             if self.buffer.full():
                 logger.error(
-                    '[Server] Receive queue is full. SHOULD Use a bigger queue number.')
-                self._cleanup()
+                    '[Server] Receive queue is full. Enter recovering...')
+                self._st_send_evt.clear()
+                while not self.buffer.empty():
+                    _ = self.buffer.get_nowait()
+                self._wait_zero.set()
+                self._st_send_evt.set()
+
             else:
                 # Timestamp for start queuing packets in the buffer
                 # MARK: No print before st_queue_ts
@@ -231,6 +239,7 @@ class UDPServer(Base):
             self._send_sock.bind(self._b_addr)
         bounce_idx = 0
         while True:
+            self._st_send_evt.wait()
             if not self.buffer.empty():
                 data, addr, st_queue_ts = self.buffer.get_nowait()
                 data_arr = bytearray(data)
@@ -238,12 +247,22 @@ class UDPServer(Base):
                 # Update the send ts in the packet with queuing time on the
                 # server side
                 send_idx, send_ts = struct.unpack('!QQ', data[0:16])
-                if send_idx == 0:
-                    logger.info(
-                        # Only delayed for the first packet
-                        '[Server] Delay %f seconds before bouncing the first packet', self._send_delay)
-                    time.sleep(self._send_delay)
-                    bounce_idx = 0
+                if self._wait_zero.is_set():
+                    if send_idx == 0:
+                        logger.info(
+                            '[Server] Delay %f seconds before bouncing the first packet', self._send_delay)
+                        time.sleep(self._send_delay)
+                        bounce_idx = 0
+                        self._wait_zero.clear()
+                    else:
+                        continue
+                else:
+                    if send_idx == 0:
+                        logger.info(
+                            '[Server] Delay %f seconds before bouncing the first packet', self._send_delay)
+                        time.sleep(self._send_delay)
+                        bounce_idx = 0
+
                 send_ts += queue_time  # This is the delta
                 data_arr[0:16] = struct.pack('!QQ', send_idx, send_ts)
                 self._send_sock.sendto(

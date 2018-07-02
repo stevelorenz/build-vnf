@@ -1,11 +1,17 @@
 # Build VNF #
 
-Try different packet processing tools to build simple Virtualized Network Function (VNFs) in virtual machines or
-containers. The main concern of performance is the **low latency**.
+Test and evaluate different packet IO and processing tools for implementing Virtualized Network Function (VNFs) on
+virtual machines, Unikernels or containers. The main focus of performance here is the **low latency** (End-to-End
+service delay). Pros and cons of each tool should be studied and latter utilized for building VNF with different
+requirements.
+For example, firewalls or load balancers should be built using tools that provide high IO speeds but limited computing
+power.
+For compute-intensive network functions, such as data encryption, network coding and compressed sensing. The processing
+ability and delay performance of the tool should also be considered.
 
 Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/stevelorenz/sfc-ostack) framework.
 
-## Packet Processing Tools ##
+## Packet IO and Processing Tools ##
 
 1. Data Plane Development Kit (DPDK)
 1. IO Visor Project: eBPF + XDP
@@ -38,7 +44,7 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
       - Implementation pitfalls and limitations: Check the BPF documentation provided by the Cilium.
 
       - For OpenStack Pike, the maximum number of queues in the VM interface has to be set to the same value as the number
-          of vCPUs in the guest (use virtio-net driver). Since XDP requires an addtional TX queue per core which is not
+          of vCPUs in the guest (use virtio-net driver). Since XDP requires an additional TX queue per core which is not
           visible to the networking stack.  Therefore, currently XDP can not be deployed in VMs on OpenStack directly.
 
 
