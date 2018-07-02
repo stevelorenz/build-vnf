@@ -1,7 +1,7 @@
-// udp_forwarding.click
+// udp_append_ts.click
 
 // About: This configuration forwarding UDP segments from ingress port to egress port.
-//        Filter UDP segments and also modify src,dst MAC addresses
+//        Append timestamps at the end of each UDP segement
 
 // Email: xianglinks@gmail.com
 
@@ -11,7 +11,12 @@ AddressInfo(
     eth2 10.0.0.18 08:00:27:f1:51:f2,
     // source and destination addresses
     src 10.0.0.18 08:00:27:f1:51:f2,
-    dst 10.0.0.13 08:00:27:1e:2d:b3,
+    dst 10.0.0.14 08:00:27:e1:f1:7d,
+);
+
+PortInfo(
+    src_port 8888,
+    dst_port 9999
 );
 
 ingress :: FromDevice(eth1);
@@ -21,6 +26,7 @@ is_ip :: Classifier(12/0800, -);
 // Filter also source IP
 is_udp :: IPClassifier(10.0.0.13/24 and udp, -);
 udp_ctr :: Counter();
+udp_xor_payload :: UDPXORPayload();
 
 // --- Connections ---
 // Avoid looping frame
@@ -40,10 +46,16 @@ is_ip[0]
 is_udp[1] -> Discard;
 
 is_udp[0]
-    -> IPPrint
+    -> IPPrint('Before Proc')
     -> udp_ctr
     // Add a qeueu to connect push and pull ports
     -> FrontDropQueue(2000)
-    // Change MAC to pass SFC
-    -> EtherRewrite(src, dst)
+    -> udp_xor_payload
+    // Strip original Ether, IP and UDP header.
+    // Encapsulate new headers
+    -> Strip(42)
+    // TODO: May keep the UDP source port
+    ->UDPIPEncap(src, src_port, dst, dst_port, CHECKSUM true)
+    ->EtherEncap(0x0800, src, dst)
+    -> IPPrint('After Proc')
     -> egress;
