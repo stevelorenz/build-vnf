@@ -38,6 +38,7 @@ MAX_SEND_SLOW_NUMBER = 10
 BUFFER_SIZE = 1024
 RECV_SHORT_SLEEP = 1e-5  # 10us
 THD_JOIN_CHECK_PERIOD = 0.5  # second
+PUSH_PACK_NUM = 50
 
 CSV_FILE_PATH = './udp_rtt.csv'
 
@@ -94,7 +95,8 @@ class UDPClient(Base):
 
     """UDP Client"""
 
-    def __init__(self, send_addr, recv_ip, pack_nb, ipd, pld_size, b_addr):
+    def __init__(self, send_addr, recv_ip, pack_nb, ipd, pld_size, b_addr,
+                 push=False):
         super(UDPClient, self).__init__('client')
         self._send_ip, self._send_port = send_addr
         self._recv_ip = recv_ip
@@ -103,6 +105,7 @@ class UDPClient(Base):
         self._ipd = ipd
         self._pack_nb = pack_nb
         self._b_addr = b_addr
+        self._push = push
 
         self._recv_info_lst = list()
         self._rtt_result = list()
@@ -118,7 +121,7 @@ class UDPClient(Base):
         send_idx = 0
         send_slow_nb = 0
         while send_idx < self._pack_nb:
-            send_data[0:16] = struct.pack('!QQ', send_idx,
+            send_data[0:16] = struct.pack('!qQ', send_idx,
                                           int(time.time() * 1e6))
             st_send_ts = time.time()
             self._send_sock.sendto(send_data[0:self._pld_size],
@@ -138,6 +141,18 @@ class UDPClient(Base):
             send_idx += 1
         logger.debug(
             '[Client] The client finishes sending {:d} packets.'.format(self._pack_nb))
+
+        if self._push:
+            logger.info('[Client] Send additional %d pushing packets.',
+                        PUSH_PACK_NUM)
+            send_idx = 0
+            while send_idx < PUSH_PACK_NUM:
+                send_data[0:16] = struct.pack('!qQ', -1,
+                                              int(time.time() * 1e6))
+                self._send_sock.sendto(send_data[0:self._pld_size],
+                                       (self._send_ip, self._send_port))
+                time.sleep(self._ipd * 2)
+                send_idx += 1
 
     def _recv_pack(self):
         self._recv_sock.setblocking(False)
@@ -164,11 +179,14 @@ class UDPClient(Base):
     def _calc_rtt(self):
         # Check order and calculate RTT
         for idx, recv_info in enumerate(self._recv_info_lst):
-            send_idx, send_ts = struct.unpack('!QQ', recv_info[0][0:16])
+            send_idx, send_ts = struct.unpack('!qQ', recv_info[0][0:16])
             if idx != send_idx:
                 logger.error('The order of packets is not correct!')
                 self._cleanup()
-            self._rtt_result.append(recv_info[1] - send_ts)
+            rtt = recv_info[1] - send_ts
+            if rtt < 0:
+                raise RuntimeError('Error: Get negative RTT!')
+            self._rtt_result.append(rtt)
 
         # Write into csv file
         with open(CSV_FILE_PATH, 'a+') as csv_file:
@@ -235,15 +253,19 @@ class UDPServer(Base):
                 queue_time = int(time.time() * 1e6) - st_queue_ts
                 # Update the send ts in the packet with queuing time on the
                 # server side
-                send_idx, send_ts = struct.unpack('!QQ', data[0:16])
-                if send_idx == 0:
+                send_idx, send_ts = struct.unpack('!qQ', data[0:16])
+                if send_idx < 0:
+                    logger.debug('[Server] Recv a pushing packet')
+                    bounce_idx = 0
+                    continue
+                elif send_idx == 0:
                     logger.info(
                         # Only delayed for the first packet
                         '[Server] Delay %f seconds before bouncing the first packet', self._send_delay)
                     time.sleep(self._send_delay)
                     bounce_idx = 0
                 send_ts += queue_time  # This is the delta
-                data_arr[0:16] = struct.pack('!QQ', send_idx, send_ts)
+                data_arr[0:16] = struct.pack('!qQ', send_idx, send_ts)
                 self._send_sock.sendto(
                     data_arr[:], (addr[0], (self._recv_port + 1)))
                 logger.debug(
@@ -292,6 +314,8 @@ chain. (Bug of neutron sfc extension)""")
                         help='Path to store CSV files.')
     parser.add_argument('--bind', metavar='ADDRESS', type=str, default='',
                         help='To be binded address for sending packets.')
+    parser.add_argument('--push', action='store_true', default=False,
+                        help='Send additional pushing packets.')
 
     parser.add_argument('--log', type=str, default='INFO',
                         help='Logging level, e.g. INFO, DEBUG')
@@ -314,7 +338,9 @@ chain. (Bug of neutron sfc extension)""")
         port = int(port)
         udp_clt = UDPClient((ip, port), args.l, args.n,
                             args.ipd, args.payload_size,
-                            b_addr)
+                            b_addr, args.push)
+        logger.info("IPD: %f, Payload size: %d, Push: %s",
+                    args.ipd, args.payload_size, args.push)
         CSV_FILE_PATH = args.csv_path
         udp_clt.run()
 
