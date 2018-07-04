@@ -90,9 +90,11 @@ def plot_ipd():
     cmap = cm.get_cmap('tab10')
     techs = ['udp_rtt_' + x +
              '_%sms.csv' for x in (
-                 'xdp_fwd', 'xdp_xor_1400B', 'lkfwd', 'click_fwd', 'dpdk_fwd',
-                 'dpdk_appendts',
-                 'dpdk_xor_1400B')
+                 'xdp_fwd', 'xdp_xor_1400B',
+                 'lkfwd',
+                 'click_fwd',
+                 'dpdk_fwd_1400B', 'dpdk_appendts_1400B', 'dpdk_xor_1400B'
+             )
              ]
     xtick_labels = ('XDP FWD', 'XDP XOR', 'Kernel FWD', 'Click FWD',
                     'DPDK FWD', 'DPDK TS', 'DPDK XOR')

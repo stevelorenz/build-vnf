@@ -88,6 +88,9 @@ static int packet_capturing = 0;
 /* Flag for processing operation of UDP segments */
 static int udp_proc_opt = 0;
 
+/* Forwarding with single port -> bounce packets */
+static int single_port = 0;
+
 /* Burst-based packet processing */
 /* Default maximal received packets each time
  * Smaller pkt_burst -> lower latency -> lower bandwidth
@@ -710,6 +713,8 @@ static const char short_options[]
 #define CMD_LINE_OPT_NO_PACKET_CAPTURING "no-packet-capturing"
 #define CMD_LINE_OPT_DEBUGGING "debugging"
 #define CMD_LINE_OPT_NO_DEBUGGING "no-debugging"
+#define CMD_LINE_OPT_SINGLE_PORT "single-port"
+#define CMD_LINE_OPT_NO_SINGLE_PORT "no-single-port"
 
 enum {
         /* long options mapped to a short option */
@@ -726,6 +731,8 @@ static const struct option lgopts[] = { { CMD_LINE_OPT_MAC_UPDATING,
         { CMD_LINE_OPT_NO_PACKET_CAPTURING, no_argument, &packet_capturing, 0 },
         { CMD_LINE_OPT_DEBUGGING, no_argument, &debugging, 1 },
         { CMD_LINE_OPT_NO_DEBUGGING, no_argument, &debugging, 0 },
+        { CMD_LINE_OPT_SINGLE_PORT, no_argument, &single_port, 1 },
+        { CMD_LINE_OPT_NO_SINGLE_PORT, no_argument, &single_port, 0 },
         { NULL, 0, 0, 0 } };
 
 /* Parse the argument given in the command line of the application */
@@ -952,6 +959,12 @@ int main(int argc, char** argv)
                 if (ret < 0)
                         rte_exit(EXIT_FAILURE,
                             "Can not initialize the pdump framework.");
+        }
+
+        RTE_LOG(INFO, USER1, "Single port: %s\n",
+            single_port ? "enabled" : "disabled");
+        if (single_port) {
+                RTE_LOG(INFO, USER1, "[WARN] Port mask is ignored.\n");
         }
 
         RTE_LOG(INFO, USER1,

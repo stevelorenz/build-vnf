@@ -1,6 +1,5 @@
 #! /bin/bash
 #
-# init_ifce.sh
 # About: Init ingress and egress interfaces
 #
 
