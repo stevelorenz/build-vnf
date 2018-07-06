@@ -36,6 +36,30 @@ def save_fig(fig, path, fmt=FIG_FMT):
                 bbox_inches='tight', dpi=400, format=fmt)
 
 
+def warn_three_std(value_arr, path=None, remove=False):
+    """Raise exception if the value is not in the three std +- mean value of
+    value_arr
+    """
+    avg = np.average(value_arr)
+    std = np.std(value_arr)
+
+    for idx, value in enumerate(value_arr):
+        if (abs(value - avg) >= 3.0) * std:
+            if not remove:
+                if path:
+                    error_msg = 'Line: %d, Value: %s is not located in three std range, path: %s' % (
+                        (idx + 1), value, path)
+                else:
+                    error_msg = 'Line: %d, Value: %s is not located in three std range of list: %s' % (
+                        (idx + 1), value, ', '.join(map(str, value_arr)))
+                raise RuntimeError(error_msg)
+            else:
+                del value_arr[idx]
+
+    print('[DEBUG] Len of value_arr: %d' % len(value_arr))
+    return value_arr
+
+
 def calc_rtt_lst(subdir, csv_tpl, var_lst, grp_step=10):
     rtt_result_lst = list()
     for var in var_lst:
@@ -60,6 +84,7 @@ def calc_rtt_lst(subdir, csv_tpl, var_lst, grp_step=10):
         if neg_sign in signs:
             raise RuntimeError('Found negative RTT value in %s.' % csv_path)
         tmp_list = np.average(rtt_arr, axis=1)
+        tmp_list = warn_three_std(tmp_list, csv_path)
         rtt_result_lst.append(
             # Average value and confidence interval
             (np.average(tmp_list), calc_hwci(tmp_list, confidence=0.99))
@@ -88,18 +113,26 @@ def plot_ipd():
               )
     ipd_lst = [5]
     cmap = cm.get_cmap('tab10')
+
+    # TODO: Improve the figure, techs and operations separately
+    opts = ['FWD', 'ATS', 'XOR']
+
     techs = ['udp_rtt_' + x +
              '_%sms.csv' for x in (
                  'xdp_fwd', 'xdp_xor_1400B',
                  'lkfwd',
-                 'click_fwd',
+                 'click_fwd_1400B', 'click_appendts_1400B', 'click_xor_1400B',
                  'dpdk_fwd_1400B', 'dpdk_appendts_1400B', 'dpdk_xor_1400B'
              )
              ]
-    xtick_labels = ('XDP FWD', 'XDP XOR', 'Kernel FWD', 'Click FWD',
-                    'DPDK FWD', 'DPDK TS', 'DPDK XOR')
+    xtick_labels = (
+        'XDP FWD', 'XDP XOR', 'Kernel FWD', 'Click FWD',
+        'Click ATS',
+        'Click XOR', 'DPDK FWD', 'DPDK ATS', 'DPDK XOR'
+    )
     colors = [cmap(x) for x in range(len(techs))]
-    hatch_patterns = ('x', 'xx', '+', '\\', '/', '//', '///')
+    hatch_patterns = ('x', 'xx', '+', '\\', '\\\\',
+                      '\\\\\\\\', '/', '//', '///')
     bar_width = 0.08
     gap = 0.05
     fig, rtt_ax = plt.subplots()
@@ -117,8 +150,11 @@ def plot_ipd():
     rtt_ax.set_xticks([0 + x * (bar_width + gap) for x in range(len(techs))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
     rtt_ax.set_ylim(0, 0.5)
-    rtt_ax.set_xticklabels(xtick_labels, fontsize=4)
+    rtt_ax.set_xticklabels(xtick_labels, fontsize=2.5)
     rtt_ax.grid(linestyle='--')
+
+    rtt_ax.set_title('Sender UDP Payload size: 1400 Bytes')
+
     save_fig(fig, './rtt_fix_ipd')
 
 
