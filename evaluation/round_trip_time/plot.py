@@ -36,16 +36,17 @@ def save_fig(fig, path, fmt=FIG_FMT):
                 bbox_inches='tight', dpi=400, format=fmt)
 
 
-def warn_three_std(value_arr, path=None, remove=False):
-    """Raise exception if the value is not in the three std +- mean value of
+def warn_x_std(value_arr, path=None, ret_inv_lst=False, x=3):
+    """Raise exception if the value is not in the x std +- mean value of
     value_arr
     """
     avg = np.average(value_arr)
     std = np.std(value_arr)
+    invalid_index = list()
 
     for idx, value in enumerate(value_arr):
-        if (abs(value - avg) >= 3.0) * std:
-            if not remove:
+        if (abs(value - avg) >= x * std):
+            if not ret_inv_lst:
                 if path:
                     error_msg = 'Line: %d, Value: %s is not located in three std range, path: %s' % (
                         (idx + 1), value, path)
@@ -54,10 +55,10 @@ def warn_three_std(value_arr, path=None, remove=False):
                         (idx + 1), value, ', '.join(map(str, value_arr)))
                 raise RuntimeError(error_msg)
             else:
-                del value_arr[idx]
+                invalid_index.append(idx)
 
     print('[DEBUG] Len of value_arr: %d' % len(value_arr))
-    return value_arr
+    return (value_arr, invalid_index)
 
 
 def calc_rtt_lst(subdir, csv_tpl, var_lst, grp_step=10):
@@ -72,7 +73,7 @@ def calc_rtt_lst(subdir, csv_tpl, var_lst, grp_step=10):
         rtt_arr = rtt_arr[:, WARM_UP_NUM:]
         # Calc hwci step by step to check if more measurements should be
         # performed
-        print('Current csv template: %s' % csv_tpl)
+        print('Current CSV name: %s' % csv_name)
         for step in range(grp_step, rtt_arr.shape[0] + 1, grp_step):
             print('Current group step: %d' % step)
             step_rtt_arr = rtt_arr[:step, :]
@@ -84,7 +85,18 @@ def calc_rtt_lst(subdir, csv_tpl, var_lst, grp_step=10):
         if neg_sign in signs:
             raise RuntimeError('Found negative RTT value in %s.' % csv_path)
         tmp_list = np.average(rtt_arr, axis=1)
-        tmp_list = warn_three_std(tmp_list, csv_path)
+        tmp_list, invalid_index = warn_x_std(tmp_list, csv_path,
+                                             ret_inv_lst=True, x=3)
+        if invalid_index:
+            print('[WARN] Remove invalid rows from the CSV file')
+            print('Invalid rows: %s' % ', '.join(map(str, invalid_index)))
+            data = np.genfromtxt(csv_path, delimiter=',',
+                                 usecols=list(range(0, TOTAL_PACK_NUM)))
+            data = np.delete(data, invalid_index, axis=0)
+            np.savetxt(csv_path, data, delimiter=',')
+            raise RuntimeError('Found invalid rows, rows are already removed.' +
+                               ' Run the plot program again')
+
         rtt_result_lst.append(
             # Average value and confidence interval
             (np.average(tmp_list), calc_hwci(tmp_list, confidence=0.99))
@@ -119,7 +131,7 @@ def plot_ipd():
 
     techs = ['udp_rtt_' + x +
              '_%sms.csv' for x in (
-                 'xdp_fwd', 'xdp_xor_1400B',
+                 'xdp_fwd_1400B', 'xdp_xor_1400B',
                  'lkfwd',
                  'click_fwd_1400B', 'click_appendts_1400B', 'click_xor_1400B',
                  'dpdk_fwd_1400B', 'dpdk_appendts_1400B', 'dpdk_xor_1400B'

@@ -975,6 +975,10 @@ int main(int argc, char** argv)
         /* MARK: This function is not supported in DPDK 17.11 */
         /*nb_ports = rte_eth_dev_count_avail();*/
         nb_ports = 2;
+        if (single_port) {
+                nb_ports = 1;
+        }
+
         RTE_LOG(INFO, USER1, "Number of to be used ports: %d\n", nb_ports);
         /*if (nb_ports == 0)*/
         /*rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");*/
