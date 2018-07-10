@@ -22,8 +22,11 @@ import pyroute2
 DEBUG = False
 
 UDP_PAYLOAD_SIZE = 128
+XOR_OFFSET = 16
+# MARK: Current XOR_OFFSET, the alignment offset is const 2 bytes
+ALIGN_OFFSET = 2
 
-CFLAGS = ["-w", "-Wall"]
+CFLAGS = ["-w", "-Wall", "-O3"]
 
 
 def init_xdp_progs(bpf, ifce_names, func_names):
@@ -55,9 +58,15 @@ if __name__ == "__main__":
                         help='Interface(s) name list. Delimiter=,'
                         )
 
+    parser.add_argument('--payload_size', type=int, default=128,
+                        help='UDP payload size in bytes.')
     parser.add_argument('--debug', action='store_true',
                         help='Enable debugging mode.')
     args = parser.parse_args()
+
+    UDP_PAYLOAD_SIZE = args.payload_size
+
+    print('[INFO] XOR offset: %d' % XOR_OFFSET)
 
     if args.debug:
         DEBUG = True
@@ -91,21 +100,41 @@ if __name__ == "__main__":
     elif opt == 2:
         CFLAGS.extend(["-include", "../../../shared_lib/random.h"])
         CFLAGS.append("-DXOR_IFCE=0")
+        CFLAGS.append("-DXOR_OFFSET=%s" % XOR_OFFSET)
 
         with open("./xdp_udp_xor.c", "r") as src_file:
             src_code = src_file.read()
+
         # MARK: Really do not want to do this... ugly code here...
         # BUT It works!
-        if UDP_PAYLOAD_SIZE > 0:
-            repeat_opt = """
-                    if ((pt_pload + sizeof(pt_pload) <= data_end)) {
-                            *pt_pload = (*pt_pload ^ 0x3);
-                            pt_pload += 1;
-                    }
-            """ * (UDP_PAYLOAD_SIZE)
-        else:
-            repeat_opt = ""
-        src_code = src_code.replace('REPEAT_OPT', repeat_opt, 1)
+
+        XOR_SIZE = UDP_PAYLOAD_SIZE - XOR_OFFSET
+        if XOR_SIZE <= 0:
+            raise RuntimeError('The XOR size is not bigger than zero!')
+
+        num, rmd = divmod(XOR_SIZE - ALIGN_OFFSET, 8)
+        xor_opt_code = ""
+        xor_opt_code += """
+        if ((pt_pload_8 + sizeof(pt_pload_8) <= data_end)) {
+        *pt_pload_8 = (*pt_pload_8 ^ 0x03);
+        pt_pload_8 += 1;
+        }
+        """ * (ALIGN_OFFSET + rmd)
+
+        xor_opt_code += """
+        pt_pload_64 = (uint64_t *)pt_pload_8;
+        """
+        xor_opt_code += """
+        if ((pt_pload_64 + sizeof(pt_pload_64) <= data_end)) {
+        *pt_pload_64 = (*pt_pload_64 ^ 0x%s);
+        pt_pload_64 += 1;
+        }
+        """ % ('03' * 8) * (num)
+
+        print('[INFO] Align: %dB, Remainder: %dB, Num8B: %d'
+              % (ALIGN_OFFSET, rmd, num))
+
+        src_code = src_code.replace('XOR_OPT_CODE', xor_opt_code, 1)
         bpf = BPF(text=src_code, cflags=CFLAGS)
         init_xdp_progs(bpf, ifce_lst, func_names)
     else:

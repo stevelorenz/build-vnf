@@ -31,8 +31,15 @@
 #define XOR_IFCE 0
 #endif
 
+#ifndef XDP_ACTION
+#define XDP_ACTION BOUNCE
+#endif
+
 /* The first 16 bytes are used for packet index and timestamp */
+#ifndef XOR_OFFSET
 #define XOR_OFFSET 16
+#endif
+
 #define MAX_RAND_BYTES_LEN 512
 
 /* Map for TX port */
@@ -85,7 +92,7 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         void* data_end = (void*)(long)xdp_ctx->data_end;
         void* data = (void*)(long)xdp_ctx->data;
 
-        ACTION action = REDIRECT;
+        ACTION action = XDP_ACTION;
         long* pt_udp_nb = 0;
         uint64_t nh_off = 0;
         uint16_t h_proto = 0;
@@ -110,17 +117,20 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         }
 
 #if defined(XOR_IFCE) && (XOR_IFCE == 0)
-        uint8_t* pt_pload; // Pointer to the UDP payload
+        uint8_t* pt_pload_8; // Pointer to the UDP payload
+        uint64_t* pt_pload_64;
         uint8_t* pt_xor_byte;
         /* MARK: Not allowed to use the global variable */
         /* TODO: Use proper method to get XOR bytes from the Map */
 
         /* XOR the UDP payload */
         nh_off = UDP_PAYLOAD_OFFSET + XOR_OFFSET; // From nh_off -> data_end.
-        pt_pload = (uint8_t*)(data + nh_off);
+        pt_pload_8 = (uint8_t*)(data + nh_off);
 
         if (DEBUG) {
-                bpf_trace_printk("[DEBUG] nh_off: %u\n,", nh_off);
+                /* Used to check the alignment of the payload pointer */
+                bpf_trace_printk(
+                    "Payload pointer: %lu\n", (uintptr_t)(pt_pload_8));
         }
         /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
          * DO NOT use data_end for arithmetic
@@ -129,23 +139,8 @@ uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
         /* [Zuo] Try to walk around the bpf verifier:
          * Nothing serious... I mean really.. Please just run it once...
          * */
-        REPEAT_OPT
+        XOR_OPT_CODE
 
-        /*if ((pt_pload + sizeof(pt_pload) <= data_end)) {*/
-        /**pt_pload = (*pt_pload ^ 0x3);*/
-        /*pt_pload += 1;*/
-        /*}*/
-
-        // for (key = 0; key < 1; ++key) {
-        //         if ((pt_pload + sizeof(pt_pload) <= data_end)) {
-        //                 *pt_pload = (*pt_pload ^ 0x3);
-        //                 pt_pload += 1;
-        //         }
-
-        //         else {
-        //                 break;
-        //         }
-        // }
 #endif
         /* Recalculate the IP and UDP header checksum */
         nh_off = ETH_HLEN;
@@ -207,7 +202,7 @@ uint16_t egress_xdp_tx(struct xdp_md* xdp_ctx)
 
         uint64_t nh_off = 0;
         uint16_t i = 0;
-        uint8_t* pt_pload; // Pointer to the UDP payload
+        uint8_t* pt_pload_8; // Pointer to the UDP payload
         uint8_t* pt_xor_byte;
         /* MARK: Not allowed to use the global variable */
         /* TODO: Use proper method to get XOR bytes from the Map */
@@ -219,15 +214,15 @@ uint16_t egress_xdp_tx(struct xdp_md* xdp_ctx)
 
         /* XOR the UDP payload */
         nh_off = UDP_PAYLOAD_OFFSET + XOR_OFFSET; // From nh_off -> data_end.
-        pt_pload = (uint8_t*)(data + nh_off);
+        pt_pload_8 = (uint8_t*)(data + nh_off);
         /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
          * DO NOT use data_end for arithmetic
          * */
         // for (i = 0; i < MAX_RAND_BYTES_LEN; ++i) {
-        //         if ((pt_pload + sizeof(pt_pload) <= data_end)
+        //         if ((pt_pload_8 + sizeof(pt_pload_8) <= data_end)
         //             && (pt_xor_byte < sizeof(xor_bytes_arr))) {
-        //                 *pt_pload = *pt_pload ^ *pt_xor_byte;
-        //                 pt_pload += 1;
+        //                 *pt_pload_8 = *pt_pload_8 ^ *pt_xor_byte;
+        //                 pt_pload_8 += 1;
         //                 pt_xor_byte += 1;
         //         }
         //         break;
