@@ -132,7 +132,7 @@ def plot_ipd():
     techs = ['udp_rtt_' + x +
              '_%sms.csv' for x in (
                  'xdp_fwd_1400B', 'xdp_xor_1400B',
-                 'lkfwd',
+                 'lk_fwd_1400B',
                  'click_fwd_1400B', 'click_appendts_1400B', 'click_xor_1400B',
                  'dpdk_fwd_1400B', 'dpdk_appendts_1400B', 'dpdk_xor_1400B'
              )
