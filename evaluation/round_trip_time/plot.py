@@ -12,7 +12,6 @@ import sys
 sys.path.append('../scripts/')
 import tex
 
-import ipdb
 import numpy as np
 
 import matplotlib as mpl
@@ -132,20 +131,35 @@ def plot_ipd(payload_size='1400B'):
         'click_fwd', 'click_appendts', 'click_xor',
         'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor',
     ]
-    items = map(lambda x: x+'_%s' % payload_size, items)
+    if payload_size == '1400B':
+        items.remove('xdp_xor')
+    items = list(map(lambda x: x+'_%s' % payload_size, items))
     csv_files = ['udp_rtt_' + x +
                  '_%sms.csv' for x in items]
-    xtick_labels = (
-        'XDP FWD', 'XDP XOR', 'Kernel FWD', 'Click FWD',
-        'Click ATS',
-        'Click XOR', 'DPDK FWD', 'DPDK ATS', 'DPDK XOR'
-    )
 
-    # colors = [cmap(x) for x in range(len(csv_files))]
+    xtick_labels = ['FWD', 'XOR',
+                    'FWD',
+                    'FWD', 'ATS', 'XOR',
+                    'FWD', 'ATS', 'XOR'
+                    ]
     colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3)]
-
     hatch_patterns = ('x', 'xx', '+', '\\', '\\\\',
                       '\\\\\\\\', '/', '//', '///')
+    labels = [""] * len(csv_files)
+    if payload_size == '1400B':
+        xtick_labels = ['FWD',
+                        'FWD',
+                        'FWD', 'ATS', 'XOR',
+                        'FWD', 'ATS', 'XOR'
+                        ]
+        colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3)]
+        hatch_patterns = ('xx', '++', '\\\\', '\\\\',
+                          '\\\\', '//', '//', '//')
+        labels[0] = "XDP"
+        labels[1] = "LKF"
+        labels[2] = "Click"
+        labels[5] = "DPDK"
+
     bar_width = 0.08
     gap = 0.03
     fig, rtt_ax = plt.subplots()
@@ -156,8 +170,8 @@ def plot_ipd(payload_size='1400B'):
             rtt_bar = rtt_ax.bar([0 + idx * (bar_width + gap)], [t[0] for t in rtt_result_lst],
                                  yerr=[t[1] for t in rtt_result_lst],
                                  color=colors[idx], ecolor='red',
-                                 edgecolor='black', lw=0.6,
-                                 hatch=hatch_patterns[idx],
+                                 edgecolor='black', lw=0.6, alpha=0.8,
+                                 hatch=hatch_patterns[idx], label=labels[idx],
                                  width=bar_width)
             label_bar(rtt_bar, rtt_ax)
         except OSError:
@@ -168,7 +182,7 @@ def plot_ipd(payload_size='1400B'):
                        for x in range(len(csv_files))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
     rtt_ax.set_ylim(0, 0.5)
-    rtt_ax.set_xticklabels(xtick_labels, fontsize=2.5)
+    rtt_ax.set_xticklabels(xtick_labels)
     rtt_ax.grid(linestyle='--')
 
     handles, labels = rtt_ax.get_legend_handles_labels()

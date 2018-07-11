@@ -139,7 +139,7 @@ if __name__ == "__main__":
         num, rmd = divmod(XOR_SIZE - ALIGN_OFFSET, 8)
         xor_opt_code = ""
         xor_opt_code += """
-        if ((pt_pload_8 + sizeof(pt_pload_8) <= data_end)) {
+        if ((pt_pload_8 + 1 <= data_end)) {
         *pt_pload_8 = (*pt_pload_8 ^ 0x03);
         pt_pload_8 += 1;
         }
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         pt_pload_64 = (uint64_t *)pt_pload_8;
         """
         xor_opt_code += """
-        if ((pt_pload_64 + sizeof(pt_pload_64) <= data_end)) {
+        if ((pt_pload_64 + 1 <= data_end)) {
         *pt_pload_64 = (*pt_pload_64 ^ 0x%s);
         pt_pload_64 += 1;
         }
