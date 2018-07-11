@@ -20,7 +20,7 @@ wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.17/linux-headers-4.17.0
 wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.17/linux-image-unsigned-4.17.0-041700-generic_4.17.0-041700.201806041953_amd64.deb
 
 # Install libssl1.1 from https://packages.ubuntu.com/bionic/amd64/libssl1.1/download
-sudo echo "deb http://cz.archive.ubuntu.com/ubuntu bionic main" >> /etc/apt/sources.list
+echo "deb http://cz.archive.ubuntu.com/ubuntu bionic main" | sudo tee -a /etc/apt/sources.list > /dev/null
 sudo apt update
 sudo apt install -y libssl1.1
 

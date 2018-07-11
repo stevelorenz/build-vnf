@@ -117,7 +117,7 @@ def label_bar(rects, ax):
                 ha='center', va='bottom')
 
 
-def plot_ipd():
+def plot_ipd(payload_size='1400B'):
     tex.setup(width=1, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17,
               params={
                   'hatch.linewidth': 0.5
@@ -126,54 +126,64 @@ def plot_ipd():
     ipd_lst = [5]
     cmap = cm.get_cmap('tab10')
 
-    # TODO: Improve the figure, techs and operations separately
-    opts = ['FWD', 'ATS', 'XOR']
-
-    techs = ['udp_rtt_' + x +
-             '_%sms.csv' for x in (
-                 'xdp_fwd_1400B', 'xdp_xor_1400B',
-                 'lk_fwd_1400B',
-                 'click_fwd_1400B', 'click_appendts_1400B', 'click_xor_1400B',
-                 'dpdk_fwd_1400B', 'dpdk_appendts_1400B', 'dpdk_xor_1400B'
-             )
-             ]
+    items = [
+        'xdp_fwd', 'xdp_xor',
+        'lk_fwd',
+        'click_fwd', 'click_appendts', 'click_xor',
+        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor',
+    ]
+    items = map(lambda x: x+'_%s' % payload_size, items)
+    csv_files = ['udp_rtt_' + x +
+                 '_%sms.csv' for x in items]
     xtick_labels = (
         'XDP FWD', 'XDP XOR', 'Kernel FWD', 'Click FWD',
         'Click ATS',
         'Click XOR', 'DPDK FWD', 'DPDK ATS', 'DPDK XOR'
     )
-    colors = [cmap(x) for x in range(len(techs))]
+
+    # colors = [cmap(x) for x in range(len(csv_files))]
+    colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3)]
+
     hatch_patterns = ('x', 'xx', '+', '\\', '\\\\',
                       '\\\\\\\\', '/', '//', '///')
     bar_width = 0.08
-    gap = 0.05
+    gap = 0.03
     fig, rtt_ax = plt.subplots()
-    for idx, tech in enumerate(techs):
-        rtt_result_lst = calc_rtt_lst('./results/rtt/', techs[idx], ipd_lst)
-        rtt_bar = rtt_ax.bar([0 + idx * (bar_width + gap)], [t[0] for t in rtt_result_lst],
-                             yerr=[t[1] for t in rtt_result_lst],
-                             color=colors[idx], ecolor='red',
-                             edgecolor='black', lw=0.6,
-                             hatch=hatch_patterns[idx],
-                             width=bar_width)
-        label_bar(rtt_bar, rtt_ax)
+    for idx, tech in enumerate(csv_files):
+        try:
+            rtt_result_lst = calc_rtt_lst(
+                './results/rtt/', csv_files[idx], ipd_lst)
+            rtt_bar = rtt_ax.bar([0 + idx * (bar_width + gap)], [t[0] for t in rtt_result_lst],
+                                 yerr=[t[1] for t in rtt_result_lst],
+                                 color=colors[idx], ecolor='red',
+                                 edgecolor='black', lw=0.6,
+                                 hatch=hatch_patterns[idx],
+                                 width=bar_width)
+            label_bar(rtt_bar, rtt_ax)
+        except OSError:
+            continue
 
     rtt_ax.set_ylabel('Round Trip Time (ms)')
-    rtt_ax.set_xticks([0 + x * (bar_width + gap) for x in range(len(techs))])
+    rtt_ax.set_xticks([0 + x * (bar_width + gap)
+                       for x in range(len(csv_files))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
     rtt_ax.set_ylim(0, 0.5)
     rtt_ax.set_xticklabels(xtick_labels, fontsize=2.5)
     rtt_ax.grid(linestyle='--')
 
-    rtt_ax.set_title('Sender UDP Payload size: 1400 Bytes')
+    handles, labels = rtt_ax.get_legend_handles_labels()
+    rtt_ax.legend(handles, labels, loc='upper left')
 
-    save_fig(fig, './rtt_fix_ipd')
+    rtt_ax.set_title('Sender UDP Payload size: %s' % payload_size)
+
+    save_fig(fig, './rtt_fix_ipd_%s' % payload_size)
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 3:
         FIG_FMT = sys.argv[2]
     elif sys.argv[1] == 'ipd':
-        plot_ipd()
+        plot_ipd('1400B')
+        plot_ipd('256B')
     else:
         raise RuntimeError('Unknown option!')
