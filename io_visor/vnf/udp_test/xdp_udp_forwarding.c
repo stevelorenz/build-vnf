@@ -45,11 +45,7 @@ uint16_t ingress_xdp_redirect(struct xdp_md* ctx)
         uint64_t nh_off = 0;
         uint32_t key = 0;
 
-        /* MARK: To be used source and destination are hard coded here */
-        /*08:00:27:d6:69:61*/
-        uint8_t src_mac[ETH_ALEN] = { 0x08, 0x00, 0x27, 0xd6, 0x69, 0x61 };
-        /*08:00:27:e1:f1:7d*/
-        uint8_t dst_mac[ETH_ALEN] = { 0x08, 0x00, 0x27, 0xe1, 0xf1, 0x7d };
+	SRC_DST_MAC_INIT
 
         /* TODO: Filter received Ethernet frame -> Only handle UDP segments */
 

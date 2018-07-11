@@ -86,100 +86,95 @@ BPF_ARRAY(xor_bytes_map, uint8_t, MAX_RAND_BYTES_LEN);
  */
 uint16_t ingress_xdp_redirect(struct xdp_md* xdp_ctx)
 {
-        if (DEBUG) {
-                bpf_trace_printk("[Ingress] Recv an Ether\n");
-        }
-        void* data_end = (void*)(long)xdp_ctx->data_end;
-        void* data = (void*)(long)xdp_ctx->data;
+    if (DEBUG) {
+	bpf_trace_printk("[Ingress] Recv an Ether\n");
+    }
+    void* data_end = (void*)(long)xdp_ctx->data_end;
+    void* data = (void*)(long)xdp_ctx->data;
 
-        ACTION action = XDP_ACTION;
-        long* pt_udp_nb = 0;
-        uint64_t nh_off = 0;
-        uint16_t h_proto = 0;
-        uint32_t key = 0; // Used for map lookup and for loops
+    ACTION action = XDP_ACTION;
+    long* pt_udp_nb = 0;
+    uint64_t nh_off = 0;
+    uint16_t h_proto = 0;
+    uint32_t key = 0; // Used for map lookup and for loops
 
-        uint8_t debug_flag = 0;
+    uint8_t debug_flag = 0;
 
-        /* TODO: filtering frames */
-        h_proto = get_eth_proto(data, nh_off, data_end);
-        if (h_proto != ETH_P_IP) {
-                // MARK: ERROR: R1 offset is outside of the packet
-                /*return XDP_DROP;*/
-        }
+    /* TODO: filtering frames */
+    h_proto = get_eth_proto(data, nh_off, data_end);
+    if (h_proto != ETH_P_IP) {
+	// MARK: ERROR: R1 offset is outside of the packet
+	/*return XDP_DROP;*/
+    }
 
-        if (DEBUG) {
-                bpf_trace_printk("[Ingress] Recv a UDP segment\n");
-        }
+    if (DEBUG) {
+	bpf_trace_printk("[Ingress] Recv a UDP segment\n");
+    }
 
-        pt_udp_nb = udp_nb_map.lookup(&key);
-        if (pt_udp_nb) {
-                *pt_udp_nb += 1;
-        }
+    pt_udp_nb = udp_nb_map.lookup(&key);
+    if (pt_udp_nb) {
+	*pt_udp_nb += 1;
+    }
 
 #if defined(XOR_IFCE) && (XOR_IFCE == 0)
-        uint8_t* pt_pload_8; // Pointer to the UDP payload
-        uint64_t* pt_pload_64;
-        uint8_t* pt_xor_byte;
-        /* MARK: Not allowed to use the global variable */
-        /* TODO: Use proper method to get XOR bytes from the Map */
+    uint8_t* pt_pload_8; // Pointer to the UDP payload
+    uint64_t* pt_pload_64;
+    uint8_t* pt_xor_byte;
+    /* MARK: Not allowed to use the global variable */
+    /* TODO: Use proper method to get XOR bytes from the Map */
 
-        /* XOR the UDP payload */
-        nh_off = UDP_PAYLOAD_OFFSET + XOR_OFFSET; // From nh_off -> data_end.
-        pt_pload_8 = (uint8_t*)(data + nh_off);
+    /* XOR the UDP payload */
+    nh_off = UDP_PAYLOAD_OFFSET + XOR_OFFSET; // From nh_off -> data_end.
+    pt_pload_8 = (uint8_t*)(data + nh_off);
 
-        if (DEBUG) {
-                /* Used to check the alignment of the payload pointer */
-                bpf_trace_printk(
-                    "Payload pointer: %lu\n", (uintptr_t)(pt_pload_8));
-        }
-        /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
-         * DO NOT use data_end for arithmetic
-         * */
+    if (DEBUG) {
+	/* Used to check the alignment of the payload pointer */
+	bpf_trace_printk("Payload pointer: %lu\n", (uintptr_t)(pt_pload_8));
+    }
+    /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
+     * DO NOT use data_end for arithmetic
+     * */
 
-        /* [Zuo] Try to walk around the bpf verifier:
-         * Nothing serious... I mean really.. Please just run it once...
-         * */
-        XOR_OPT_CODE
+    /* [Zuo] Try to walk around the bpf verifier:
+     * Nothing serious... I mean really.. Please just run it once...
+     * */
+    XOR_OPT_CODE
 
 #endif
-        /* Recalculate the IP and UDP header checksum */
-        nh_off = ETH_HLEN;
-        if (udp_cksum(data, nh_off, nh_off + 20, data_end) == OPT_FAIL) {
-                return XDP_DROP;
-        }
-        if (ip_cksum(data, nh_off, data_end) == OPT_FAIL) {
-                return XDP_DROP;
-        }
+    /* Recalculate the IP and UDP header checksum */
+    nh_off = ETH_HLEN;
+    if (udp_cksum(data, nh_off, nh_off + 20, data_end) == OPT_FAIL) {
+	return XDP_DROP;
+    }
+    if (ip_cksum(data, nh_off, data_end) == OPT_FAIL) {
+	return XDP_DROP;
+    }
 
-        if (DEBUG) {
-                bpf_trace_printk("[Ingress] Both IP and UDP Cksum OK\n");
-        }
+    if (DEBUG) {
+	bpf_trace_printk("[Ingress] Both IP and UDP Cksum OK\n");
+    }
 
-        key = 0;
-        nh_off = 0;
+    key = 0;
+    nh_off = 0;
 
-        /* MARK: To be used source and destination are hard coded here
-         */
-        uint8_t src_mac[ETH_ALEN] = { 0x08, 0x00, 0x27, 0xd6, 0x69, 0x61 };
-        uint8_t dst_mac[ETH_ALEN] = { 0x08, 0x00, 0x27, 0xe1, 0xf1, 0x7d };
-        if (action == BOUNCE) {
-                if (rewrite_mac(data, nh_off, data_end, src_mac, dst_mac)
-                    == OPT_FAIL) {
-                        return XDP_DROP;
-                }
-                return XDP_TX;
-        }
+    SRC_DST_MAC_INIT
 
-        if (action == REDIRECT) {
-                if (rewrite_mac(data, nh_off, data_end, src_mac, dst_mac)
-                    == OPT_FAIL) {
-                        return XDP_DROP;
-                }
-                if (DEBUG) {
-                        bpf_trace_printk("[Ingress] Redirect a UDP segment.\n");
-                }
-                return tx_port.redirect_map(0, 0);
-        }
+    if (action == BOUNCE) {
+	if (rewrite_mac(data, nh_off, data_end, src_mac, dst_mac) == OPT_FAIL) {
+	    return XDP_DROP;
+	}
+	return XDP_TX;
+    }
+
+    if (action == REDIRECT) {
+	if (rewrite_mac(data, nh_off, data_end, src_mac, dst_mac) == OPT_FAIL) {
+	    return XDP_DROP;
+	}
+	if (DEBUG) {
+	    bpf_trace_printk("[Ingress] Redirect a UDP segment.\n");
+	}
+	return tx_port.redirect_map(0, 0);
+    }
 }
 
 /**
@@ -192,42 +187,42 @@ uint16_t egress_xdp_tx(struct xdp_md* xdp_ctx)
 {
 
 #if defined(XOR_IFCE) && (XOR_IFCE == 1)
-        /* XDP metadata */
-        void* data_end = (void*)(long)xdp_ctx->data_end;
-        void* data = (void*)(long)xdp_ctx->data;
+    /* XDP metadata */
+    void* data_end = (void*)(long)xdp_ctx->data_end;
+    void* data = (void*)(long)xdp_ctx->data;
 
-        if (DEBUG) {
-                bpf_trace_printk("[Egress] Recv a frame.\n");
-        }
+    if (DEBUG) {
+	bpf_trace_printk("[Egress] Recv a frame.\n");
+    }
 
-        uint64_t nh_off = 0;
-        uint16_t i = 0;
-        uint8_t* pt_pload_8; // Pointer to the UDP payload
-        uint8_t* pt_xor_byte;
-        /* MARK: Not allowed to use the global variable */
-        /* TODO: Use proper method to get XOR bytes from the Map */
-        uint8_t xor_bytes_arr[MAX_RAND_BYTES_LEN];
-        for (i = 0; i < MAX_RAND_BYTES_LEN; ++i) {
-                xor_bytes_arr[i] = 0x3;
-        }
-        pt_xor_byte = xor_bytes_arr;
+    uint64_t nh_off = 0;
+    uint16_t i = 0;
+    uint8_t* pt_pload_8; // Pointer to the UDP payload
+    uint8_t* pt_xor_byte;
+    /* MARK: Not allowed to use the global variable */
+    /* TODO: Use proper method to get XOR bytes from the Map */
+    uint8_t xor_bytes_arr[MAX_RAND_BYTES_LEN];
+    for (i = 0; i < MAX_RAND_BYTES_LEN; ++i) {
+	xor_bytes_arr[i] = 0x3;
+    }
+    pt_xor_byte = xor_bytes_arr;
 
-        /* XOR the UDP payload */
-        nh_off = UDP_PAYLOAD_OFFSET + XOR_OFFSET; // From nh_off -> data_end.
-        pt_pload_8 = (uint8_t*)(data + nh_off);
-        /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
-         * DO NOT use data_end for arithmetic
-         * */
-        // for (i = 0; i < MAX_RAND_BYTES_LEN; ++i) {
-        //         if ((pt_pload_8 + sizeof(pt_pload_8) <= data_end)
-        //             && (pt_xor_byte < sizeof(xor_bytes_arr))) {
-        //                 *pt_pload_8 = *pt_pload_8 ^ *pt_xor_byte;
-        //                 pt_pload_8 += 1;
-        //                 pt_xor_byte += 1;
-        //         }
-        //         break;
-        // }
+    /* XOR the UDP payload */
+    nh_off = UDP_PAYLOAD_OFFSET + XOR_OFFSET; // From nh_off -> data_end.
+    pt_pload_8 = (uint8_t*)(data + nh_off);
+    /* MARK: Arithmetic on PTR_TO_PACKET_END is prohibited
+     * DO NOT use data_end for arithmetic
+     * */
+    // for (i = 0; i < MAX_RAND_BYTES_LEN; ++i) {
+    //         if ((pt_pload_8 + sizeof(pt_pload_8) <= data_end)
+    //             && (pt_xor_byte < sizeof(xor_bytes_arr))) {
+    //                 *pt_pload_8 = *pt_pload_8 ^ *pt_xor_byte;
+    //                 pt_pload_8 += 1;
+    //                 pt_xor_byte += 1;
+    //         }
+    //         break;
+    // }
 #endif
 
-        return XDP_TX;
+    return XDP_TX;
 }

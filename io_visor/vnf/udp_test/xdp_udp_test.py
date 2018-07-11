@@ -58,6 +58,10 @@ if __name__ == "__main__":
                         help='Interface(s) name list. Delimiter=,'
                         )
 
+    parser.add_argument('--src_mac', type=str, default="",
+                        help='Source MAC address for chaining. Delimiter=:')
+    parser.add_argument('--dst_mac', type=str, default="",
+                        help='Destination MAC address')
     parser.add_argument('--payload_size', type=int, default=128,
                         help='UDP payload size in bytes.')
     parser.add_argument('--debug', action='store_true',
@@ -65,6 +69,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     UDP_PAYLOAD_SIZE = args.payload_size
+
+    # Substitute SRC and DST MAC
+    if args.src_mac or args.dst_mac:
+        print('[INFO] Substitute SRC and DST MAC in the C code.')
+        src_mac = args.src_mac.split(':')
+        dst_mac = args.dst_mac.split(':')
+    else:
+        print('[INFO] Use default SRC and DST MAC for debugging')
+        src_mac = ['08', '00', '27', 'd6', '69', '61']
+        dst_mac = ['08', '00', '27', 'e1', 'f1', '7d']
+    src_mac = map(lambda x: '0x'+x, src_mac)
+    dst_mac = map(lambda x: '0x'+x, dst_mac)
+    src_dst_mac_init = """
+        uint8_t src_mac[ETH_ALEN] = {%s};
+        uint8_t dst_mac[ETH_ALEN] = {%s};
+    """ % (', '.join(src_mac), ', '.join(dst_mac))
 
     print('[INFO] XOR offset: %d' % XOR_OFFSET)
 
@@ -92,7 +112,10 @@ if __name__ == "__main__":
     opt = args.p
     if opt == 0:
         print('[INFO] Operation: Forwarding')
-        bpf = BPF(src_file="./xdp_udp_forwarding.c", cflags=CFLAGS)
+        with open("./xdp_udp_forwarding.c", "r") as src_file:
+            src_code = src_file.read()
+        src_code = src_code.replace('SRC_DST_MAC_INIT', src_dst_mac_init, 1)
+        bpf = BPF(text=src_code, cflags=CFLAGS)
         print('[INFO] CFlags: ')
         print(CFLAGS)
         init_xdp_progs(bpf, ifce_lst, func_names)
@@ -101,7 +124,8 @@ if __name__ == "__main__":
         CFLAGS.extend(["-include", "../../../shared_lib/random.h"])
         CFLAGS.append("-DXOR_IFCE=0")
         CFLAGS.append("-DXOR_OFFSET=%s" % XOR_OFFSET)
-
+        print('[INFO] CFlags: ')
+        print(CFLAGS)
         with open("./xdp_udp_xor.c", "r") as src_file:
             src_code = src_file.read()
 
@@ -135,6 +159,7 @@ if __name__ == "__main__":
               % (ALIGN_OFFSET, rmd, num))
 
         src_code = src_code.replace('XOR_OPT_CODE', xor_opt_code, 1)
+        src_code = src_code.replace('SRC_DST_MAC_INIT', src_dst_mac_init, 1)
         bpf = BPF(text=src_code, cflags=CFLAGS)
         init_xdp_progs(bpf, ifce_lst, func_names)
     else:
