@@ -56,9 +56,12 @@ git clone https://github.com/stevelorenz/linux.git $HOME/linux
 cd $HOME/linux || exit
 # Mark:
 #     - Support for AF_XDP since 4.18
-LINUX_KERNEL_VERSION=v4.18-rc1
+LINUX_KERNEL_VERSION=v4.18-rc4
 git fetch origin LINUX_KERNEL_VERSION
 git checkout -b LINUX_KERNEL_VERSION LINUX_KERNEL_VERSION
+
+## Build and install the kernel from source code
+## An alternative is to use compiled binaries from z.B. Ubuntu kernel mainline.
 # Install dependencies
 sudo apt install -y libncurses-dev bison build-essential flex
 # Configure the kernel
@@ -155,6 +158,7 @@ Vagrant.configure("2") do |config|
     kernel_latest.vm.network "private_network", ip: "10.0.0.20",
       nic_type: "82540EM"
     kernel_latest.vm.provision :shell, inline: $bootstrap
+    kernel_latest.vm.provision :shell, inline: $setup_dev_kernel
 
     # VirtualBox-specific configuration
     kernel_latest.vm.provider "virtualbox" do |vb|
