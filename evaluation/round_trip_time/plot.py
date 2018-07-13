@@ -143,8 +143,8 @@ def plot_ipd(payload_size='1400B'):
                     'FWD', 'ATS', 'XOR'
                     ]
     colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3)]
-    hatch_patterns = ('xx', 'xx', '+', '\\', '\\\\',
-                      '\\\\\\\\', '/', '//', '///')
+    hatch_patterns = ('xx', 'xx', '++', '\\\\', '\\\\',
+                      '\\\\', '//', '//', '//')
     labels = [""] * len(csv_files)
     if payload_size == '1400B':
         xtick_labels = ['FWD',
