@@ -88,8 +88,8 @@ static int packet_capturing = 0;
 /* Flag for processing operation of UDP segments */
 static int udp_proc_opt = 0;
 
-/* Forwarding with single port -> bounce packets */
-static int single_port = 0;
+/* Number of to be used ports */
+static int nb_ports = 0;
 
 /* Burst-based packet processing */
 /* Default maximal received packets each time
@@ -632,6 +632,7 @@ static void l2fwd_usage(const char* prgname)
             "%s [EAL options] -- -p PORTMASK [-q NQ]\n"
             "-p PORTMASK: hexadecimal bitmask of ports to configure\n"
             "-q NQ: number of queue (=ports) per lcore (default is 1)\n"
+            "-n NP: number of to be used ports\n"
             "-s MAC: Source MAC address presented in XX:XX:XX:XX:XX:XX format\n"
             "-d MAC: Destination MAC address presented in XX:XX:XX:XX:XX:XX "
             "format\n"
@@ -652,9 +653,6 @@ static void l2fwd_usage(const char* prgname)
             "   When enabled:\n"
             "		- The the pdump capture framework is initialized, the "
             "packets can be captured by official pdump-tool\n"
-            "--[no-]appending-ts: Enable appending timestamps at the end of "
-            "UDP payload (enabled by default)\n"
-            "	When disabled: The app just perform simple forwarding\n"
             "--[no-]debugging: Enable or disable debugging mode (disabled by "
             "default)\n"
             "	When enabled:\n"
@@ -705,6 +703,7 @@ static const char short_options[]
       "o:" /* UDP processing operation flag */
       "b:" /* maximal number of burst packets */
       "t:" /* period for draining the tx queue in us */
+      "n:" /* number of ports */
     ;
 
 #define CMD_LINE_OPT_MAC_UPDATING "mac-updating"
@@ -713,8 +712,6 @@ static const char short_options[]
 #define CMD_LINE_OPT_NO_PACKET_CAPTURING "no-packet-capturing"
 #define CMD_LINE_OPT_DEBUGGING "debugging"
 #define CMD_LINE_OPT_NO_DEBUGGING "no-debugging"
-#define CMD_LINE_OPT_SINGLE_PORT "single-port"
-#define CMD_LINE_OPT_NO_SINGLE_PORT "no-single-port"
 
 enum {
         /* long options mapped to a short option */
@@ -731,8 +728,6 @@ static const struct option lgopts[] = { { CMD_LINE_OPT_MAC_UPDATING,
         { CMD_LINE_OPT_NO_PACKET_CAPTURING, no_argument, &packet_capturing, 0 },
         { CMD_LINE_OPT_DEBUGGING, no_argument, &debugging, 1 },
         { CMD_LINE_OPT_NO_DEBUGGING, no_argument, &debugging, 0 },
-        { CMD_LINE_OPT_SINGLE_PORT, no_argument, &single_port, 1 },
-        { CMD_LINE_OPT_NO_SINGLE_PORT, no_argument, &single_port, 0 },
         { NULL, 0, 0, 0 } };
 
 /* Parse the argument given in the command line of the application */
@@ -807,6 +802,15 @@ static int l2fwd_parse_args(int argc, char** argv)
 
                 case 't':
                         burst_tx_drain_us = strtol(optarg, &end, 10);
+                        break;
+
+                case 'n':
+                        nb_ports = strtoul(optarg, &end, 10);
+                        if (nb_ports == 0) {
+                                printf("Invalid port number!\n");
+                                l2fwd_usage(prgname);
+                                return -1;
+                        }
                         break;
 
                         /* long options */
@@ -901,7 +905,6 @@ int main(int argc, char** argv)
 {
         struct lcore_queue_conf* qconf;
         int ret;
-        uint16_t nb_ports;
         uint16_t nb_ports_available = 0;
         uint16_t portid, last_port;
         unsigned lcore_id, rx_lcore_id;
@@ -961,23 +964,14 @@ int main(int argc, char** argv)
                             "Can not initialize the pdump framework.");
         }
 
-        RTE_LOG(INFO, USER1, "Single port: %s\n",
-            single_port ? "enabled" : "disabled");
-        if (single_port) {
-                RTE_LOG(INFO, USER1, "[WARN] Port mask is ignored.\n");
-        }
-
         RTE_LOG(INFO, USER1,
             "RX polling parameters: max_poll_short_try:%d, "
             "poll_short_interval_us:%d, poll_long_interval_us:%d\n",
             max_poll_short_try, poll_short_interval_us, poll_long_interval_us);
 
-        /* MARK: This function is not supported in DPDK 17.11 */
+        /* MARK: This function is not supported in DPDK 17.11
+         * */
         /*nb_ports = rte_eth_dev_count_avail();*/
-        nb_ports = 2;
-        if (single_port) {
-                nb_ports = 1;
-        }
 
         RTE_LOG(INFO, USER1, "Number of to be used ports: %d\n", nb_ports);
         /*if (nb_ports == 0)*/

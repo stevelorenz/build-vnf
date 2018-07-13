@@ -158,7 +158,7 @@ Vagrant.configure("2") do |config|
     kernel_latest.vm.network "private_network", ip: "10.0.0.20",
       nic_type: "82540EM"
     kernel_latest.vm.provision :shell, inline: $bootstrap
-    kernel_latest.vm.provision :shell, inline: $setup_dev_kernel
+    # kernel_latest.vm.provision :shell, inline: $setup_dev_kernel
 
     # VirtualBox-specific configuration
     kernel_latest.vm.provider "virtualbox" do |vb|
