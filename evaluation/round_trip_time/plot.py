@@ -112,7 +112,7 @@ def label_bar(rects, ax):
     for rect in rects:
         height = rect.get_height()
         ax.text(rect.get_x() + rect.get_width() / 2., 1.1*height,
-                '%.3f' % height,
+                '%.2f' % height, fontsize=5,
                 ha='center', va='bottom')
 
 
