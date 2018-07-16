@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 #
 # setup_dev.sh
 # About: Setup the development environment for eBPF programs

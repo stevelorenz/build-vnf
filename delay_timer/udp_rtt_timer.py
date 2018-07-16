@@ -18,6 +18,7 @@ import logging
 import queue
 import socket
 import struct
+import subprocess
 import sys
 import threading
 import time
@@ -233,6 +234,13 @@ class UDPServer(Base):
             if self.buffer.full():
                 logger.error(
                     '[Server] Receive queue is full. SHOULD Use a bigger queue number.')
+                logger.info('[Server] Capture 100 packets for debugging.')
+                pcap_file_name = 'queue_overflow_{}.pcap'.format(
+                    int(time.time()))
+                subprocess.check_call(
+                    'sudo tcpdump -nn dst {} -c 100 -w {} udp'.format(
+                        self._recv_ip, pcap_file_name),
+                    shell=True)
                 self._cleanup()
             else:
                 # Timestamp for start queuing packets in the buffer

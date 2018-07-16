@@ -11,14 +11,20 @@ ability and delay performance of the tool should also be considered.
 
 Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/stevelorenz/sfc-ostack) framework.
 
-## Packet IO and Processing Tools ##
+## Packet IO Frameworks ##
 
 1. Data Plane Development Kit (DPDK)
 1. IO Visor Project: eBPF + XDP
-1. Click Modular Router
+1. Click Modular Router (Use user-space driver)
 1. Linux Packet Socket (AF_PACKET)
-1. Linux XDP Socket (AF_XDP) (TBD)
-1. User-space NIC Driver (TBD)
+1. Linux XDP Socket (AF_XDP) (TBD, New since Linux v4.18)
+1. User-space NIC Driver: [IXY](https://github.com/emmericp/ixy) (TBD)
+
+## Packet Processing Frameworks ##
+
+1. Network Coding Kernel Library (NCKernel): Used for network coded communications.
+
+## TODO: Catalog ##
 
 ## Brief Comparison ##
 
@@ -62,7 +68,6 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
 4. Click Modular Router:
 
-## Catalog ##
 
 ## Evaluation Measurements ##
 
@@ -87,6 +92,8 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 
 - [kokke/tiny-AES-c](https://github.com/kokke/tiny-AES-c): commit 3410accdc35e437ea03e39f47d53909cbc382a8e
 
+- NCKernel: commit: bf973e0 (2018-06-30)
+
 ## References ##
 
 - [Cilium: BPF and XDP Reference Guide](http://docs.cilium.io/en/latest/bpf/#)
@@ -94,8 +101,3 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 - [DPDK Developer Documentation](http://doc.dpdk.org/guides/prog_guide/)
 - [BCC Reference Guide](https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md)
 - [Scaling virtual machine network performance for network intensive workloads](https://www.redhat.com/blog/verticalindustries/scaling-virtual-machine-network-performance-for-network-intensive-workloads/)
-
-## TODO List ##
-
-- Use a make based compile system for eBPF and XDP programs. (Currently bcc is used.)
-- Use Intel AES New Instructions.

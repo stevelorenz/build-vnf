@@ -5,6 +5,7 @@
 lib_src
 .vagrant/
 build/
+vm_share/
 
 -------
 -  C  -
