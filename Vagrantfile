@@ -171,6 +171,29 @@ Vagrant.configure("2") do |config|
     end
   end
 
+  # --- VM just for testing ---
+  config.vm.define "just_for_fun" do |just_for_fun|
+    just_for_fun.vm.box = BOX
+    just_for_fun.vm.hostname = "justforfun"
+
+    just_for_fun.vm.network "private_network", ip: "10.0.0.21",
+      nic_type: "82540EM"
+    just_for_fun.vm.network "private_network", ip: "10.0.0.22",
+      nic_type: "82540EM"
+    just_for_fun.vm.provision :shell, inline: $bootstrap
+    # just_for_fun.vm.provision :shell, inline: $setup_dev_kernel
+
+    # VirtualBox-specific configuration
+    just_for_fun.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-just-for-fun"
+      vb.memory = RAM
+      vb.cpus = CPUS
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+  end
+
   # --- VM for Traffic Generator ---
   config.vm.define "trafficgen" do |trafficgen|
     trafficgen.vm.box = BOX

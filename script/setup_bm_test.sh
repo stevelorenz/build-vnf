@@ -8,6 +8,8 @@
 #        the same physical node. The network function program is running on
 #        another physical node. Veth pairs and OVS are used to connect namespaces
 #
+#  MARK: Run this script with sudo
+#
 #
 
 #apt update
@@ -38,7 +40,7 @@ ip link add veth1-ns2 type veth peer name veth1-root
 ip link set veth1-root up
 ip link set veth1-ns2 netns ns2
 ip netns exec ns2 ip link set veth1-ns2 up
-RECV_MAC=$(ip -o netns exec ns1 ip link show veth0-ns1 | grep ether | awk '{print $2}')
+RECV_MAC=$(ip -o netns exec ns2 ip link show veth1-ns2 | grep ether | awk '{print $2}')
 
 ip netns exec ns1 ip addr add $SEND_IP dev veth0-ns1
 ip netns exec ns2 ip addr add $RECV_IP dev veth1-ns2
