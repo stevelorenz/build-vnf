@@ -8,15 +8,15 @@
 #        the same physical node. The network function program is running on
 #        another physical node. Veth pairs and OVS are used to connect namespaces
 #
-#  MARK: Run this script with sudo
-#
+#  MARK: - Run this script with sudo
+#        - OVS-DPDK should be configured
 #
 
 #apt update
 #apt install -y openvswitch-switch
 
-LOCAL_PHY_IFCE="eth1"
-LOCAL_PHY_IP="10.0.0.11/28"
+#LOCAL_PHY_IFCE="eth1"
+LOCAL_PHY_IP="10.0.0.22/28"
 
 # MAC address of the NIC running VNF programs
 REMOTE_PHY_MAC="08:00:27:1e:2d:b3"
@@ -45,15 +45,24 @@ RECV_MAC=$(ip -o netns exec ns2 ip link show veth1-ns2 | grep ether | awk '{prin
 ip netns exec ns1 ip addr add $SEND_IP dev veth0-ns1
 ip netns exec ns2 ip addr add $RECV_IP dev veth1-ns2
 
-# Create a OVS to connect two namespaces and the phy ifce
-ovs-vsctl add-br br0
+# Add static ARPs
+ip netns exec ns1 arp -s $RECV_HOST $RECV_MAC
+ip netns exec ns2 arp -s $SEND_HOST $SEND_MAC
+
+
+## Create a OVS (with DPDK) to connect two namespaces and the phy ifce
+ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
 ovs-vsctl add-port br0 veth0-root -- set Interface veth0-root ofport=1
 ovs-vsctl add-port br0 veth1-root -- set Interface veth1-root ofport=2
+
+# MARK: This step will enable DPDK interface, BY DEFAULT 100% will be used.
+ovs-vsctl add-port br0 dpdk-p0 -- set Interface dpdk-p0 type=dpdk \
+    options:dpdk-devargs=0000:00:09.0
+
 ovs-ofctl mod-port br0 1 no-flood
 ovs-ofctl mod-port br0 2 no-flood
-ip addr flush $LOCAL_PHY_IFCE
-ovs-vsctl add-port br0 $LOCAL_PHY_IFCE -- set Interface $LOCAL_PHY_IFCE ofport=3
 ovs-ofctl mod-port br0 3 no-flood
+
 ip addr add $LOCAL_PHY_IP dev br0
 ip link set br0 up
 
@@ -65,11 +74,7 @@ ovs-ofctl add-flow br0 "in_port=1 actions=mod_dl_dst:$REMOTE_PHY_MAC,output:3"
 ovs-ofctl add-flow br0 "in_port=2 actions=mod_dl_dst:$SEND_MAC,output:1"
 ovs-ofctl add-flow br0 "in_port=3 actions=mod_dl_dst:$RECV_MAC,output:2"
 
-ovs-ofctl ovs-ofctl dump-flows br0
-
-# Add static ARPs
-ip netns exec ns1 arp -s $RECV_HOST $RECV_MAC
-ip netns exec ns2 arp -s $SEND_HOST $SEND_MAC
+ovs-ofctl dump-flows br0
 
 
 echo "# Setup finished."
