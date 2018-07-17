@@ -16,14 +16,14 @@
 #apt install -y openvswitch-switch
 
 #LOCAL_PHY_IFCE="eth1"
-LOCAL_PHY_IP="10.0.0.22/28"
+LOCAL_PHY_IP="10.0.0.22/24"
 
 # MAC address of the NIC running VNF programs
 REMOTE_PHY_MAC="08:00:27:1e:2d:b3"
 
-SEND_IP="10.0.1.10/28"
+SEND_IP="10.0.1.10/24"
 SEND_HOST="10.0.1.10"
-RECV_IP="10.0.1.11/28"
+RECV_IP="10.0.1.11/24"
 RECV_HOST="10.0.1.11"
 
 # Create two namespaces and veths on one physical node

@@ -45,7 +45,7 @@ uint16_t ingress_xdp_redirect(struct xdp_md* ctx)
         uint64_t nh_off = 0;
         uint32_t key = 0;
 
-	SRC_DST_MAC_INIT
+        SRC_DST_MAC_INIT
 
         /* TODO: Filter received Ethernet frame -> Only handle UDP segments */
 
@@ -53,8 +53,19 @@ uint16_t ingress_xdp_redirect(struct xdp_md* ctx)
         if (value) {
                 *value += 1;
         }
-        nh_off = 0;
 
+#if defined(CKSUM) && (CKSUM == 1)
+        /* Recalculate the IP and UDP header checksum */
+        nh_off = ETH_HLEN;
+        if (udp_cksum(data, nh_off, nh_off + 20, data_end) == OPT_FAIL) {
+                return XDP_DROP;
+        }
+        if (ip_cksum(data, nh_off, data_end) == OPT_FAIL) {
+                return XDP_DROP;
+        }
+#endif
+
+        nh_off = 0;
         if (action == BOUNCE) {
                 if (rewrite_mac(data, nh_off, data_end, src_mac, dst_mac)
                     == OPT_FAIL) {

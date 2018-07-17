@@ -66,9 +66,13 @@ if __name__ == "__main__":
                         help='UDP payload size in bytes.')
     parser.add_argument('--debug', action='store_true',
                         help='Enable debugging mode.')
+    parser.add_argument('--cksum', action='store_true',
+                        help='Recalculate checksum by VNF self.')
     args = parser.parse_args()
 
     UDP_PAYLOAD_SIZE = args.payload_size
+    if args.cksum:
+        CFLAGS.append("-DCKSUM=1")
 
     # Substitute SRC and DST MAC
     if args.src_mac or args.dst_mac:
