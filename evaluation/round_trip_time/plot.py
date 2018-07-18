@@ -116,7 +116,7 @@ def label_bar(rects, ax):
                 ha='center', va='bottom')
 
 
-def plot_ipd(payload_size='1400B'):
+def plot_ipd(payload_size='1400B', profile=''):
     tex.setup(width=1, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17,
               params={
                   'hatch.linewidth': 0.5
@@ -134,8 +134,14 @@ def plot_ipd(payload_size='1400B'):
     if payload_size == '1400B':
         items.remove('xdp_xor')
     items = list(map(lambda x: x+'_%s' % payload_size, items))
-    csv_files = ['udp_rtt_' + x +
-                 '_%sms.csv' for x in items]
+    if profile == 'bm':
+        csv_files = ['udp_rtt_' + x +
+                     '_%sms_bm.csv' for x in items]
+        title = 'Bare-mental, Sender UDP Payload size: %s' % payload_size
+    elif profile == 'nfv':
+        csv_files = ['udp_rtt_' + x +
+                     '_%sms.csv' for x in items]
+        title = 'NFV, Sender UDP Payload size: %s' % payload_size
 
     xtick_labels = ['FWD', 'XOR',
                     'FWD',
@@ -199,16 +205,18 @@ def plot_ipd(payload_size='1400B'):
     handles, labels = rtt_ax.get_legend_handles_labels()
     rtt_ax.legend(handles, labels, loc='upper left')
 
-    rtt_ax.set_title('Sender UDP Payload size: %s' % payload_size)
+    rtt_ax.set_title(title)
 
-    save_fig(fig, './rtt_fix_ipd_%s' % payload_size)
+    save_fig(fig, './rtt_fix_ipd_%s_%s' % (payload_size, profile))
 
 
 if __name__ == '__main__':
     if len(sys.argv) == 3:
         FIG_FMT = sys.argv[2]
     elif sys.argv[1] == 'ipd':
-        plot_ipd('1400B')
-        plot_ipd('256B')
+        plot_ipd('1400B', 'nfv')
+        plot_ipd('256B', 'nfv')
+        plot_ipd('1400B', 'bm')
+        plot_ipd('256B', 'bm')
     else:
         raise RuntimeError('Unknown option!')

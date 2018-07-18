@@ -49,6 +49,9 @@ ip netns exec ns2 ip addr add $RECV_IP dev veth1-ns2
 ip netns exec ns1 arp -s $RECV_HOST $RECV_MAC
 ip netns exec ns2 arp -s $SEND_HOST $SEND_MAC
 
+# Turn off checksum offloading of veth pairs
+ip netns exec ns1 ethtool --offload veth0-ns1 rx off tx off
+ip netns exec ns2 ethtool --offload veth1-ns2 rx off tx off
 
 ## Create a OVS (with DPDK) to connect two namespaces and the phy ifce
 ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev

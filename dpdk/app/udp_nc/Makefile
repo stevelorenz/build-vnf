@@ -7,8 +7,6 @@ APP = udp_nc
 # All source are stored in SRCS-y
 SRCS-y := main.c
 
-# Add nckernel
-
 # Build using pkg-config variables if possible
 $(shell pkg-config --exists libdpdk)
 ifeq ($(.SHELLSTATUS),0)
@@ -52,7 +50,12 @@ RTE_TARGET ?= x86_64-native-linuxapp-gcc
 include $(RTE_SDK)/mk/rte.vars.mk
 
 CFLAGS += -O3
-CFLAGS += $(WERROR_FLAGS)
+#CFLAGS += $(WERROR_FLAGS)
+
+# Add nckernel
+NCKERNEL_PATH= /vagrant/vm_share/nckernel/
+CFLAGS += -I${NCKERNEL_PATH}/include
+LDLIBS += -L${NCKERNEL_PATH}/lib -lnckernel
 
 include $(RTE_SDK)/mk/rte.extapp.mk
 endif
