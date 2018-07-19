@@ -420,17 +420,51 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
         struct ipv4_hdr* iph;
         struct udp_hdr* udph;
         uint16_t in_pl_len;
-        /*uint16_t out_pl_len;*/
+        uint16_t ip_total_len;
+        uint16_t pl_offset;
+        struct rte_mbuf* m_base;
+        struct rte_mbuf* m_tx;
 
         skb_new(&skb, buffer, sizeof(buffer));
 
+        /* Put incoming UDP segments into decoder */
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
+        ip_total_len = rte_be_to_cpu_16(iph->total_length);
         udph = (struct udp_hdr*)((char*)iph
             + ((iph->version_ihl & 0x0F) * 32 / 8));
         in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-        skb_put(&skb, in_pl_len);
+        pl_offset = (char*)(udph) - (char*)(m_in) + UDP_HDR_LEN;
 
-        l2_forward_rxqueue(m_in, portid);
+        skb_put(&skb, in_pl_len);
+        nck_put_coded(&dec, &skb);
+
+        if (!nck_has_source(&dec)) {
+                rte_pktmbuf_free(m_in);
+                RTE_LOG(DEBUG, USER1, "Decoder has no output.\n");
+                return;
+        }
+
+        m_base = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
+        rte_pktmbuf_free(m_in);
+        while (nck_has_source(&dec)) {
+                m_tx = rte_pktmbuf_clone(m_base, l2fwd_pktmbuf_pool);
+                iph = rte_pktmbuf_mtod_offset(
+                    m_tx, struct ipv4_hdr*, ETHER_HDR_LEN);
+                udph = (struct udp_hdr*)((char*)iph
+                    + ((iph->version_ihl & 0x0F) * 32 / 8));
+
+                skb_new(&skb, (char*)(udph) + UDP_HDR_LEN, in_pl_len);
+                skb_reserve(&skb, sizeof(uint16_t));
+                nck_get_source(&dec, &skb);
+
+                rte_pktmbuf_trim(m_tx, (in_pl_len - skb.len));
+                udph->dgram_len = rte_cpu_to_be_16(skb_push_u16(&skb));
+                // TODO: Update IP total length
+                recalc_cksum(iph, udph);
+                l2_forward_rxqueue(m_tx, portid);
+        }
+
+        rte_pktmbuf_free(m_base);
 }
 
 UDP_OPT_FUNC get_nc_func(int coder_type)
