@@ -50,7 +50,8 @@ RTE_TARGET ?= x86_64-native-linuxapp-gcc
 include $(RTE_SDK)/mk/rte.vars.mk
 
 CFLAGS += -O3
-#CFLAGS += $(WERROR_FLAGS)
+CFLAGS += $(WERROR_FLAGS)
+CFLAGS += -Wno-unused-but-set-parameter
 
 # Add nckernel
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/

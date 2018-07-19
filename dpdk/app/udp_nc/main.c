@@ -4,10 +4,15 @@
  *       Filename:  main.c
  *    Description:  Coding UDP segments with NCKernel
  *                  - Encoder
- *                  - Decoder (TODO)
+ *                  - Decoder
  *                  - Recoder (TODO)
  *
- *        Version:  0.1
+ *                  - Currently, no call-backs are used. The ethernet frames are
+ *                  handled one by one:
+ *                      Recv_RX_Queue -> Filter -> Code -> Rewrite_MAC ->
+ *                      Put_TX_Queue
+ *
+ *        Version:  0.2
  *          Email:  xianglinks@gmail.com
  *
  * =====================================================================================
@@ -219,7 +224,7 @@ static void l2_forward_rxqueue(struct rte_mbuf* m, unsigned portid);
 /**
  * @brief Convert Uint32 IP address to x.x.x.x format
  */
-static void get_ip_str(uint32_t ip, char* ip_addr_str)
+__attribute__((unused)) static void get_ip_str(uint32_t ip, char* ip_addr_str)
 {
         ip = ntohl(ip);
         uint8_t octet[4];
@@ -280,7 +285,7 @@ __attribute__((unused)) static bool is_udp_dgram(struct rte_mbuf* m)
                 return false;
 }
 
-void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
+static void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
 {
         udph->dgram_cksum = 0;
         iph->hdr_checksum = 0;
@@ -298,7 +303,8 @@ void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
  *
  * @note:
  * - If only coded the UDP payload, the length is assumed to be the same for all
- *   coming segments. Otherwise the length should also be coded.
+ *   coming segments. Otherwise the length (UDP total length) should also be
+ *   coded.
  *
  * - Additional mbufs are cloned from the same pool to encapsulate additional
  *   coded packets generated from encoder. These are cloned only if the number
@@ -317,29 +323,28 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
         struct rte_mbuf* m_tx;
         uint16_t enc_out_num = 0; // Serial number of encoder output
         char* pt_append = NULL;
-        uint16_t trim_size = 0;
         uint16_t ip_total_len = 0;
 
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
         ip_total_len = rte_be_to_cpu_16(iph->total_length);
         udph = (struct udp_hdr*)((char*)iph
             + ((iph->version_ihl & 0x0F) * 32 / 8));
+        /* MARK: This one is caculated wegen that currently I do not know how to
+         * get the pointer to the end of the UDP payload */
         in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
 
         /* Put the UDP payload + payload length of incoming frame into the
          * encoding buffer */
         skb_new(&skb, buffer, sizeof(buffer));
         skb_reserve(&skb, sizeof(uint16_t));
-        rte_memcpy(buffer, udph + UDP_HDR_LEN, in_pl_len);
+        rte_memcpy(buffer, (char*)(udph) + UDP_HDR_LEN, in_pl_len);
         skb_put(&skb, in_pl_len);
         skb.len = in_pl_len;
-        skb_push_u16(&skb, in_pl_len);
+        skb_push_u16(&skb, udph->dgram_len);
 
         nck_put_source(&enc, &skb);
 
         m_base = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-        rte_pktmbuf_trim(m_base, in_pl_len);
-        ip_total_len -= in_pl_len;
 
         /* # Loop for all potential coded segments
          * The number of generated coded segment depends on the symbols and
@@ -355,20 +360,20 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
 
                 if (enc_out_num == 1) {
                         RTE_LOG(DEBUG, USER1, "[ENC] Use the original mbuf.\n");
-                        rte_pktmbuf_trim(m_in, in_pl_len);
-                        pt_append = rte_pktmbuf_append(m_in, skb.len);
-                        trim_size = skb.len;
+                        pt_append
+                            = rte_pktmbuf_append(m_in, skb.len - in_pl_len);
                         if (unlikely(!pt_append)) {
                                 RTE_LOG(INFO, USER1,
                                     "Can not append mbuf, CS_Num: %u",
                                     enc_out_num);
                                 rte_pktmbuf_free(m_in);
                         } else {
-                                rte_memcpy(pt_append, buffer, skb.len);
+                                rte_memcpy(
+                                    (char*)udph + UDP_HDR_LEN, buffer, skb.len);
                                 udph->dgram_len
                                     = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                                iph->total_length
-                                    = rte_cpu_to_be_16(ip_total_len + skb.len);
+                                iph->total_length = rte_cpu_to_be_16(
+                                    ip_total_len + skb.len - in_pl_len);
                                 recalc_cksum(iph, udph);
                                 l2_forward_rxqueue(m_in, portid);
                         }
@@ -385,12 +390,14 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
                                     m_tx, struct ipv4_hdr*, ETHER_HDR_LEN);
                                 udph = (struct udp_hdr*)((char*)iph
                                     + ((iph->version_ihl & 0x0F) * 32 / 8));
-                                pt_append = rte_pktmbuf_append(m_tx, skb.len);
-                                rte_memcpy(pt_append, buffer, skb.len);
+                                pt_append = rte_pktmbuf_append(
+                                    m_tx, skb.len - in_pl_len);
+                                rte_memcpy(
+                                    (char*)udph + UDP_HDR_LEN, buffer, skb.len);
                                 udph->dgram_len
                                     = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                                iph->total_length
-                                    = rte_cpu_to_be_16(ip_total_len + skb.len);
+                                iph->total_length = rte_cpu_to_be_16(
+                                    ip_total_len + skb.len - in_pl_len);
                                 recalc_cksum(iph, udph);
                                 l2_forward_rxqueue(m_tx, portid);
                         }
@@ -400,12 +407,38 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
         rte_pktmbuf_free(m_base);
 }
 
+/**
+ * @brief udp_decode: Decode the incoming UDP segment and put decoded data into
+ * the TX queue
+ *
+ * @note:
+ */
+static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
+{
+        struct sk_buff skb;
+        static uint8_t buffer[MAX_NC_BUFFER];
+        struct ipv4_hdr* iph;
+        struct udp_hdr* udph;
+        uint16_t in_pl_len;
+        /*uint16_t out_pl_len;*/
+
+        skb_new(&skb, buffer, sizeof(buffer));
+
+        iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
+        udph = (struct udp_hdr*)((char*)iph
+            + ((iph->version_ihl & 0x0F) * 32 / 8));
+        in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
+        skb_put(&skb, in_pl_len);
+
+        l2_forward_rxqueue(m_in, portid);
+}
+
 UDP_OPT_FUNC get_nc_func(int coder_type)
 {
         if (coder_type == 0) {
                 return udp_encode;
         } else if (coder_type == 1) {
-                /*return udp_decode;*/
+                return udp_decode;
         }
         return NULL;
 }
@@ -414,7 +447,7 @@ UDP_OPT_FUNC get_nc_func(int coder_type)
  *  Ethernet Frame Operations  *
  *******************************/
 
-static void inline l2fwd_mac_updating(struct rte_mbuf* m)
+inline static void l2fwd_mac_updating(struct rte_mbuf* m)
 {
         struct ether_hdr* eth;
         eth = rte_pktmbuf_mtod(m, struct ether_hdr*);
