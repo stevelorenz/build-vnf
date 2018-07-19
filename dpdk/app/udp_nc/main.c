@@ -70,6 +70,22 @@ typedef void (*UDP_OPT_FUNC)(struct rte_mbuf*, uint16_t);
 #define DEBUG 0
 #endif /* ifndef DEBUG 0 */
 
+#ifndef PROTOCOL
+#define PROTOCOL "noack"
+#endif
+
+#ifndef SYMBOL_SIZE
+#define SYMBOL_SIZE "258"
+#endif
+
+#ifndef SYMBOLS
+#define SYMBOLS "2"
+#endif
+
+#ifndef REDUNDANCY
+#define REDUNDANCY "1"
+#endif
+
 /**********************
  *  Global Variables  *
  **********************/
@@ -141,7 +157,6 @@ static uint32_t l2fwd_enabled_port_mask = 0;
 
 /* list of enabled ports */
 static uint32_t l2fwd_dst_ports[RTE_MAX_ETHPORTS];
-
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
 
 #define MAX_RX_QUEUE_PER_LCORE 4
@@ -282,36 +297,49 @@ void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
  * encoder into the TX queue.
  *
  * @note:
- * - Currently only coded the UDP payload, the length is assumed to be
- * the same for all coming segments. Otherwise the length should also be coded.
- * - To be more efficient.
+ * - If only coded the UDP payload, the length is assumed to be the same for all
+ *   coming segments. Otherwise the length should also be coded.
+ *
+ * - Additional mbufs are cloned from the same pool to encapsulate additional
+ *   coded packets generated from encoder. These are cloned only if the number
+ *   of coded packets are bigger than one. Otherwise, the original mbuf is used.
+ *
+ * - COULD be more efficient.
  */
-static void udp_encode(struct rte_mbuf* m, uint16_t portid)
+static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
 {
         struct sk_buff skb;
         static uint8_t buffer[MAX_NC_BUFFER];
-        uint16_t payload_len = 0;
+        uint16_t in_pl_len = 0;
         struct ipv4_hdr* iph;
         struct udp_hdr* udph;
-        /* Mbuffer for additional coded packets */
-        struct rte_mbuf* m_copy;
+        struct rte_mbuf* m_base;
+        struct rte_mbuf* m_tx;
         uint16_t enc_out_num = 0; // Serial number of encoder output
         char* pt_append = NULL;
         uint16_t trim_size = 0;
+        uint16_t ip_total_len = 0;
 
-        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
+        iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
+        ip_total_len = rte_be_to_cpu_16(iph->total_length);
         udph = (struct udp_hdr*)((char*)iph
             + ((iph->version_ihl & 0x0F) * 32 / 8));
-        payload_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
+        in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
 
-        /* Put the UDP payload of incoming frame into the encoding buffer */
+        /* Put the UDP payload + payload length of incoming frame into the
+         * encoding buffer */
         skb_new(&skb, buffer, sizeof(buffer));
-        rte_memcpy(buffer, udph + UDP_HDR_LEN, payload_len);
-        skb_put(&skb, payload_len);
-        skb.len = payload_len;
-        /* MARK: Calling of this function code the memory to which skb
-           points */
+        skb_reserve(&skb, sizeof(uint16_t));
+        rte_memcpy(buffer, udph + UDP_HDR_LEN, in_pl_len);
+        skb_put(&skb, in_pl_len);
+        skb.len = in_pl_len;
+        skb_push_u16(&skb, in_pl_len);
+
         nck_put_source(&enc, &skb);
+
+        m_base = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
+        rte_pktmbuf_trim(m_base, in_pl_len);
+        ip_total_len -= in_pl_len;
 
         /* # Loop for all potential coded segments
          * The number of generated coded segment depends on the symbols and
@@ -327,51 +355,49 @@ static void udp_encode(struct rte_mbuf* m, uint16_t portid)
 
                 if (enc_out_num == 1) {
                         RTE_LOG(DEBUG, USER1, "[ENC] Use the original mbuf.\n");
-                        rte_pktmbuf_trim(m, payload_len);
-                        pt_append = rte_pktmbuf_append(m, skb.len);
+                        rte_pktmbuf_trim(m_in, in_pl_len);
+                        pt_append = rte_pktmbuf_append(m_in, skb.len);
                         trim_size = skb.len;
                         if (unlikely(!pt_append)) {
                                 RTE_LOG(INFO, USER1,
                                     "Can not append mbuf, CS_Num: %u",
                                     enc_out_num);
-                                rte_pktmbuf_free(m);
+                                rte_pktmbuf_free(m_in);
                         } else {
                                 rte_memcpy(pt_append, buffer, skb.len);
                                 udph->dgram_len
                                     = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                                iph->total_length = rte_cpu_to_be_16(
-                                    rte_be_to_cpu_16(iph->total_length)
-                                    - payload_len + skb.len);
+                                iph->total_length
+                                    = rte_cpu_to_be_16(ip_total_len + skb.len);
                                 recalc_cksum(iph, udph);
-                                l2_forward_rxqueue(m, portid);
+                                l2_forward_rxqueue(m_in, portid);
                         }
                 } else {
                         RTE_LOG(DEBUG, USER1, "[ENC] Allocate %u new mbuf.\n",
                             enc_out_num - 1);
-                        m_copy = rte_pktmbuf_clone(m, l2fwd_pktmbuf_pool);
-                        if (unlikely(!m_copy)) {
+                        m_tx = rte_pktmbuf_clone(m_base, l2fwd_pktmbuf_pool);
+                        if (unlikely(!m_tx)) {
                                 RTE_LOG(INFO, USER1,
                                     "Can not clone mbuf, CS_Num: %u",
                                     enc_out_num);
-                                rte_pktmbuf_free(m);
                         } else {
                                 iph = rte_pktmbuf_mtod_offset(
-                                    m_copy, struct ipv4_hdr*, ETHER_HDR_LEN);
+                                    m_tx, struct ipv4_hdr*, ETHER_HDR_LEN);
                                 udph = (struct udp_hdr*)((char*)iph
                                     + ((iph->version_ihl & 0x0F) * 32 / 8));
-                                rte_pktmbuf_trim(m_copy, trim_size);
-                                pt_append = rte_pktmbuf_append(m_copy, skb.len);
+                                pt_append = rte_pktmbuf_append(m_tx, skb.len);
                                 rte_memcpy(pt_append, buffer, skb.len);
                                 udph->dgram_len
                                     = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                                iph->total_length = rte_cpu_to_be_16(
-                                    rte_be_to_cpu_16(iph->total_length)
-                                    - trim_size + skb.len);
+                                iph->total_length
+                                    = rte_cpu_to_be_16(ip_total_len + skb.len);
                                 recalc_cksum(iph, udph);
-                                l2_forward_rxqueue(m_copy, portid);
+                                l2_forward_rxqueue(m_tx, portid);
                         }
                 }
         }
+
+        rte_pktmbuf_free(m_base);
 }
 
 UDP_OPT_FUNC get_nc_func(int coder_type)
@@ -594,7 +620,8 @@ static int l2fwd_launch_one_lcore(__attribute__((unused)) void* dummy)
 static void l2fwd_usage(const char* prgname)
 {
         printf(
-            "%s [EAL options] -- -p PORTMASK [-q NQ]\n"
+            "%s [EAL options] -- [APP options]\n"
+            "-o CODERTYPE: NC coder type. 0->encoder, 1->decoder, 2->recoder.\n"
             "-p PORTMASK: hexadecimal bitmask of ports to configure\n"
             "-q NQ: number of queue (=ports) per lcore (default is 1)\n"
             "-n NP: number of to be used ports\n"
@@ -944,9 +971,11 @@ int main(int argc, char** argv)
 
         RTE_LOG(INFO, USER1, "UDP processing operation flag: %d\n", coder_type);
 
-        /* NCKernel options, hard coded */
-        struct nck_option_value options[] = { { "protocol", "noack" },
-                { "symbol_size", "256" }, { "symbols", "2" },
+        RTE_LOG(INFO, USER1,
+            "Protocol: %s, Symbol size: %s, Symbols: %s, Redundancy:%s\n",
+            PROTOCOL, SYMBOL_SIZE, SYMBOLS, REDUNDANCY);
+        struct nck_option_value options[] = { { "protocol", PROTOCOL },
+                { "symbol_size", "258" }, { "symbols", "2" },
                 { "redundancy", "1" }, { NULL, NULL } };
 
         switch (coder_type) {
