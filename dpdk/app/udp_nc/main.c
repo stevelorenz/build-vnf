@@ -419,21 +419,18 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
         static uint8_t buffer[MAX_NC_BUFFER];
         struct ipv4_hdr* iph;
         struct udp_hdr* udph;
-        uint16_t in_pl_len;
         uint16_t ip_total_len;
-        uint16_t pl_offset;
+        uint16_t in_pl_len;
         struct rte_mbuf* m_base;
         struct rte_mbuf* m_tx;
 
-        skb_new(&skb, buffer, sizeof(buffer));
-
         /* Put incoming UDP segments into decoder */
+        skb_new(&skb, buffer, sizeof(buffer));
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
         ip_total_len = rte_be_to_cpu_16(iph->total_length);
         udph = (struct udp_hdr*)((char*)iph
             + ((iph->version_ihl & 0x0F) * 32 / 8));
         in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-        pl_offset = (char*)(udph) - (char*)(m_in) + UDP_HDR_LEN;
 
         skb_put(&skb, in_pl_len);
         nck_put_coded(&dec, &skb);
@@ -448,18 +445,21 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
         rte_pktmbuf_free(m_in);
         while (nck_has_source(&dec)) {
                 m_tx = rte_pktmbuf_clone(m_base, l2fwd_pktmbuf_pool);
+                RTE_LOG(DEBUG, USER1, "[Decoder] Allocate a new mbuf.\n");
                 iph = rte_pktmbuf_mtod_offset(
                     m_tx, struct ipv4_hdr*, ETHER_HDR_LEN);
                 udph = (struct udp_hdr*)((char*)iph
                     + ((iph->version_ihl & 0x0F) * 32 / 8));
-
-                skb_new(&skb, (char*)(udph) + UDP_HDR_LEN, in_pl_len);
-                skb_reserve(&skb, sizeof(uint16_t));
+                // MARK: Instead of using mbuf, use the temp buffer for decoded
+                // message
+                skb_new(&skb, buffer, in_pl_len);
                 nck_get_source(&dec, &skb);
-
+                skb.len = skb_pull_u16(&skb); // Length of output UDP segement
                 rte_pktmbuf_trim(m_tx, (in_pl_len - skb.len));
-                udph->dgram_len = rte_cpu_to_be_16(skb_push_u16(&skb));
-                // TODO: Update IP total length
+                rte_memcpy((char*)(udph) + UDP_HDR_LEN, skb.data, skb.len);
+                udph->dgram_len = rte_cpu_to_be_16(skb.len);
+                iph->total_length
+                    = rte_cpu_to_be_16(ip_total_len - (in_pl_len - skb.len));
                 recalc_cksum(iph, udph);
                 l2_forward_rxqueue(m_tx, portid);
         }
