@@ -46,8 +46,8 @@ sudo apt -y install libnuma-dev libpcap-dev linux-headers-`uname -r`
 # Config and build DPDK
 # get code from git repo
 git clone http://dpdk.org/git/dpdk ${RTE_SDK}
-cd ${RTE_SDK}
-git checkout -b ${DPDK_VERSION}
+cd "${RTE_SDK}" || exit
+git checkout -b dev ${DPDK_VERSION}
 make config T=${RTE_TARGET}
 sed -ri 's,(PMD_PCAP=).*,\1y,' build/.config
 echo "# Compiling dpdk target from source."

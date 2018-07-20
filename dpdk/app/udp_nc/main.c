@@ -2,17 +2,23 @@
  * =====================================================================================
  *
  *       Filename:  main.c
- *    Description:  Coding UDP segments with NCKernel
+ *    Description:  Network coding UDP segments with NCKernel
+ *
  *                  - Encoder
  *                  - Decoder
- *                  - Recoder (TODO)
+ *                  - Recoder
  *
+ *           Note:
  *                  - Currently, no call-backs are used. The ethernet frames are
  *                  handled one by one:
  *                      Recv_RX_Queue -> Filter -> Code -> Rewrite_MAC ->
  *                      Put_TX_Queue
  *
- *        Version:  0.2
+ *                  - Coding operations are performed directly on the input
+ *                  mbuf, addtional mbufs are cloned to encapsulate output(s) of
+ *                  the coder.
+ *
+ *        Version:  0.3
  *          Email:  xianglinks@gmail.com
  *
  * =====================================================================================
@@ -64,9 +70,7 @@
 #include <nckernel.h>
 #include <skb.h>
 
-typedef void (*UDP_OPT_FUNC)(struct rte_mbuf*, uint16_t);
-
-#define XOR_OFFSET 16
+typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
 
 /* Maximal length of the coding buffer */
 #define MAX_NC_BUFFER 1400
@@ -129,8 +133,6 @@ static int poll_long_interval_us;
 static int burst_tx_drain_us = 10;
 #define MEMPOOL_CACHE_SIZE 256
 
-#define MTU_SIZE 1500
-
 /* Processing delay of frames */
 static uint64_t st_proc_tsc = 0;
 static uint64_t proc_tsc = 0;
@@ -184,7 +186,7 @@ static struct rte_eth_dev_tx_buffer* tx_buffer[RTE_MAX_ETHPORTS];
 static struct rte_eth_conf port_conf = {
 	.rxmode = {
 		.split_hdr_size = 0,
-		// .ignore_offload_bitfield = 1,
+                 .ignore_offload_bitfield = 1,
 		.offloads = DEV_RX_OFFLOAD_CRC_STRIP,
 	},
 	.txmode = {
@@ -195,18 +197,6 @@ static struct rte_eth_conf port_conf = {
 /* Memory pool for all mbufs */
 struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
 
-/* Per-port statistics struct */
-struct l2fwd_port_statistics {
-        uint64_t tx;
-        uint64_t rx;
-        uint64_t dropped;
-} __rte_cache_aligned;
-
-struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
-
-/*********************
- *  NCKernel Coders  *
- *********************/
 struct nck_encoder enc;
 struct nck_decoder dec;
 
@@ -214,7 +204,7 @@ struct nck_decoder dec;
  *  Prototypes  *
  ****************/
 
-UDP_OPT_FUNC get_nc_func(int coder_type);
+UDP_NC_FUNC get_nc_func(int coder_type);
 static void l2_forward_rxqueue(struct rte_mbuf* m, unsigned portid);
 
 /******************************
@@ -293,10 +283,6 @@ static void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
         iph->hdr_checksum = rte_ipv4_cksum(iph);
 }
 
-/*******************************
- *  Network Coding Operations  *
- *******************************/
-
 /**
  * @brief udp_encode: Encode the incoming UDP segment and put all output of the
  * encoder into the TX queue.
@@ -340,7 +326,7 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
         rte_memcpy(buffer, (char*)(udph) + UDP_HDR_LEN, in_pl_len);
         skb_put(&skb, in_pl_len);
         skb.len = in_pl_len;
-        skb_push_u16(&skb, udph->dgram_len);
+        skb_push_u16(&skb, (in_pl_len + UDP_HDR_LEN));
 
         nck_put_source(&enc, &skb);
 
@@ -431,7 +417,7 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
         udph = (struct udp_hdr*)((char*)iph
             + ((iph->version_ihl & 0x0F) * 32 / 8));
         in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-
+        rte_memcpy(buffer, (char*)(udph) + UDP_HDR_LEN, in_pl_len);
         skb_put(&skb, in_pl_len);
         nck_put_coded(&dec, &skb);
 
@@ -456,7 +442,8 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
                 nck_get_source(&dec, &skb);
                 skb.len = skb_pull_u16(&skb); // Length of output UDP segement
                 rte_pktmbuf_trim(m_tx, (in_pl_len - skb.len));
-                rte_memcpy((char*)(udph) + UDP_HDR_LEN, skb.data, skb.len);
+                rte_memcpy((char*)(udph) + UDP_HDR_LEN, skb.data,
+                    skb.len - UDP_HDR_LEN);
                 udph->dgram_len = rte_cpu_to_be_16(skb.len);
                 iph->total_length
                     = rte_cpu_to_be_16(ip_total_len - (in_pl_len - skb.len));
@@ -467,7 +454,7 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
         rte_pktmbuf_free(m_base);
 }
 
-UDP_OPT_FUNC get_nc_func(int coder_type)
+UDP_NC_FUNC get_nc_func(int coder_type)
 {
         if (coder_type == 0) {
                 return udp_encode;
@@ -476,10 +463,6 @@ UDP_OPT_FUNC get_nc_func(int coder_type)
         }
         return NULL;
 }
-
-/*******************************
- *  Ethernet Frame Operations  *
- *******************************/
 
 inline static void l2fwd_mac_updating(struct rte_mbuf* m)
 {
@@ -1036,8 +1019,6 @@ int main(int argc, char** argv)
         /*if (nb_ports == 0)*/
         /*rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");*/
 
-        RTE_LOG(INFO, USER1, "UDP processing operation flag: %d\n", coder_type);
-
         RTE_LOG(INFO, USER1,
             "Protocol: %s, Symbol size: %s, Symbols: %s, Redundancy:%s\n",
             PROTOCOL, SYMBOL_SIZE, SYMBOLS, REDUNDANCY);
@@ -1225,15 +1206,6 @@ int main(int argc, char** argv)
 
                 rte_eth_tx_buffer_init(tx_buffer[portid], max_pkt_burst);
 
-                ret = rte_eth_tx_buffer_set_err_callback(tx_buffer[portid],
-                    rte_eth_tx_buffer_count_callback,
-                    &port_statistics[portid].dropped);
-                if (ret < 0)
-                        rte_exit(EXIT_FAILURE,
-                            "Cannot set error callback for tx buffer on port "
-                            "%u\n",
-                            portid);
-
                 /* Start device */
                 ret = rte_eth_dev_start(portid);
                 if (ret < 0)
@@ -1252,9 +1224,6 @@ int main(int argc, char** argv)
                     l2fwd_ports_eth_addr[portid].addr_bytes[3],
                     l2fwd_ports_eth_addr[portid].addr_bytes[4],
                     l2fwd_ports_eth_addr[portid].addr_bytes[5]);
-
-                /* initialize port stats */
-                memset(&port_statistics, 0, sizeof(port_statistics));
         }
 
         if (!nb_ports_available) {
