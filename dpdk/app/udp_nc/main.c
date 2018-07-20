@@ -75,6 +75,10 @@ typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
 /* Maximal length of the coding buffer */
 #define MAX_NC_BUFFER 1400
 
+#define NEEDNOTTOKNOW 117
+
+#define TEST_PORT_ID 821
+
 #ifndef DEBUG
 #define DEBUG 0
 #endif /* ifndef DEBUG 0 */
@@ -284,113 +288,83 @@ static void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
 }
 
 /**
- * @brief udp_encode: Encode the incoming UDP segment and put all output of the
- * encoder into the TX queue.
+ * @brief udp_encode: Put the UDP payload of incoming mbuf into encoder and put
+ * all outputs of the encoder to the TX queue identified by portid.
  *
  * @note:
+ *
  * - If only coded the UDP payload, the length is assumed to be the same for all
  *   coming segments. Otherwise the length (UDP total length) should also be
- *   coded.
+ *   coded. Since potential padding operations could be performed during
+ *   encoding and the length information is lost.
  *
- * - Additional mbufs are cloned from the same pool to encapsulate additional
- *   coded packets generated from encoder. These are cloned only if the number
- *   of coded packets are bigger than one. Otherwise, the original mbuf is used.
+ * - Since En(De)coder has its own memory buffer to store data, no shared
+ *   temporary buffer is needed.
  *
- * - COULD be more efficient.
  */
 static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
 {
         struct sk_buff skb;
-        static uint8_t buffer[MAX_NC_BUFFER];
-        uint16_t in_pl_len = 0;
+        uint16_t in_pl_len = 0; // length of input UDP payload
+        uint16_t num_coded = 0;
         struct ipv4_hdr* iph;
         struct udp_hdr* udph;
-        struct rte_mbuf* m_base;
-        struct rte_mbuf* m_tx;
-        uint16_t enc_out_num = 0; // Serial number of encoder output
-        char* pt_append = NULL;
-        uint16_t ip_total_len = 0;
+        struct rte_mbuf* m_out;
+        uint8_t* mbuf_data;
+        /* A encoding buffer is used since the length of the encoder output is
+         * unknown before calling nck_get_coded */
+        static uint8_t enc_buf[MAX_NC_BUFFER];
 
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
-        ip_total_len = rte_be_to_cpu_16(iph->total_length);
         udph = (struct udp_hdr*)((char*)iph
             + ((iph->version_ihl & 0x0F) * 32 / 8));
-        /* MARK: This one is caculated wegen that currently I do not know how to
-         * get the pointer to the end of the UDP payload */
+        /* MARK: This one is calculated wegen that currently I do not know how
+         * to get the pointer to the end of the UDP payload */
         in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
+        mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
 
-        /* Put the UDP payload + payload length of incoming frame into the
-         * encoding buffer */
-        skb_new(&skb, buffer, sizeof(buffer));
+        skb_new(&skb, enc_buf, sizeof(enc_buf));
+        skb_reserve(&skb, sizeof(uint8_t));
         skb_reserve(&skb, sizeof(uint16_t));
-        rte_memcpy(buffer, (char*)(udph) + UDP_HDR_LEN, in_pl_len);
+        rte_memcpy(enc_buf, mbuf_data, in_pl_len);
         skb_put(&skb, in_pl_len);
-        skb.len = in_pl_len;
-        skb_push_u16(&skb, (in_pl_len + UDP_HDR_LEN));
-
+        skb_push_u8(&skb, NEEDNOTTOKNOW);
+        skb_push_u16(&skb, skb.len);
         nck_put_source(&enc, &skb);
 
-        m_base = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-
-        /* # Loop for all potential coded segments
-         * The number of generated coded segment depends on the symbols and
-         * redundancy parameters given to the encoder
-         * */
         while (nck_has_coded(&enc)) {
-                enc_out_num += 1;
-                skb_new(&skb, buffer, sizeof(buffer));
+                /* Clone a new mbuf for output */
+                num_coded += 1;
+                m_out = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
+                iph = rte_pktmbuf_mtod_offset(
+                    m_out, struct ipv4_hdr*, ETHER_HDR_LEN);
+                udph = (struct udp_hdr*)((char*)iph
+                    + ((iph->version_ihl & 0x0F) * 32 / 8));
+                mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
+
+                skb_new(&skb, enc_buf, sizeof(enc_buf));
                 nck_get_coded(&enc, &skb);
                 RTE_LOG(DEBUG, USER1,
-                    "[ENC] Coded serial number: %u, current skb.len: %u\n",
-                    enc_out_num, skb.len);
-
-                if (enc_out_num == 1) {
-                        RTE_LOG(DEBUG, USER1, "[ENC] Use the original mbuf.\n");
-                        pt_append
-                            = rte_pktmbuf_append(m_in, skb.len - in_pl_len);
-                        if (unlikely(!pt_append)) {
-                                RTE_LOG(INFO, USER1,
-                                    "Can not append mbuf, CS_Num: %u",
-                                    enc_out_num);
-                                rte_pktmbuf_free(m_in);
-                        } else {
-                                rte_memcpy(
-                                    (char*)udph + UDP_HDR_LEN, buffer, skb.len);
-                                udph->dgram_len
-                                    = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                                iph->total_length = rte_cpu_to_be_16(
-                                    ip_total_len + skb.len - in_pl_len);
-                                recalc_cksum(iph, udph);
-                                l2_forward_rxqueue(m_in, portid);
-                        }
+                    "[ENC] Num coded output: %u, Coded data length: %u.\n",
+                    num_coded, skb.len);
+                rte_pktmbuf_append(m_out, (skb.len - in_pl_len));
+                rte_memcpy(mbuf_data, skb.data, skb.len);
+                udph->dgram_len = rte_cpu_to_be_16(skb.len);
+                iph->total_length
+                    = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
+                        + (skb.len - in_pl_len));
+                /* Update IP and UDP header */
+                recalc_cksum(iph, udph);
+                if (debugging == 1) {
+                        RTE_LOG(
+                            DEBUG, USER1, "[TEST] Put coded mbuf into decoder");
+                        udp_decode(m_out, portid);
                 } else {
-                        RTE_LOG(DEBUG, USER1, "[ENC] Allocate %u new mbuf.\n",
-                            enc_out_num - 1);
-                        m_tx = rte_pktmbuf_clone(m_base, l2fwd_pktmbuf_pool);
-                        if (unlikely(!m_tx)) {
-                                RTE_LOG(INFO, USER1,
-                                    "Can not clone mbuf, CS_Num: %u",
-                                    enc_out_num);
-                        } else {
-                                iph = rte_pktmbuf_mtod_offset(
-                                    m_tx, struct ipv4_hdr*, ETHER_HDR_LEN);
-                                udph = (struct udp_hdr*)((char*)iph
-                                    + ((iph->version_ihl & 0x0F) * 32 / 8));
-                                pt_append = rte_pktmbuf_append(
-                                    m_tx, skb.len - in_pl_len);
-                                rte_memcpy(
-                                    (char*)udph + UDP_HDR_LEN, buffer, skb.len);
-                                udph->dgram_len
-                                    = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                                iph->total_length = rte_cpu_to_be_16(
-                                    ip_total_len + skb.len - in_pl_len);
-                                recalc_cksum(iph, udph);
-                                l2_forward_rxqueue(m_tx, portid);
-                        }
+                        l2_forward_rxqueue(m_out, portid);
                 }
         }
 
-        rte_pktmbuf_free(m_base);
+        rte_pktmbuf_free(m_in);
 }
 
 /**
