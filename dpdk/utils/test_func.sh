@@ -24,6 +24,9 @@ elif [[ $1 = '-ms' ]]; then
 elif [[ $1 = '-msc' ]]; then
     echo "Monitor sender interface with tcpdump, dump pcap file ./test.pcap"
     sudo tcpdump -i eth2 -e -vv udp -X -w ./test.pcap
+elif [[ $1 = '-msp' ]]; then
+    echo "Run OWD server on eth2"
+    python3 ../../delay_timer/udp_owd_timer.py -s 10.0.0.14:6666 -n $2 --log DEBUG
 else
     echo "Unknown option!"
 fi
