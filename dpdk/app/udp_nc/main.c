@@ -2,21 +2,24 @@
  * =====================================================================================
  *
  *       Filename:  main.c
- *    Description:  Network coding UDP segments with NCKernel
+ *    Description:  Network coding UDP payload with NCKernel
  *
- *                  - Encoder
- *                  - Decoder
- *                  - Recoder
+ *                  * Coder type:
+ *                      - Encoder
+ *                      - Decoder
+ *                      - Recoder
  *
  *           Note:
  *                  - Currently, no call-backs are used. The ethernet frames are
  *                  handled one by one:
  *                      Recv_RX_Queue -> Filter -> Code -> Rewrite_MAC ->
- *                      Put_TX_Queue
+ *                      Put_TX_Queue -> Drain_TX_Queue
  *
- *                  - Coding operations are performed directly on the input
- *                  mbuf, addtional mbufs are cloned to encapsulate output(s) of
- *                  the coder.
+ *                  - For all coder types, a coding buffer(static uint8_t array)
+ *                  is used to exchange data between mbufs and coder's own
+ *                  buffer. The input mbuf is always freed after the coding
+ *                  operaton of all coder types. Addtional mbufs are cloned to
+ *                  encapsulate output(s) of the coder.
  *
  *        Version:  0.3
  *          Email:  xianglinks@gmail.com
@@ -203,7 +206,7 @@ struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
 
 struct nck_encoder enc;
 struct nck_decoder dec;
-struct nck_decoder rec;
+struct nck_recoder rec;
 struct rte_mbuf* m_cmy;
 
 /****************
@@ -374,12 +377,62 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
 
 static void udp_recode(struct rte_mbuf* m_in, uint16_t portid)
 {
-        struct rte_mbuf* m_out;
-        m_out = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-        if (unlikely(coder_type == -1)) {
-                udp_decode(m_out, portid);
-        } else {
-                l2_forward_rxqueue(m_out, portid);
+        static struct sk_buff skb;
+        static uint8_t rec_buf[MAX_NC_BUFFER];
+        struct ipv4_hdr* iph;
+        struct udp_hdr* udph;
+        uint16_t in_pl_len;
+        uint16_t num_recoded = 0;
+        struct rte_mbuf* m_out = NULL;
+        uint8_t* mbuf_data;
+
+        skb_new(&skb, rec_buf, sizeof(rec_buf));
+        iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
+        udph = (struct udp_hdr*)((char*)iph
+            + ((iph->version_ihl & 0x0F) * 32 / 8));
+        in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
+        mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
+        rte_memcpy(skb.data, mbuf_data, in_pl_len);
+        skb_put(&skb, in_pl_len);
+        if (skb_pull_u8(&skb) != MAGIC_NUM) {
+                rte_pktmbuf_free(m_in);
+                RTE_LOG(DEBUG, USER1, "[REC] Recv an invalid input.\n");
+                return;
+        }
+        nck_put_coded(&rec, &skb);
+
+        while (nck_has_coded(&rec)) {
+                /* Clone a new mbuf for output */
+                num_recoded += 1;
+                m_out = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
+                iph = rte_pktmbuf_mtod_offset(
+                    m_out, struct ipv4_hdr*, ETHER_HDR_LEN);
+                udph = (struct udp_hdr*)((char*)iph
+                    + ((iph->version_ihl & 0x0F) * 32 / 8));
+                mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
+
+                skb_new(&skb, rec_buf, sizeof(rec_buf));
+                skb_reserve(&skb, sizeof(uint8_t));
+                nck_get_coded(&rec, &skb);
+                skb_push_u8(&skb, MAGIC_NUM);
+                RTE_LOG(DEBUG, USER1,
+                    "[REC] Output num: %u, Input length: %u, recoded data "
+                    "length: %u.\n",
+                    num_recoded, in_pl_len, skb.len);
+                rte_pktmbuf_append(m_out, (skb.len - in_pl_len));
+                rte_memcpy(mbuf_data, skb.data, skb.len);
+
+                udph->dgram_len = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
+                iph->total_length
+                    = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
+                        + (skb.len - in_pl_len));
+                recalc_cksum(iph, udph);
+
+                if (unlikely(coder_type == -1)) {
+                        udp_decode(m_out, portid);
+                } else {
+                        l2_forward_rxqueue(m_out, portid);
+                }
         }
         rte_pktmbuf_free(m_in);
 }
@@ -1052,7 +1105,7 @@ int main(int argc, char** argv)
                 break;
         case 2:
                 RTE_LOG(INFO, USER1, "Coder type: NC recoder.\n");
-                if (nck_create_decoder(
+                if (nck_create_recoder(
                         &rec, NULL, options, nck_option_from_array)) {
                         rte_exit(EXIT_FAILURE, "Failed to create recoder.\n");
                 }
@@ -1066,15 +1119,14 @@ int main(int argc, char** argv)
                         &enc, NULL, options, nck_option_from_array)) {
                         rte_exit(EXIT_FAILURE, "Failed to create encoder.\n");
                 }
+                if (nck_create_recoder(
+                        &rec, NULL, options, nck_option_from_array)) {
+                        rte_exit(EXIT_FAILURE, "Failed to create recoder.\n");
+                }
                 if (nck_create_decoder(
                         &dec, NULL, options, nck_option_from_array)) {
                         rte_exit(EXIT_FAILURE, "Failed to create decoder.\n");
                 }
-                if (nck_create_decoder(
-                        &rec, NULL, options, nck_option_from_array)) {
-                        rte_exit(EXIT_FAILURE, "Failed to create recoder.\n");
-                }
-
                 break;
 
         default:
