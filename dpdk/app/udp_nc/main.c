@@ -75,7 +75,7 @@ typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
 /* Maximal length of the coding buffer */
 #define MAX_NC_BUFFER 1400
 
-#define NEEDNOTTOKNOW 117
+#define MAGNUM 117
 
 #define TEST_PORT_ID 821
 
@@ -210,6 +210,7 @@ struct nck_decoder dec;
 
 UDP_NC_FUNC get_nc_func(int coder_type);
 static void l2_forward_rxqueue(struct rte_mbuf* m, unsigned portid);
+static void udp_decode(struct rte_mbuf* m_in, uint16_t portid);
 
 /******************************
  *  Function Implementations  *
@@ -304,7 +305,7 @@ static void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
  */
 static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
 {
-        struct sk_buff skb;
+        static struct sk_buff skb;
         uint16_t in_pl_len = 0; // length of input UDP payload
         uint16_t num_coded = 0;
         struct ipv4_hdr* iph;
@@ -324,12 +325,10 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
         mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
 
         skb_new(&skb, enc_buf, sizeof(enc_buf));
-        skb_reserve(&skb, sizeof(uint8_t));
-        skb_reserve(&skb, sizeof(uint16_t));
-        rte_memcpy(enc_buf, mbuf_data, in_pl_len);
+        skb_reserve(&skb, sizeof(uint16_t)); // reserve only empty skbs
+        rte_memcpy(skb.data, mbuf_data, in_pl_len);
         skb_put(&skb, in_pl_len);
-        skb_push_u8(&skb, NEEDNOTTOKNOW);
-        skb_push_u16(&skb, skb.len);
+        skb_push_u16(&skb, skb.len); // htons
         nck_put_source(&enc, &skb);
 
         while (nck_has_coded(&enc)) {
@@ -345,19 +344,18 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
                 skb_new(&skb, enc_buf, sizeof(enc_buf));
                 nck_get_coded(&enc, &skb);
                 RTE_LOG(DEBUG, USER1,
-                    "[ENC] Num coded output: %u, Coded data length: %u.\n",
-                    num_coded, skb.len);
+                    "[ENC] Output num: %u, Input length: %u, Coded data "
+                    "length: %u.\n",
+                    num_coded, in_pl_len, skb.len);
                 rte_pktmbuf_append(m_out, (skb.len - in_pl_len));
                 rte_memcpy(mbuf_data, skb.data, skb.len);
-                udph->dgram_len = rte_cpu_to_be_16(skb.len);
+
+                udph->dgram_len = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                 iph->total_length
                     = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
                         + (skb.len - in_pl_len));
-                /* Update IP and UDP header */
                 recalc_cksum(iph, udph);
-                if (debugging == 1) {
-                        RTE_LOG(
-                            DEBUG, USER1, "[TEST] Put coded mbuf into decoder");
+                if (unlikely(coder_type == -1)) {
                         udp_decode(m_out, portid);
                 } else {
                         l2_forward_rxqueue(m_out, portid);
@@ -367,31 +365,33 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
         rte_pktmbuf_free(m_in);
 }
 
+/*static void udp_recode()*/
+/*{}*/
+
 /**
- * @brief udp_decode: Decode the incoming UDP segment and put decoded data into
- * the TX queue
+ * @brief udp_decode: Put the payload of incoming mbuf into decoder and put all
+ * outputs of the decoder to the TX queue
  *
  * @note:
  */
 static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
 {
-        struct sk_buff skb;
-        static uint8_t buffer[MAX_NC_BUFFER];
+        static struct sk_buff skb;
+        static uint8_t dec_buf[MAX_NC_BUFFER]; // Could be avoided
         struct ipv4_hdr* iph;
         struct udp_hdr* udph;
-        uint16_t ip_total_len;
         uint16_t in_pl_len;
-        struct rte_mbuf* m_base;
-        struct rte_mbuf* m_tx;
+        uint16_t num_decoded = 0;
+        struct rte_mbuf* m_out = NULL;
+        uint8_t* mbuf_data;
 
-        /* Put incoming UDP segments into decoder */
-        skb_new(&skb, buffer, sizeof(buffer));
+        skb_new(&skb, dec_buf, sizeof(dec_buf));
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
-        ip_total_len = rte_be_to_cpu_16(iph->total_length);
         udph = (struct udp_hdr*)((char*)iph
             + ((iph->version_ihl & 0x0F) * 32 / 8));
         in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-        rte_memcpy(buffer, (char*)(udph) + UDP_HDR_LEN, in_pl_len);
+        mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
+        rte_memcpy(skb.data, mbuf_data, in_pl_len);
         skb_put(&skb, in_pl_len);
         nck_put_coded(&dec, &skb);
 
@@ -401,31 +401,33 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
                 return;
         }
 
-        m_base = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-        rte_pktmbuf_free(m_in);
         while (nck_has_source(&dec)) {
-                m_tx = rte_pktmbuf_clone(m_base, l2fwd_pktmbuf_pool);
-                RTE_LOG(DEBUG, USER1, "[Decoder] Allocate a new mbuf.\n");
+                num_decoded += 1;
+                m_out = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
                 iph = rte_pktmbuf_mtod_offset(
-                    m_tx, struct ipv4_hdr*, ETHER_HDR_LEN);
+                    m_out, struct ipv4_hdr*, ETHER_HDR_LEN);
                 udph = (struct udp_hdr*)((char*)iph
                     + ((iph->version_ihl & 0x0F) * 32 / 8));
-                // MARK: Instead of using mbuf, use the temp buffer for decoded
-                // message
-                skb_new(&skb, buffer, in_pl_len);
+                mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
+                skb_new(&skb, dec_buf, in_pl_len);
                 nck_get_source(&dec, &skb);
-                skb.len = skb_pull_u16(&skb); // Length of output UDP segement
-                rte_pktmbuf_trim(m_tx, (in_pl_len - skb.len));
-                rte_memcpy((char*)(udph) + UDP_HDR_LEN, skb.data,
-                    skb.len - UDP_HDR_LEN);
-                udph->dgram_len = rte_cpu_to_be_16(skb.len);
+                skb.len = skb_pull_u16(&skb);
+                rte_pktmbuf_trim(m_out, (in_pl_len - skb.len));
+                rte_memcpy((char*)(udph) + UDP_HDR_LEN, skb.data, skb.len);
+                RTE_LOG(DEBUG, USER1,
+                    "[DEC] Output num: %u, Input length: %u, Decoded "
+                    "data length: %u.\n",
+                    num_decoded, in_pl_len, skb.len);
+
+                udph->dgram_len = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                 iph->total_length
-                    = rte_cpu_to_be_16(ip_total_len - (in_pl_len - skb.len));
+                    = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
+                        - (in_pl_len - skb.len));
                 recalc_cksum(iph, udph);
-                l2_forward_rxqueue(m_tx, portid);
+                l2_forward_rxqueue(m_out, portid);
         }
 
-        rte_pktmbuf_free(m_base);
+        rte_pktmbuf_free(m_in);
 }
 
 UDP_NC_FUNC get_nc_func(int coder_type)
@@ -434,8 +436,12 @@ UDP_NC_FUNC get_nc_func(int coder_type)
                 return udp_encode;
         } else if (coder_type == 1) {
                 return udp_decode;
+        } else if (coder_type == -1) {
+                return udp_encode;
+        } else {
+                RTE_LOG(INFO, USER1, "[WARN] Just forwarding\n");
+                return NULL;
         }
-        return NULL;
 }
 
 inline static void l2fwd_mac_updating(struct rte_mbuf* m)
@@ -1016,6 +1022,19 @@ int main(int argc, char** argv)
                         &dec, NULL, options, nck_option_from_array)) {
                         rte_exit(EXIT_FAILURE, "Failed to create decoder.\n");
                 }
+                break;
+        case -1:
+                RTE_LOG(INFO, USER1, "Coder type: NC encoder + decoder.\n");
+                RTE_LOG(INFO, USER1, "[WARN] Used for debugging.\n");
+                if (nck_create_encoder(
+                        &enc, NULL, options, nck_option_from_array)) {
+                        rte_exit(EXIT_FAILURE, "Failed to create encoder.\n");
+                }
+                if (nck_create_decoder(
+                        &dec, NULL, options, nck_option_from_array)) {
+                        rte_exit(EXIT_FAILURE, "Failed to create decoder.\n");
+                }
+
                 break;
 
         default:
