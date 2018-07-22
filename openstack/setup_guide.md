@@ -15,5 +15,4 @@
 
   - section libvirt:  cpu_mode=host-passthrough
 
-
 5. Hope nothing goes wrong...

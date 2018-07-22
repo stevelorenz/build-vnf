@@ -204,10 +204,12 @@ static struct rte_eth_conf port_conf = {
 /* Memory pool for all mbufs */
 struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
 
+/* NC coders and operation functions */
 struct nck_encoder enc;
 struct nck_decoder dec;
 struct nck_recoder rec;
 struct rte_mbuf* m_cmy;
+static void (*udp_nc_opt)(struct rte_mbuf*, uint16_t);
 
 /****************
  *  Prototypes  *
@@ -216,8 +218,8 @@ struct rte_mbuf* m_cmy;
 UDP_NC_FUNC get_nc_func(int coder_type);
 static void l2_forward_rxqueue(struct rte_mbuf* m, unsigned portid);
 static void udp_encode(struct rte_mbuf* m_in, uint16_t portid);
-static void udp_decode(struct rte_mbuf* m_in, uint16_t portid);
 static void udp_recode(struct rte_mbuf* m_in, uint16_t portid);
+static void udp_decode(struct rte_mbuf* m_in, uint16_t portid);
 
 /******************************
  *  Function Implementations  *
@@ -574,8 +576,6 @@ static void l2fwd_main_loop(void)
         uint64_t prev_tsc, diff_tsc, cur_tsc;
         uint16_t sent;
 
-        static void (*p_udp_opt)(struct rte_mbuf*, uint16_t);
-
         /* MARK: Why there is a US_PER_S - 1 is added? Maybe check jiffies */
         const uint64_t drain_tsc
             = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * burst_tx_drain_us;
@@ -629,7 +629,9 @@ static void l2fwd_main_loop(void)
                         prev_tsc = cur_tsc;
                 }
 
-                /* TODO(zuo): Reduce nested ifs
+                /* TODO:  <22-07-18,zuo>
+                 * - The filtering can be peformed on multiple mbufs instead of
+                 *   one by one. (Reduce number of filter function calls)
                  * */
                 for (i = 0; i < qconf->n_rx_port; i++) {
                         portid = qconf->rx_port_list[i];
@@ -684,12 +686,7 @@ static void l2fwd_main_loop(void)
                                                         continue;
                                                 } else {
                                                         nb_udp_dgrams += 1;
-                                                        p_udp_opt = get_nc_func(
-                                                            coder_type);
-                                                        if (p_udp_opt != NULL) {
-                                                                p_udp_opt(
-                                                                    m, portid);
-                                                        }
+                                                        udp_nc_opt(m, portid);
                                                 }
                                         }
                                         /* Evaluate processing delay of burst
@@ -1132,6 +1129,8 @@ int main(int argc, char** argv)
         default:
                 rte_exit(EXIT_FAILURE, "Unknown coder type.\n");
         }
+
+        udp_nc_opt = get_nc_func(coder_type);
 
         RTE_LOG(INFO, USER1, "Maximal number of burst packets: %d\n",
             max_pkt_burst);
