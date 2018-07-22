@@ -53,6 +53,10 @@ CFLAGS += -O3
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-unused-but-set-parameter
 
+# Debug and profile
+# - gdb,gprof
+EXTRA_CFLAGS += -O2 -pg -g
+
 # Add nckernel
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include

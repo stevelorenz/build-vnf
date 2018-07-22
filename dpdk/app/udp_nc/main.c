@@ -353,7 +353,7 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
                 nck_get_coded(&enc, &skb);
                 skb_push_u8(&skb, MAGIC_NUM);
                 RTE_LOG(DEBUG, USER1,
-                    "[ENC] Output num: %u, Input length: %u, Coded data "
+                    "[ENC] Output num: %u, Input length: %u, Encoded data "
                     "length: %u.\n",
                     num_coded, in_pl_len, skb.len);
                 rte_pktmbuf_append(m_out, (skb.len - in_pl_len));
@@ -416,7 +416,7 @@ static void udp_recode(struct rte_mbuf* m_in, uint16_t portid)
                 nck_get_coded(&rec, &skb);
                 skb_push_u8(&skb, MAGIC_NUM);
                 RTE_LOG(DEBUG, USER1,
-                    "[REC] Output num: %u, Input length: %u, recoded data "
+                    "[REC] Output num: %u, Input length: %u, Recoded data "
                     "length: %u.\n",
                     num_recoded, in_pl_len, skb.len);
                 rte_pktmbuf_append(m_out, (skb.len - in_pl_len));
