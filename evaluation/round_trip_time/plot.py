@@ -147,7 +147,7 @@ def plot_ipd(payload_size='1400B', profile=''):
                     'FWD',
                     'FWD', 'ATS', 'XOR',
                     'FWD', 'ATS', 'XOR',
-                    'NC'
+                    'NC1'
                     ]
     colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3, 3)]
     hatch_patterns = ('xx', 'xx', '++', '\\\\', '\\\\',
@@ -158,7 +158,7 @@ def plot_ipd(payload_size='1400B', profile=''):
                         'FWD',
                         'FWD', 'ATS', 'XOR',
                         'FWD', 'ATS', 'XOR',
-                        'NC'
+                        'NC1'
                         ]
         colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3, 3)]
         hatch_patterns = ('xx', '++', '\\\\', '\\\\',
@@ -173,7 +173,7 @@ def plot_ipd(payload_size='1400B', profile=''):
                         'FWD',
                         'FWD', 'ATS', 'XOR',
                         'FWD', 'ATS', 'XOR',
-                        'NC',
+                        'NC1',
                         ]
         labels[0] = "XDP"
         labels[2] = "LKF"

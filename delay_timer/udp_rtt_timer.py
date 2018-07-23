@@ -154,7 +154,8 @@ class UDPClient(Base):
                                        (self._send_ip, self._send_port))
                 time.sleep(self._ipd * 2)
                 send_idx += 1
-            raise KeyboardInterrupt
+
+        # Raise exception to main thread
 
     def _recv_pack(self):
         self._recv_sock.setblocking(False)
