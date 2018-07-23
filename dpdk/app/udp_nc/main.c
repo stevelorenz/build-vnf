@@ -338,12 +338,13 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
         rte_memcpy(skb.data, mbuf_data, in_pl_len);
         skb_put(&skb, in_pl_len);
         skb_push_u16(&skb, skb.len); // htons
+        nck_put_source(&enc, &skb);
 
-        if (nck_put_source(&enc, &skb) == -1) {
-                RTE_LOG(ERR, "[ENC] Invalid input for encoder.");
-                rte_pktmbuf_free(m_in);
-                return;
-        }
+        /*if (nck_put_source(&enc, &skb) == -1) {*/
+        /*RTE_LOG(ERR, "[ENC] Invalid input for encoder.");*/
+        /*rte_pktmbuf_free(m_in);*/
+        /*return;*/
+        /*}*/
 
         while (nck_has_coded(&enc)) {
                 /* Clone a new mbuf for output */
@@ -671,10 +672,6 @@ static void l2fwd_main_loop(void)
                                         st_proc_tsc = rte_rdtsc();
                                         for (j = 0; j < nb_rx; j++) {
                                                 m = pkts_burst[j];
-                                                /* Filter out packets:
-                                                 * - Non-UDP packets
-                                                 * - Looping packets
-                                                 * */
                                                 rte_prefetch0(
                                                     rte_pktmbuf_mtod(m, void*));
                                                 if ((filter_ret
@@ -687,10 +684,14 @@ static void l2fwd_main_loop(void)
                                                             "Error code: %d\n",
                                                             rte_rdtsc(),
                                                             filter_ret);
-                                                        rte_pktmbuf_free(m);
+                                                        l2_forward_rxqueue(
+                                                            m, portid);
                                                         continue;
                                                 } else {
                                                         nb_udp_dgrams += 1;
+                                                        rte_prefetch0(
+                                                            rte_pktmbuf_mtod(
+                                                                m, void*));
                                                         udp_nc_opt(m, portid);
                                                 }
                                         }
@@ -1129,6 +1130,10 @@ int main(int argc, char** argv)
                         &dec, NULL, options, nck_option_from_array)) {
                         rte_exit(EXIT_FAILURE, "Failed to create decoder.\n");
                 }
+                break;
+
+        case -2:
+                RTE_LOG(INFO, USER1, "Coder type: Forwarding\n");
                 break;
 
         default:
