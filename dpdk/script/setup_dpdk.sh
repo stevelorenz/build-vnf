@@ -19,7 +19,7 @@ export RTE_TARGET=x86_64-native-linuxapp-gcc
 
 # Enable debugging with gdb
 # MARK: This add debug info also in testpmd app
-export EXTRA_CFLAGS="-O0 -g"
+# export EXTRA_CFLAGS += -O2 -pg -g
 
 # Hugepages mount point
 export HUGEPAGE_MOUNT=/mnt/huge
@@ -30,7 +30,7 @@ export HUGEPAGE_MOUNT=/mnt/huge
 
 # Configure hugepages
 # MARK: The allocation of hugepages SHOULD be done at boot time or as soon as possible after system boot
-echo 1024 | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+echo 512 | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
 sudo mkdir ${HUGEPAGE_MOUNT}
 sudo mount -t hugetlbfs nodev ${HUGEPAGE_MOUNT}
 

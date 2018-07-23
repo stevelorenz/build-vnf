@@ -1,6 +1,7 @@
 #! /bin/bash
 #
-# About: Test the functionality of VNFs
+# About: Test the functionality of DPDK Apps with Vagrant VMs
+#
 #  MARK:
 #        - Add static ARPs to avoid ARP requests
 

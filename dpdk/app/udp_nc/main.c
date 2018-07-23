@@ -684,8 +684,7 @@ static void l2fwd_main_loop(void)
                                                             "Error code: %d\n",
                                                             rte_rdtsc(),
                                                             filter_ret);
-                                                        l2_forward_rxqueue(
-                                                            m, portid);
+                                                        rte_pktmbuf_free(m);
                                                         continue;
                                                 } else {
                                                         nb_udp_dgrams += 1;

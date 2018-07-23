@@ -1,6 +1,0 @@
-# Set src and dst IPs and MACs
-set 0 src ip 10.0.0.11/24
-
-# Set traffic
-set 0 proto udp
-set 0 type ipv4
