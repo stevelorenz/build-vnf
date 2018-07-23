@@ -56,10 +56,10 @@ make
 # Install and load kernel modules
 echo "# Loading kernel modules."
 sudo modprobe uio
-sudo insmod ${RTE_SDK}/build/kmod/igb_uio.ko
+sudo insmod ${RTE_SDK}/kmod/igb_uio.ko
 
 # Make uio and igb_uio persist across reboots
-sudo ln -sf ${RTE_SDK}/build/kmod/igb_uio.ko /lib/modules/`uname -r`
+sudo ln -sf ${RTE_SDK}/kmod/igb_uio.ko /lib/modules/`uname -r`
 sudo depmod -a
 echo "uio" | sudo tee -a /etc/modules
 echo "igb_uio" | sudo tee -a /etc/modules

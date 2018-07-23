@@ -85,7 +85,7 @@ def calc_rtt_lst(subdir, csv_tpl, var_lst, grp_step=10):
             raise RuntimeError('Found negative RTT value in %s.' % csv_path)
         tmp_list = np.average(rtt_arr, axis=1)
         tmp_list, invalid_index = warn_x_std(tmp_list, csv_path,
-                                             ret_inv_lst=True, x=3)
+                                             ret_inv_lst=True, x=6)
         if invalid_index:
             print('[WARN] Remove invalid rows from the CSV file')
             print('Invalid rows: %s' % ', '.join(map(str, invalid_index)))
@@ -112,7 +112,7 @@ def label_bar(rects, ax):
     for rect in rects:
         height = rect.get_height()
         ax.text(rect.get_x() + rect.get_width() / 2., 1.1*height,
-                '%.2f' % height, fontsize=5,
+                '%.3f' % height, fontsize=5,
                 ha='center', va='bottom')
 
 
@@ -129,7 +129,7 @@ def plot_ipd(payload_size='1400B', profile=''):
         'xdp_fwd', 'xdp_xor',
         'lk_fwd',
         'click_fwd', 'click_appendts', 'click_xor',
-        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor',
+        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor', 'dpdk_nc_ed'
     ]
     if payload_size == '1400B':
         items.remove('xdp_xor')
@@ -146,21 +146,23 @@ def plot_ipd(payload_size='1400B', profile=''):
     xtick_labels = ['FWD', 'XOR',
                     'FWD',
                     'FWD', 'ATS', 'XOR',
-                    'FWD', 'ATS', 'XOR'
+                    'FWD', 'ATS', 'XOR',
+                    'NC'
                     ]
-    colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3)]
+    colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3, 3)]
     hatch_patterns = ('xx', 'xx', '++', '\\\\', '\\\\',
-                      '\\\\', '//', '//', '//')
+                      '\\\\', '//', '//', '//', '//')
     labels = [""] * len(csv_files)
     if payload_size == '1400B':
         xtick_labels = ['FWD',
                         'FWD',
                         'FWD', 'ATS', 'XOR',
-                        'FWD', 'ATS', 'XOR'
+                        'FWD', 'ATS', 'XOR',
+                        'NC'
                         ]
-        colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3)]
+        colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3, 3)]
         hatch_patterns = ('xx', '++', '\\\\', '\\\\',
-                          '\\\\', '//', '//', '//')
+                          '\\\\', '//', '//', '//', '//')
         labels[0] = "XDP"
         labels[1] = "LKF"
         labels[2] = "Click"
@@ -170,7 +172,8 @@ def plot_ipd(payload_size='1400B', profile=''):
         xtick_labels = ['FWD', 'XOR',
                         'FWD',
                         'FWD', 'ATS', 'XOR',
-                        'FWD', 'ATS', 'XOR'
+                        'FWD', 'ATS', 'XOR',
+                        'NC',
                         ]
         labels[0] = "XDP"
         labels[2] = "LKF"
@@ -199,7 +202,7 @@ def plot_ipd(payload_size='1400B', profile=''):
                        for x in range(len(csv_files))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
     rtt_ax.set_ylim(0, 0.5)
-    rtt_ax.set_xticklabels(xtick_labels)
+    rtt_ax.set_xticklabels(xtick_labels, fontsize=3)
     rtt_ax.grid(linestyle='--')
 
     handles, labels = rtt_ax.get_legend_handles_labels()

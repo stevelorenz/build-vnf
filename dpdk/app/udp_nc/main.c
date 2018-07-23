@@ -338,7 +338,12 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
         rte_memcpy(skb.data, mbuf_data, in_pl_len);
         skb_put(&skb, in_pl_len);
         skb_push_u16(&skb, skb.len); // htons
-        nck_put_source(&enc, &skb);
+
+        if (nck_put_source(&enc, &skb) == -1) {
+                RTE_LOG(ERR, "[ENC] Invalid input for encoder.");
+                rte_pktmbuf_free(m_in);
+                return;
+        }
 
         while (nck_has_coded(&enc)) {
                 /* Clone a new mbuf for output */
@@ -1341,8 +1346,9 @@ int main(int argc, char** argv)
                 RTE_LOG(INFO, USER1, " Done\n");
         }
 
-        if (packet_capturing)
+        if (packet_capturing == 1) {
                 rte_pdump_uninit();
+        }
 
         RTE_LOG(INFO, EAL, "App exits.\n");
         /* MARK: In DPDK 17.11-rc4, rte_eal_cleanup is depreciated, can not be

@@ -154,6 +154,7 @@ class UDPClient(Base):
                                        (self._send_ip, self._send_port))
                 time.sleep(self._ipd * 2)
                 send_idx += 1
+            raise KeyboardInterrupt
 
     def _recv_pack(self):
         self._recv_sock.setblocking(False)
@@ -238,7 +239,7 @@ class UDPServer(Base):
                 pcap_file_name = 'queue_overflow_{}.pcap'.format(
                     int(time.time()))
                 subprocess.check_call(
-                    'sudo tcpdump -nn dst {} -c 100 -w {} udp'.format(
+                    'sudo tcpdump -nn dst {} and udp -c 100 -w {}'.format(
                         self._recv_ip, pcap_file_name),
                     shell=True)
                 self._cleanup()
