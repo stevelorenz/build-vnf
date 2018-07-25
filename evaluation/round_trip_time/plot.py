@@ -129,7 +129,7 @@ def plot_ipd(payload_size='1400B', profile=''):
         'xdp_fwd', 'xdp_xor',
         'lk_fwd',
         'click_fwd', 'click_appendts', 'click_xor',
-        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor', 'dpdk_nc_ed'
+        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor', 'dpdk_nc_ed', 'dpdk_nc_ed2'
     ]
     if payload_size == '1400B':
         items.remove('xdp_xor')
@@ -147,22 +147,22 @@ def plot_ipd(payload_size='1400B', profile=''):
                     'FWD',
                     'FWD', 'ATS', 'XOR',
                     'FWD', 'ATS', 'XOR',
-                    'NC1'
+                    'NC1', 'NC2'
                     ]
-    colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3, 3)]
+    colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 3)]
     hatch_patterns = ('xx', 'xx', '++', '\\\\', '\\\\',
-                      '\\\\', '//', '//', '//', '//')
+                      '\\\\', '//', '//', '//', '//', '//')
     labels = [""] * len(csv_files)
     if payload_size == '1400B':
         xtick_labels = ['FWD',
                         'FWD',
                         'FWD', 'ATS', 'XOR',
                         'FWD', 'ATS', 'XOR',
-                        'NC1'
+                        'NC1', 'NC2'
                         ]
-        colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3, 3)]
+        colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3, 3, 3)]
         hatch_patterns = ('xx', '++', '\\\\', '\\\\',
-                          '\\\\', '//', '//', '//', '//')
+                          '\\\\', '//', '//', '//', '//', '//')
         labels[0] = "XDP"
         labels[1] = "LKF"
         labels[2] = "Click"
@@ -173,7 +173,7 @@ def plot_ipd(payload_size='1400B', profile=''):
                         'FWD',
                         'FWD', 'ATS', 'XOR',
                         'FWD', 'ATS', 'XOR',
-                        'NC1',
+                        'NC1', 'NC2'
                         ]
         labels[0] = "XDP"
         labels[2] = "LKF"

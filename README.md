@@ -82,7 +82,7 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
     - For BCC: 4.17.0-041700-generic
     - For DPDK, Click: Default version in bento/ubuntu-16.04
 
-- DPDK: v17.11-rc4
+- DPDK: v18.02-rc4
 - BCC: v0.6.0
 - Click: v2.0.1
 

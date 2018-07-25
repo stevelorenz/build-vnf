@@ -1205,12 +1205,8 @@ int main(int argc, char** argv)
                 rte_pdump_uninit();
 
         RTE_LOG(INFO, EAL, "App exits.\n");
-        /* MARK: In DPDK 17.11-rc4, rte_eal_cleanup is depreciated, can not be
-         *used So exiting the program results in leaking hugepages.
-         *		 rte_eal_cleanup feature is provided by DPDK 18.02
-         * */
-        /*RTE_LOG(INFO, EAL, "Release hugepages.\n");*/
-        /*rte_eal_cleanup();*/
+        RTE_LOG(INFO, EAL, "Release hugepages.\n");
+        rte_eal_cleanup();
 
         return ret;
 }

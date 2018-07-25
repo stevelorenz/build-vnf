@@ -52,6 +52,7 @@ include $(RTE_SDK)/mk/rte.vars.mk
 CFLAGS += -O3
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-unused-but-set-parameter
+CFLAGS += -Wno-deprecated-declarations
 
 # Debug and profile
 # - gdb,gprof

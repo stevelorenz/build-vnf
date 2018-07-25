@@ -1073,13 +1073,7 @@ int main(int argc, char** argv)
             "poll_short_interval_us:%d, poll_long_interval_us:%d\n",
             max_poll_short_try, poll_short_interval_us, poll_long_interval_us);
 
-        /* MARK: This function is not supported in DPDK 17.11
-         * */
-        /*nb_ports = rte_eth_dev_count_avail();*/
-
         RTE_LOG(INFO, USER1, "Number of to be used ports: %d\n", nb_ports);
-        /*if (nb_ports == 0)*/
-        /*rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");*/
 
         RTE_LOG(INFO, USER1,
             "Protocol: %s, Symbol size: %s, Symbols: %s, Redundancy:%s\n",
@@ -1355,12 +1349,9 @@ int main(int argc, char** argv)
         }
 
         RTE_LOG(INFO, EAL, "App exits.\n");
-        /* MARK: In DPDK 17.11-rc4, rte_eal_cleanup is depreciated, can not be
-         *used So exiting the program results in leaking hugepages.
-         *		 rte_eal_cleanup feature is provided by DPDK 18.02
-         * */
-        /*RTE_LOG(INFO, EAL, "Release hugepages.\n");*/
-        /*rte_eal_cleanup();*/
+        RTE_LOG(INFO, EAL, "Release hugepages.\n");
+        /* MARK: New feature supported by v18.02 */
+        rte_eal_cleanup();
 
         return ret;
 }
