@@ -1,11 +1,12 @@
 #!/bin/bash
 # About: Run udp_test app
 #
-#  MARK:
-#        - For measurements, the socket memory should be increased to e.g. 1024MB
-#        - For CLI options, check the l2fwd_usage() function in the main.c
-#          Or run $sudo ./build/udp_test -l 0 -m 100 -- -h
-#        - For measurements, -v 0 should be used to avoid debugging massages.
+
+SRC_MAC="08:00:27:3c:97:68"
+DST_MAC="08:00:27:e1:f1:7d"
+SOCKET_MEM=100
+LCORES="0"
+POLL_PAR="10,100,100"
 
 function help() {
     echo "Usage: \$run_app.sh proc_opt max_pkt_burst drain_tx_us nb_ports port_mask"
@@ -17,18 +18,17 @@ function help() {
     echo "-drain_tx_us: Period to drain the tx queue"
     echo "-nb_ports: Number of to be used ports"
     echo "-port_mask: Port mask of to be used ports, in hex"
+    echo "-nb_queue: Number of receive queues"
 }
 
-if [[ "$#" -ne 5 ]]; then
+if [[ "$#" -ne 6 ]]; then
     echo "Illegal number of parameters"
     help
     exit 1
 fi
 
-sudo ./build/udp_test -l 0 -m 100 -- \
-    -q 1 -s 08:00:27:3c:97:68 -d 08:00:27:e1:f1:7d \
+sudo ./build/udp_nc -l $LCORES -m $SOCKET_MEM -- \
+    -s $SRC_MAC -d $DST_MAC \
+    -i $POLL_PAR \
     -o "$1" -b "$2" -t "$3" \
-    -i 10,100,5000000 \
-    -n "$4" \
-    -p "$5" \
-    --debugging
+    -n "$4" -p "$5" -q "$6" \

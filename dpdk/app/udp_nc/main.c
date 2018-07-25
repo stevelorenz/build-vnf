@@ -1009,7 +1009,6 @@ int main(int argc, char** argv)
 {
         struct lcore_queue_conf* qconf;
         int ret;
-        uint16_t nb_ports_available = 0;
         uint16_t portid, last_port;
         unsigned lcore_id, rx_lcore_id;
         unsigned nb_ports_in_mask = 0;
@@ -1232,7 +1231,6 @@ int main(int argc, char** argv)
                             INFO, USER1, "Skipping disabled port %u\n", portid);
                         continue;
                 }
-                nb_ports_available++;
 
                 /* init port */
                 RTE_LOG(INFO, USER1, "Initializing port %u... \n", portid);
@@ -1311,11 +1309,6 @@ int main(int argc, char** argv)
                     l2fwd_ports_eth_addr[portid].addr_bytes[3],
                     l2fwd_ports_eth_addr[portid].addr_bytes[4],
                     l2fwd_ports_eth_addr[portid].addr_bytes[5]);
-        }
-
-        if (!nb_ports_available) {
-                rte_exit(EXIT_FAILURE,
-                    "All available ports are disabled. Please set portmask.\n");
         }
 
         check_all_ports_link_status(l2fwd_enabled_port_mask);
