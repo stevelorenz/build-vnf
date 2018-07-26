@@ -201,7 +201,7 @@ def plot_ipd(payload_size='1400B', profile=''):
     rtt_ax.set_xticks([0 + x * (bar_width + gap)
                        for x in range(len(csv_files))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
-    rtt_ax.set_ylim(0, 0.5)
+    rtt_ax.set_ylim(0, 1.0)
     rtt_ax.set_xticklabels(xtick_labels, fontsize=3)
     rtt_ax.grid(linestyle='--')
 

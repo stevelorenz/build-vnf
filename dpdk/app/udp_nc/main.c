@@ -2,24 +2,21 @@
  * =====================================================================================
  *
  *       Filename:  main.c
- *    Description:  Network coding UDP payload with NCKernel
+ *    Description:  Network coding UDP flows with NCKernel
  *
- *                  * Coder type:
- *                      - Encoder
- *                      - Decoder
- *                      - Recoder
+ *                  - With default mode, only UDP payload is coded.
  *
- *           Note:
+ *      Dev-Note:
  *                  - Currently, no call-backs are used. The ethernet frames are
- *                  handled one by one:
+ *                    handled one by one:
  *                      Recv_RX_Queue -> Filter -> Code -> Rewrite_MAC ->
  *                      Put_TX_Queue -> Drain_TX_Queue
  *
  *                  - For all coder types, a coding buffer(static uint8_t array)
- *                  is used to exchange data between mbufs and coder's own
- *                  buffer. The input mbuf is always freed after the coding
- *                  operaton of all coder types. Addtional mbufs are cloned to
- *                  encapsulate output(s) of the coder.
+ *                    is used to exchange data between mbufs and coder's own
+ *                    buffer. The input mbuf is always freed after the coding
+ *                    operaton of all coder types. Addtional mbufs are cloned to
+ *                    encapsulate output(s) of the coder.
  *
  *        Version:  0.3
  *          Email:  xianglinks@gmail.com
@@ -275,8 +272,8 @@ __attribute__((unused)) static bool is_ipv4_pkt(struct rte_mbuf* m)
         ethh = rte_pktmbuf_mtod(m, struct ether_hdr*);
         if (ethh->ether_type == rte_cpu_to_be_16(ETHER_TYPE_IPv4)) {
                 return true;
-        } else
-                return false;
+        }
+        return false;
 }
 
 __attribute__((unused)) static bool is_udp_dgram(struct rte_mbuf* m)
@@ -285,8 +282,9 @@ __attribute__((unused)) static bool is_udp_dgram(struct rte_mbuf* m)
         iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
         if (iph->next_proto_id == IPPROTO_UDP) {
                 return true;
-        } else
-                return false;
+        }
+
+        return false;
 }
 
 static void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
@@ -523,14 +521,16 @@ UDP_NC_FUNC get_nc_func(int coder_type)
 {
         if (coder_type == 0) {
                 return udp_encode;
-        } else if (coder_type == 1) {
-                return udp_decode;
-        } else if (coder_type == -1) {
-                return udp_encode;
-        } else {
-                RTE_LOG(INFO, USER1, "[WARN] Just forwarding\n");
-                return NULL;
         }
+        if (coder_type == 1) {
+                return udp_decode;
+        }
+        if (coder_type == -1) {
+                return udp_encode;
+        }
+
+        RTE_LOG(INFO, USER1, "[WARN] Just forwarding\n");
+        return NULL;
 }
 
 inline static void l2fwd_mac_updating(struct rte_mbuf* m)
@@ -550,8 +550,9 @@ static void l2_forward_rxqueue(struct rte_mbuf* m, unsigned portid)
 
         dst_port = l2fwd_dst_ports[portid];
 
-        if (mac_updating)
+        if (mac_updating) {
                 l2fwd_mac_updating(m);
+        }
 
         buffer = tx_buffer[dst_port];
 
@@ -686,13 +687,11 @@ static void l2fwd_main_loop(void)
                                                             filter_ret);
                                                         rte_pktmbuf_free(m);
                                                         continue;
-                                                } else {
-                                                        nb_udp_dgrams += 1;
-                                                        rte_prefetch0(
-                                                            rte_pktmbuf_mtod(
-                                                                m, void*));
-                                                        udp_nc_opt(m, portid);
                                                 }
+                                                nb_udp_dgrams += 1;
+                                                rte_prefetch0(
+                                                    rte_pktmbuf_mtod(m, void*));
+                                                udp_nc_opt(m, portid);
                                         }
                                         /* Evaluate processing delay of burst
                                          * packets */
@@ -1005,6 +1004,10 @@ static void signal_handler(int signum)
         }
 }
 
+/* TODO:  <26-07-18, zuo>
+ * - Init mbufs properly to support NC directly on mbufs
+ * - Check configs for vhost-user interfaces
+ * */
 int main(int argc, char** argv)
 {
         struct lcore_queue_conf* qconf;
@@ -1078,8 +1081,8 @@ int main(int argc, char** argv)
             "Protocol: %s, Symbol size: %s, Symbols: %s, Redundancy:%s\n",
             PROTOCOL, SYMBOL_SIZE, SYMBOLS, REDUNDANCY);
         struct nck_option_value options[] = { { "protocol", PROTOCOL },
-                { "symbol_size", "258" }, { "symbols", "2" },
-                { "redundancy", "1" }, { NULL, NULL } };
+                { "symbol_size", SYMBOL_SIZE }, { "symbols", SYMBOLS },
+                { "redundancy", REDUNDANCY }, { NULL, NULL } };
 
         switch (coder_type) {
         case 0:

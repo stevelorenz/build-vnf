@@ -1,15 +1,25 @@
 # Build VNF #
 
+## Motivation ##
+
 Test and evaluate different packet IO and processing tools for implementing Virtualized Network Function (VNFs) on
 virtual machines, Unikernels or containers. The main focus of performance here is the **low latency** (End-to-End
 service delay). Pros and cons of each tool should be studied and latter utilized for building VNF with different
 requirements.
-For example, firewalls or load balancers should be built using tools that provide high IO speeds but limited computing
-power.
-For compute-intensive network functions, such as data encryption, network coding and compressed sensing. The processing
-ability and delay performance of the tool should also be considered.
 
-Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/stevelorenz/sfc-ostack) framework.
+For example, firewalls or load balancers can be built using tools that provide high IO speeds but limited computing
+power.  For compute-intensive network functions, such as data encryption, network coding or compressed sensing. The
+processing ability and delay performance of the tool should also be considered.
+
+Such VNFs can be latter e.g. integrated into NFV platforms or frameworks.
+
+## Catalog ##
+
+Since this repo is research oriented, many PoCs or prototypes are also included. These sub-items are classified
+according to the technology used. For instance, the [io\_visor](./io\_visor) directory contains prototypes and helper
+scripts to develop VNFs with tools provided by IO Visor project. These codes are not guaranteed to be stable and also
+upgraded with latest features. Relative mature and stable VNFs are put into the [vnf\_release](./vnf\_release/) directory
+with source code and also usage guide. These sub-items will be maintained and improved with latest features.
 
 ## Packet IO Frameworks ##
 
@@ -23,8 +33,6 @@ Such VNFs should be latter integrated into the [SFC-Ostack](https://github.com/s
 ## Packet Processing Frameworks ##
 
 1. Network Coding Kernel Library (NCKernel): Used for network coded communications.
-
-## TODO: Catalog ##
 
 ## Brief Comparison ##
 

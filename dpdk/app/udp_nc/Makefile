@@ -5,7 +5,7 @@
 APP = udp_nc
 
 # All source are stored in SRCS-y
-SRCS-y := main.c
+SRCS-y := main.c ncmbuf.c
 
 # Build using pkg-config variables if possible
 $(shell pkg-config --exists libdpdk)
@@ -53,10 +53,13 @@ CFLAGS += -O3
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-unused-but-set-parameter
 CFLAGS += -Wno-deprecated-declarations
+# Set NCKernel parameters
+CFLAGS += -DSYMBOL_SIZE=\"1402\" -DSYMBOLS=\"2\" -DREDUNDANCY=\"1\"
 
 # Debug and profile
 # - gdb,gprof
-EXTRA_CFLAGS += -O2 -pg -g
+# EXTRA_CFLAGS += -O2 -pg -g
+EXTRA_CFLAGS += -O3
 
 # Add nckernel
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
