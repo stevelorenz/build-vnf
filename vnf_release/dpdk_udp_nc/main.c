@@ -7,16 +7,21 @@
  *                  - With default mode, only UDP payload is coded.
  *
  *      Dev-Note:
- *                  - Currently, no call-backs are used. The ethernet frames are
- *                    handled one by one:
- *                      Recv_RX_Queue -> Filter -> Code -> Rewrite_MAC ->
- *                      Put_TX_Queue -> Drain_TX_Queue
+ *                  - Currently, concurrent processing is not implemented. The
+ *                    Ethernet frames are handled one by one with a single
+ *                    process and a single core.
+ *
+ *                  - In order to reduce per-packet latency and implementation
+ *                    complexity. mbufs are filtered and coded one by one. Some
+ *                    instructions are prefetched with DPDK features. However,
+ *                    it should be more efficient to process multiple mbufs
+ *                    simultaneously with e.g. SIMD instructions.
  *
  *                  - For all coder types, a coding buffer(static uint8_t array)
  *                    is used to exchange data between mbufs and coder's own
  *                    buffer. The input mbuf is always freed after the coding
- *                    operaton of all coder types. Addtional mbufs are cloned to
- *                    encapsulate output(s) of the coder.
+ *                    operator of all coder types. Additional mbufs are cloned
+ *                    to encapsulate output(s) of the coder.
  *
  *        Version:  0.3
  *          Email:  xianglinks@gmail.com

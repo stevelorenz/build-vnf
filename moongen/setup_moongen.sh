@@ -9,8 +9,13 @@
 if [[ $1 = '-i' ]]; then
     echo "# Install MoonGen from source code"
     sudo apt-get install -y build-essential cmake linux-headers-`uname -r` pciutils libnuma-dev
+    git clone https://github.com/emmericp/MoonGen $HOME/MoonGen
+    cd $HOME/MoonGen || exit
+    ./build.sh
+
 elif [[ $1 = '-s' ]]; then
     echo "# Setup MoonGen"
+
 else
     echo "# Unknown option."
     echo " -i: Install MoonGen"
