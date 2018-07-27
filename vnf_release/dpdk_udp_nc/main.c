@@ -72,8 +72,7 @@
 #include <rte_random.h>
 #include <rte_udp.h>
 
-#include <nckernel.h>
-#include <skb.h>
+#include "ncmbuf.h"
 
 typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
 
@@ -82,12 +81,11 @@ typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
 
 #define MAGIC_NUM 117
 
-#define TEST_PORT_ID 821
-
 #ifndef DEBUG
 #define DEBUG 0
 #endif /* ifndef DEBUG 0 */
 
+/* NCKernel options */
 #ifndef PROTOCOL
 #define PROTOCOL "noack"
 #endif
@@ -104,6 +102,14 @@ typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
 #define REDUNDANCY "1"
 #endif
 
+#define MEMPOOL_CACHE_SIZE 256
+#define UDP_HDR_LEN 8
+#define RTE_TEST_RX_DESC_DEFAULT 1024
+#define RTE_TEST_TX_DESC_DEFAULT 1024
+
+#define MAX_RX_QUEUE_PER_LCORE 4
+#define MAX_TX_QUEUE_PER_PORT 4
+
 /**********************
  *  Global Variables  *
  **********************/
@@ -113,18 +119,12 @@ static volatile bool force_quit;
 /* Enable debug mode */
 static int debugging = 0;
 
-/* MAC updating enabled by default */
 static int mac_updating = 1;
 
-/* Disable packet capture by default
- * Packet capture is supported by pdump library
- * */
 static int packet_capturing = 0;
 
-/* Flag for processing operation of UDP segments */
 static int coder_type = 0;
 
-/* Number of to be used ports */
 static int nb_ports = 0;
 
 /* Burst-based packet processing */
@@ -138,9 +138,7 @@ static int poll_short_interval_us; /* Try to receive from the RX every X
 static int max_poll_short_try;
 static int poll_long_interval_us;
 
-#define BURST_TX_DRAIN_US 10
 static int burst_tx_drain_us = 10;
-#define MEMPOOL_CACHE_SIZE 256
 
 /* Processing delay of frames */
 static uint64_t st_proc_tsc = 0;
@@ -154,14 +152,6 @@ static uint32_t src_mac[ETHER_ADDR_LEN];
 static struct ether_addr dst_mac_addr;
 static struct ether_addr src_mac_addr;
 
-/* Layer 4 Protocols */
-#define UDP_HDR_LEN 8
-
-/*
- * Configurable number of RX/TX ring descriptors
- */
-#define RTE_TEST_RX_DESC_DEFAULT 1024
-#define RTE_TEST_TX_DESC_DEFAULT 1024
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
@@ -174,9 +164,6 @@ static uint32_t l2fwd_enabled_port_mask = 0;
 /* list of enabled ports */
 static uint32_t l2fwd_dst_ports[RTE_MAX_ETHPORTS];
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
-
-#define MAX_RX_QUEUE_PER_LCORE 4
-#define MAX_TX_QUEUE_PER_PORT 4
 
 struct lcore_queue_conf {
         unsigned n_rx_port;
@@ -192,6 +179,7 @@ struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
 
 static struct rte_eth_dev_tx_buffer* tx_buffer[RTE_MAX_ETHPORTS];
 
+/* DPDK port configuration */
 static struct rte_eth_conf port_conf = {
 	.rxmode = {
 		.split_hdr_size = 0,
@@ -203,7 +191,6 @@ static struct rte_eth_conf port_conf = {
 	},
 };
 
-/* Memory pool for all mbufs */
 struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
 
 /* NC coders and operation functions */
@@ -245,7 +232,7 @@ __attribute__((unused)) static void get_ip_str(uint32_t ip, char* ip_addr_str)
 /**
  * @brief Filter a Ethernet frame, return true if frame match the rules.
  */
-__attribute__((unused)) static int8_t filter_ether_frame(struct rte_mbuf* m)
+static inline int8_t filter_ether_frame(struct rte_mbuf* m)
 {
         struct ether_hdr* ethh;
         ethh = rte_pktmbuf_mtod(m, struct ether_hdr*);
@@ -271,7 +258,7 @@ __attribute__((unused)) static int8_t filter_ether_frame(struct rte_mbuf* m)
         return 1;
 }
 
-__attribute__((unused)) static bool is_ipv4_pkt(struct rte_mbuf* m)
+__attribute__((unused)) static inline bool is_ipv4_pkt(struct rte_mbuf* m)
 {
         struct ether_hdr* ethh;
         ethh = rte_pktmbuf_mtod(m, struct ether_hdr*);
@@ -281,7 +268,7 @@ __attribute__((unused)) static bool is_ipv4_pkt(struct rte_mbuf* m)
         return false;
 }
 
-__attribute__((unused)) static bool is_udp_dgram(struct rte_mbuf* m)
+__attribute__((unused)) static inline bool is_udp_dgram(struct rte_mbuf* m)
 {
         struct ipv4_hdr* iph;
         iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
@@ -292,7 +279,7 @@ __attribute__((unused)) static bool is_udp_dgram(struct rte_mbuf* m)
         return false;
 }
 
-static void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
+static inline void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
 {
         udph->dgram_cksum = 0;
         iph->hdr_checksum = 0;
@@ -1034,10 +1021,11 @@ int main(int argc, char** argv)
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
 
-        /* parse application arguments (after the EAL ones) */
+        /* Parse application arguments (after the EAL ones) */
         ret = l2fwd_parse_args(argc, argv);
-        if (ret < 0)
+        if (ret < 0) {
                 rte_exit(EXIT_FAILURE, "Invalid L2FWD arguments\n");
+        }
 
         RTE_LOG(INFO, USER1, "DEBUG mode: %s\n",
             debugging ? "enabled" : "disabled");
@@ -1097,7 +1085,6 @@ int main(int argc, char** argv)
                         &enc, NULL, options, nck_option_from_array)) {
                         rte_exit(EXIT_FAILURE, "Failed to create encoder.\n");
                 }
-
                 break;
         case 1:
                 RTE_LOG(INFO, USER1, "Coder type: NC decoder.\n");
@@ -1216,16 +1203,23 @@ int main(int argc, char** argv)
                       + nb_lcores * MEMPOOL_CACHE_SIZE),
             8192U);
 
-        /* create the mbuf pool
+        /*
          * RTE_MBUF_DEFAULT_BUF_SIZE = (RTE_MBUF_DEFAULT_DATAROOM +
          * RTE_PKTMBUF_HEADROOM)
          * */
-        l2fwd_pktmbuf_pool = rte_pktmbuf_pool_create("mbuf_pool", nb_mbufs,
-            MEMPOOL_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-        if (l2fwd_pktmbuf_pool == NULL)
-                rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
+        l2fwd_pktmbuf_pool = rte_pktmbuf_pool_create("l2fwd_mbuf_pool",
+            nb_mbufs, MEMPOOL_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE,
+            rte_socket_id());
 
-        /*Initialise each port*/
+        if (l2fwd_pktmbuf_pool == NULL) {
+                rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
+        }
+
+        if (coder_type == 0) {
+                check_mbuf_size(
+                    l2fwd_pktmbuf_pool, &enc, UDP_NC_PAYLOAD_HEADER_LEN);
+        }
+
         RTE_ETH_FOREACH_DEV(portid)
         {
                 struct rte_eth_rxconf rxq_conf;
@@ -1248,18 +1242,20 @@ int main(int argc, char** argv)
                         local_port_conf.txmode.offloads
                             |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
                 ret = rte_eth_dev_configure(portid, 1, 1, &local_port_conf);
-                if (ret < 0)
+                if (ret < 0) {
                         rte_exit(EXIT_FAILURE,
                             "Cannot configure device: err=%d, port=%u\n", ret,
                             portid);
+                }
 
                 ret = rte_eth_dev_adjust_nb_rx_tx_desc(
                     portid, &nb_rxd, &nb_txd);
-                if (ret < 0)
+                if (ret < 0) {
                         rte_exit(EXIT_FAILURE,
                             "Cannot adjust number of descriptors: err=%d, "
                             "port=%u\n",
                             ret, portid);
+                }
 
                 /* [Zuo] Get MAC addresses of all enabled port */
                 rte_eth_macaddr_get(portid, &l2fwd_ports_eth_addr[portid]);
@@ -1271,10 +1267,11 @@ int main(int argc, char** argv)
                 ret = rte_eth_rx_queue_setup(portid, 0, nb_rxd,
                     rte_eth_dev_socket_id(portid), &rxq_conf,
                     l2fwd_pktmbuf_pool);
-                if (ret < 0)
+                if (ret < 0) {
                         rte_exit(EXIT_FAILURE,
                             "rte_eth_rx_queue_setup:err=%d, port=%u\n", ret,
                             portid);
+                }
 
                 /* init one TX queue on each port */
                 fflush(stdout);
@@ -1283,10 +1280,11 @@ int main(int argc, char** argv)
                 txq_conf.offloads = local_port_conf.txmode.offloads;
                 ret = rte_eth_tx_queue_setup(portid, 0, nb_txd,
                     rte_eth_dev_socket_id(portid), &txq_conf);
-                if (ret < 0)
+                if (ret < 0) {
                         rte_exit(EXIT_FAILURE,
                             "rte_eth_tx_queue_setup:err=%d, port=%u\n", ret,
                             portid);
+                }
 
                 /* Initialize TX buffers */
                 tx_buffer[portid] = rte_zmalloc_socket("tx_buffer",
@@ -1301,9 +1299,10 @@ int main(int argc, char** argv)
 
                 /* Start device */
                 ret = rte_eth_dev_start(portid);
-                if (ret < 0)
+                if (ret < 0) {
                         rte_exit(EXIT_FAILURE,
                             "rte_eth_dev_start:err=%d, port=%u\n", ret, portid);
+                }
                 RTE_LOG(INFO, USER1, "Device started for port: %d\n", portid);
 
                 /* MARK: Enable promiscuous mode in each enabled port */

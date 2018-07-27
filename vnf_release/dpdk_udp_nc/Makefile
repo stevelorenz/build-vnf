@@ -5,7 +5,7 @@
 APP = udp_nc
 
 # All source are stored in SRCS-y
-SRCS-y := main.c ncmbuf.c kni.c
+SRCS-y := main.c ncmbuf.c kni.c utils.c
 
 # Build using pkg-config variables if possible
 $(shell pkg-config --exists libdpdk)
@@ -53,17 +53,20 @@ CFLAGS += -O3
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-unused-but-set-parameter
 CFLAGS += -Wno-deprecated-declarations
+#EXTRA_CFLAGS += -O3
 
 # Set NCKernel codec parameters
-CFLAGS += -DSYMBOL_SIZE=\"1402\" -DSYMBOLS=\"2\" -DREDUNDANCY=\"1\"
+CFLAGS += -DSYMBOL_SIZE=\"258\" -DSYMBOLS=\"2\" -DREDUNDANCY=\"1\"
 
 # Debugging and profile
-# - gdb,gprof
-# EXTRA_CFLAGS += -O2 -pg -g
+# - gprof
+# - address sanitizer
+EXTRA_CFLAGS += -O1 -pg -g -fsanitize=address
 
-EXTRA_CFLAGS += -O3
-
-# External libries
+# External libraries
+# - DPDK helper
+DPDK_HELPER_PATH= /vagrant/shared_lib/
+CFLAGS += -I${DPDK_HELPER_PATH}
 # - NCKernel
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include
