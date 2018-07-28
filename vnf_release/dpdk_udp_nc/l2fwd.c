@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  main.c
+ *       Filename:  io.c
  *    Description:  Network coding UDP flows with NCKernel
  *
  *                  - With default mode, only UDP payload is coded.
@@ -9,7 +9,8 @@
  *      Dev-Note:
  *                  - Currently, concurrent processing is not implemented. The
  *                    Ethernet frames are handled one by one with a single
- *                    process and a single core.
+ *                    process and a single core. Namely, use DPDK synchronous
+ *                    run-to-completion mode.
  *
  *                  - In order to reduce per-packet latency and implementation
  *                    complexity. mbufs are filtered and coded one by one. Some
@@ -23,55 +24,13 @@
  *                    operator of all coder types. Additional mbufs are cloned
  *                    to encapsulate output(s) of the coder.
  *
- *        Version:  0.3
+ *        Version:  0.4
  *          Email:  xianglinks@gmail.com
  *
  * =====================================================================================
  */
 
-#include <ctype.h>
-#include <errno.h>
-#include <getopt.h>
-#include <inttypes.h>
-#include <netinet/in.h>
-#include <setjmp.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/queue.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
-
-#include <rte_atomic.h>
-#include <rte_branch_prediction.h>
-#include <rte_byteorder.h>
-#include <rte_common.h>
-#include <rte_cycles.h>
-#include <rte_debug.h>
-#include <rte_eal.h>
-#include <rte_ethdev.h>
-#include <rte_ether.h>
-#include <rte_interrupts.h>
-#include <rte_ip.h>
-#include <rte_launch.h>
-#include <rte_lcore.h>
-#include <rte_log.h>
-#include <rte_malloc.h>
-#include <rte_mbuf.h>
-#include <rte_memcpy.h>
-#include <rte_memory.h>
-#include <rte_mempool.h>
-#include <rte_pdump.h>
-#include <rte_per_lcore.h>
-#include <rte_prefetch.h>
-#include <rte_random.h>
-#include <rte_udp.h>
-
+#include "l2fwd.h"
 #include "ncmbuf.h"
 
 typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
@@ -103,12 +62,12 @@ typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
 #endif
 
 #define MEMPOOL_CACHE_SIZE 256
-#define UDP_HDR_LEN 8
 #define RTE_TEST_RX_DESC_DEFAULT 1024
 #define RTE_TEST_TX_DESC_DEFAULT 1024
-
 #define MAX_RX_QUEUE_PER_LCORE 4
 #define MAX_TX_QUEUE_PER_PORT 4
+
+#define UDP_HDR_LEN 8
 
 /**********************
  *  Global Variables  *
@@ -119,25 +78,25 @@ static volatile bool force_quit;
 /* Enable debug mode */
 static int debugging = 0;
 
+/*static int verbose = 0;*/
+
 static int mac_updating = 1;
 
 static int packet_capturing = 0;
 
 static int coder_type = 0;
 
-static int nb_ports = 0;
+static uint8_t nb_ports = 0;
 
-/* Burst-based packet processing */
-/* Default maximal received packets each time
- * Smaller pkt_burst -> lower latency -> lower bandwidth
+/* Burst-based packet processing
+ * Default maximal received packets at each time
+ * Smaller pkt_burst -> lower per-packet latency -> lower bandwidth
+ * Rx polling and tx draining parameters are configurable
  * */
-static int max_pkt_burst = 32;
-/* Make these parameters tunable */
-static int poll_short_interval_us; /* Try to receive from the RX every X
-                                      microseconds */
+static int max_pkt_burst = 1;
+static int poll_short_interval_us;
 static int max_poll_short_try;
 static int poll_long_interval_us;
-
 static int burst_tx_drain_us = 10;
 
 /* Processing delay of frames */
@@ -161,7 +120,6 @@ static struct ether_addr l2fwd_ports_eth_addr[RTE_MAX_ETHPORTS];
 /* mask of enabled ports */
 static uint32_t l2fwd_enabled_port_mask = 0;
 
-/* list of enabled ports */
 static uint32_t l2fwd_dst_ports[RTE_MAX_ETHPORTS];
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
 
@@ -179,16 +137,20 @@ struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
 
 static struct rte_eth_dev_tx_buffer* tx_buffer[RTE_MAX_ETHPORTS];
 
-/* DPDK port configuration */
+/* DPDK port configuration
+ * - Rx and tx offloadings can be also configured here
+ * */
 static struct rte_eth_conf port_conf = {
-	.rxmode = {
-		.split_hdr_size = 0,
-                 .ignore_offload_bitfield = 1,
-		.offloads = DEV_RX_OFFLOAD_CRC_STRIP,
-	},
-	.txmode = {
-		.mq_mode = ETH_MQ_TX_NONE,
-	},
+    .rxmode =
+        {
+            .split_hdr_size = 0,
+            .ignore_offload_bitfield = 1,
+            .offloads = DEV_RX_OFFLOAD_CRC_STRIP,
+        },
+    .txmode =
+        {
+            .mq_mode = ETH_MQ_TX_NONE,
+        },
 };
 
 struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
@@ -205,7 +167,6 @@ static void (*udp_nc_opt)(struct rte_mbuf*, uint16_t);
  ****************/
 
 UDP_NC_FUNC get_nc_func(int coder_type);
-static void l2_forward_rxqueue(struct rte_mbuf* m, unsigned portid);
 static void udp_encode(struct rte_mbuf* m_in, uint16_t portid);
 static void udp_recode(struct rte_mbuf* m_in, uint16_t portid);
 static void udp_decode(struct rte_mbuf* m_in, uint16_t portid);
@@ -366,7 +327,7 @@ static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
                         m_cmy = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
                         udp_recode(m_out, portid);
                 } else {
-                        l2_forward_rxqueue(m_out, portid);
+                        l2fwd_put_rxq(m_out, portid);
                 }
         }
 
@@ -429,7 +390,7 @@ static void udp_recode(struct rte_mbuf* m_in, uint16_t portid)
                 if (unlikely(coder_type == -1)) {
                         udp_decode(m_out, portid);
                 } else {
-                        l2_forward_rxqueue(m_out, portid);
+                        l2fwd_put_rxq(m_out, portid);
                 }
         }
         rte_pktmbuf_free(m_in);
@@ -502,7 +463,7 @@ static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
                         RTE_ASSERT(memcmp(m_out, m_cmy, m_out.buf_len) == 0);
                         rte_pktmbuf_free(m_cmy);
                 } else {
-                        l2_forward_rxqueue(m_out, portid);
+                        l2fwd_put_rxq(m_out, portid);
                 }
         }
 
@@ -534,7 +495,7 @@ inline static void l2fwd_mac_updating(struct rte_mbuf* m)
         ether_addr_copy(&dst_mac_addr, &eth->d_addr);
 }
 
-static void l2_forward_rxqueue(struct rte_mbuf* m, unsigned portid)
+void l2fwd_put_rxq(struct rte_mbuf* m, uint16_t portid)
 {
         unsigned dst_port;
         int sent;
@@ -826,7 +787,7 @@ static const struct option lgopts[] = { { CMD_LINE_OPT_MAC_UPDATING,
         { NULL, 0, 0, 0 } };
 
 /* Parse the argument given in the command line of the application */
-static int l2fwd_parse_args(int argc, char** argv)
+static int udp_nc_parse_args(int argc, char** argv)
 {
         int opt, ret, i;
         char** argvopt;
@@ -996,10 +957,6 @@ static void signal_handler(int signum)
         }
 }
 
-/* TODO:  <26-07-18, zuo>
- * - Init mbufs properly to support NC directly on mbufs
- * - Check configs for vhost-user interfaces
- * */
 int main(int argc, char** argv)
 {
         struct lcore_queue_conf* qconf;
@@ -1022,7 +979,7 @@ int main(int argc, char** argv)
         signal(SIGTERM, signal_handler);
 
         /* Parse application arguments (after the EAL ones) */
-        ret = l2fwd_parse_args(argc, argv);
+        ret = udp_nc_parse_args(argc, argv);
         if (ret < 0) {
                 rte_exit(EXIT_FAILURE, "Invalid L2FWD arguments\n");
         }
@@ -1070,6 +1027,7 @@ int main(int argc, char** argv)
 
         RTE_LOG(INFO, USER1, "Number of to be used ports: %d\n", nb_ports);
 
+        RTE_LOG(INFO, USER1, "NCKernel options: \n");
         RTE_LOG(INFO, USER1,
             "Protocol: %s, Symbol size: %s, Symbols: %s, Redundancy:%s\n",
             PROTOCOL, SYMBOL_SIZE, SYMBOLS, REDUNDANCY);
@@ -1140,15 +1098,10 @@ int main(int argc, char** argv)
                 rte_exit(EXIT_FAILURE, "Invalid portmask; possible (0x%x)\n",
                     (1 << nb_ports) - 1);
 
-        /* reset l2fwd_dst_ports */
         for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++)
                 l2fwd_dst_ports[portid] = 0;
-        last_port = 0;
 
-        /*
-         * TODO: Check core affinity
-         * Each logical core is assigned a dedicated TX queue on each port.
-         */
+        last_port = 0;
         RTE_ETH_FOREACH_DEV(portid)
         {
                 /* skip ports that are not enabled */
@@ -1158,18 +1111,19 @@ int main(int argc, char** argv)
                 if (nb_ports_in_mask % 2) {
                         l2fwd_dst_ports[portid] = last_port;
                         l2fwd_dst_ports[last_port] = portid;
-                } else
+                } else {
                         last_port = portid;
+                }
 
                 nb_ports_in_mask++;
         }
+
         if (nb_ports_in_mask % 2) {
                 l2fwd_dst_ports[last_port] = last_port;
         }
 
         rx_lcore_id = 0;
         qconf = NULL;
-
         /* Initialize the port/queue configuration of each logical core */
         RTE_ETH_FOREACH_DEV(portid)
         {
@@ -1198,28 +1152,24 @@ int main(int argc, char** argv)
                     INFO, USER1, "Lcore %u: RX port %u\n", rx_lcore_id, portid);
         }
 
+        /* Create mbuf pool for store packets */
         nb_mbufs = RTE_MAX(nb_ports
                 * (nb_rxd + nb_txd + max_pkt_burst
                       + nb_lcores * MEMPOOL_CACHE_SIZE),
             8192U);
-
-        /*
-         * RTE_MBUF_DEFAULT_BUF_SIZE = (RTE_MBUF_DEFAULT_DATAROOM +
-         * RTE_PKTMBUF_HEADROOM)
-         * */
+        RTE_LOG(INFO, USER1, "Number of mbufs: %u\n", nb_mbufs);
         l2fwd_pktmbuf_pool = rte_pktmbuf_pool_create("l2fwd_mbuf_pool",
-            nb_mbufs, MEMPOOL_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE,
-            rte_socket_id());
+            nb_mbufs, MEMPOOL_CACHE_SIZE, 0, UDP_NC_DATA_LEN, rte_socket_id());
 
         if (l2fwd_pktmbuf_pool == NULL) {
                 rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
         }
 
         if (coder_type == 0) {
-                check_mbuf_size(
-                    l2fwd_pktmbuf_pool, &enc, UDP_NC_PAYLOAD_HEADER_LEN);
+                check_mbuf_size(l2fwd_pktmbuf_pool, &enc);
         }
 
+        /* Configure enabled DPDK ports */
         RTE_ETH_FOREACH_DEV(portid)
         {
                 struct rte_eth_rxconf rxq_conf;
@@ -1227,17 +1177,16 @@ int main(int argc, char** argv)
                 struct rte_eth_conf local_port_conf = port_conf;
                 struct rte_eth_dev_info dev_info;
 
-                /* skip ports that are not enabled */
                 if ((l2fwd_enabled_port_mask & (1 << portid)) == 0) {
                         RTE_LOG(
                             INFO, USER1, "Skipping disabled port %u\n", portid);
                         continue;
                 }
 
-                /* init port */
                 RTE_LOG(INFO, USER1, "Initializing port %u... \n", portid);
                 fflush(stdout);
                 rte_eth_dev_info_get(portid, &dev_info);
+                /* Enable TX offloading if device supports it */
                 if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE)
                         local_port_conf.txmode.offloads
                             |= DEV_TX_OFFLOAD_MBUF_FAST_FREE;
@@ -1260,7 +1209,6 @@ int main(int argc, char** argv)
                 /* [Zuo] Get MAC addresses of all enabled port */
                 rte_eth_macaddr_get(portid, &l2fwd_ports_eth_addr[portid]);
 
-                /* init one RX queue */
                 fflush(stdout);
                 rxq_conf = dev_info.default_rxconf;
                 rxq_conf.offloads = local_port_conf.rxmode.offloads;
@@ -1273,10 +1221,9 @@ int main(int argc, char** argv)
                             portid);
                 }
 
-                /* init one TX queue on each port */
                 fflush(stdout);
                 txq_conf = dev_info.default_txconf;
-                // txq_conf.txq_flags = ETH_TXQ_FLAGS_IGNORE;
+                txq_conf.txq_flags = ETH_TXQ_FLAGS_IGNORE;
                 txq_conf.offloads = local_port_conf.txmode.offloads;
                 ret = rte_eth_tx_queue_setup(portid, 0, nb_txd,
                     rte_eth_dev_socket_id(portid), &txq_conf);
