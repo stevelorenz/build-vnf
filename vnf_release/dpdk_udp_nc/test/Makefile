@@ -10,26 +10,27 @@ RTE_TARGET ?= x86_64-native-linuxapp-gcc
 
 include $(RTE_SDK)/mk/rte.vars.mk
 
-CFLAGS += -O3
+CFLAGS += -O0
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-unused-but-set-parameter
+CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-deprecated-declarations
 
 # External libraries
-APP_PATH = /vagrant/vnf_release/dpdk_udp_nc
-CFLAGS += -I${APP_PATH}
-DPDK_HELPER_PATH= /vagrant/shared_lib/
-CFLAGS += -I${DPDK_HELPER_PATH}
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include
 LDLIBS += -L${NCKERNEL_PATH}/lib -lnckernel
+APP_PATH = /vagrant/vnf_release/dpdk_udp_nc/
+CFLAGS += -I${APP_PATH}
+DPDK_HELPER_PATH= /vagrant/shared_lib/
+CFLAGS += -I${DPDK_HELPER_PATH}
 
 # binary name
 APP = test
 
 # all source are stored in SRCS-y
-SRCS-y := test.c
+SRCS-y := test.c ../ncmbuf.c
 
-CFLAGS += -O3
+EXTRA_CFLAGS += -O0 -pg -g -fsanitize=address
 
 include $(RTE_SDK)/mk/rte.extapp.mk

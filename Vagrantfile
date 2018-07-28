@@ -211,6 +211,8 @@ Vagrant.configure("2") do |config|
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
+      vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
     end
   end
 

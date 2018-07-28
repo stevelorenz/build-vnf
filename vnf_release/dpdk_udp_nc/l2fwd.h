@@ -1,9 +1,9 @@
 /*
- * main.h
+ * l2fwd.h
  */
 
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef L2FWD_H
+#define L2FWD_H
 
 #include <ctype.h>
 #include <errno.h>
@@ -50,4 +50,4 @@
 
 void l2fwd_put_rxq(struct rte_mbuf* m, uint16_t portid);
 
-#endif /* !MAIN_H */
+#endif /* !L2FWD_H */

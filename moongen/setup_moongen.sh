@@ -15,7 +15,9 @@ if [[ $1 = '-i' ]]; then
 
 elif [[ $1 = '-s' ]]; then
     echo "# Setup MoonGen"
-
+    cd $HOME/MoonGen || exit
+    sudo ./bind-interfaces.sh
+    sudo ./setup-hugetlbfs.sh
 else
     echo "# Unknown option."
     echo " -i: Install MoonGen"
