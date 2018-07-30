@@ -35,7 +35,12 @@ uint8_t encode_udp(struct nck_encoder* enc, struct rte_mbuf* m_in,
     struct rte_mempool* mbuf_pool, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t));
 
-uint8_t recode_udp(
-    struct rte_mbuf* m_in, struct rte_mempool* mbuf_pool, uint16_t portid);
+uint8_t recode_udp(struct nck_recoder* rec, struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t));
+
+uint8_t decode_udp(struct nck_decoder* dec, struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t));
 
 #endif /* !NCMBUF_H */
