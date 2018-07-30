@@ -45,7 +45,10 @@ void check_mbuf_size(struct rte_mempool* mbuf_pool, struct nck_encoder* enc)
         if ((rte_pktmbuf_data_room_size(mbuf_pool) - UDP_NC_DATA_HEADER_LEN)
             < (uint16_t)(enc->coded_size)) {
                 rte_exit(EXIT_FAILURE,
-                    "The size of mbufs is not enough for coding.\n");
+                    "The size of mbufs is not enough for coding. mbuf data"
+                    "room:%u, header size:%u, encoder's coded size:%lu\n",
+                    rte_pktmbuf_data_room_size(mbuf_pool),
+                    UDP_NC_DATA_HEADER_LEN, enc->coded_size);
         }
 }
 

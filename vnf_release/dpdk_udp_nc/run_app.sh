@@ -14,7 +14,7 @@ function help() {
     echo "  0: Encoder"
     echo "  1: Decoder"
     echo "  2: Recoder"
-    echo " -1: Encoder -> Recoder -> Decoder"
+    echo " -1: Simple forwarding"
     echo "-max_pkt_burst: Maximal number of burst packets"
     echo "-drain_tx_us: Period to drain the tx queue"
     echo "-nb_ports: Number of to be used ports"

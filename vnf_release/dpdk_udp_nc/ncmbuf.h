@@ -12,7 +12,7 @@
 #include <nckernel.h>
 #include <skb.h>
 
-#define UDP_NC_DATA_LEN 1500
+#define UDP_NC_MAX_DATA_LEN 1500
 #define UDP_NC_DATA_HEADER_LEN 90
 
 /**

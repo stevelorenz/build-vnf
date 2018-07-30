@@ -15,7 +15,7 @@ if [[ "$#" -ne 1 ]]; then
     echo "  0: Encoder"
     echo "  1: Decoder"
     echo "  2: Recoder"
-    echo " -1: Encoder -> Recoder -> Decoder"
+    echo " -1: Simple forwarding"
     exit 1
 fi
 
