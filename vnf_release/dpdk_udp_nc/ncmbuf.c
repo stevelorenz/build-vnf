@@ -23,7 +23,6 @@
 #include <rte_ring.h>
 #include <rte_udp.h>
 
-#include "l2fwd.h"
 #include "ncmbuf.h"
 
 #define MAGIC_NUM 117

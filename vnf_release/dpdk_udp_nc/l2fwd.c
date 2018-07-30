@@ -1,8 +1,11 @@
 /*
  * =====================================================================================
  *
- *       Filename:  io.c
+ *       Filename:  l2fwd.c
+ *
  *    Description:  Network coding UDP flows with NCKernel
+ *
+ *                  - Operations are performed in Layer 2
  *
  *                  - With default mode, only UDP payload is coded.
  *
@@ -30,15 +33,50 @@
  * =====================================================================================
  */
 
-#include "l2fwd.h"
+#include <ctype.h>
+#include <errno.h>
+#include <getopt.h>
+#include <inttypes.h>
+#include <netinet/in.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/queue.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+
+#include <rte_atomic.h>
+#include <rte_branch_prediction.h>
+#include <rte_byteorder.h>
+#include <rte_common.h>
+#include <rte_cycles.h>
+#include <rte_debug.h>
+#include <rte_eal.h>
+#include <rte_ethdev.h>
+#include <rte_ether.h>
+#include <rte_interrupts.h>
+#include <rte_ip.h>
+#include <rte_launch.h>
+#include <rte_lcore.h>
+#include <rte_log.h>
+#include <rte_malloc.h>
+#include <rte_mbuf.h>
+#include <rte_memcpy.h>
+#include <rte_memory.h>
+#include <rte_mempool.h>
+#include <rte_pdump.h>
+#include <rte_per_lcore.h>
+#include <rte_prefetch.h>
+#include <rte_random.h>
+#include <rte_udp.h>
+
 #include "ncmbuf.h"
-
-typedef void (*UDP_NC_FUNC)(struct rte_mbuf*, uint16_t);
-
-/* Maximal length of the coding buffer */
-#define MAX_NC_BUFFER 1400
-
-#define MAGIC_NUM 117
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -159,17 +197,13 @@ struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
 struct nck_encoder enc;
 struct nck_decoder dec;
 struct nck_recoder rec;
-struct rte_mbuf* m_cmy;
-static void (*udp_nc_opt)(struct rte_mbuf*, uint16_t);
 
 /****************
  *  Prototypes  *
  ****************/
 
-UDP_NC_FUNC get_nc_func(int coder_type);
-static void udp_encode(struct rte_mbuf* m_in, uint16_t portid);
-static void udp_recode(struct rte_mbuf* m_in, uint16_t portid);
-static void udp_decode(struct rte_mbuf* m_in, uint16_t portid);
+void l2fwd_put_rxq(struct rte_mbuf* m, uint16_t portid);
+void nc_udp(int coder_type, struct rte_mbuf* m, uint16_t portid);
 
 /******************************
  *  Function Implementations  *
@@ -240,253 +274,8 @@ __attribute__((unused)) static inline bool is_udp_dgram(struct rte_mbuf* m)
         return false;
 }
 
-static inline void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
-{
-        udph->dgram_cksum = 0;
-        iph->hdr_checksum = 0;
-        udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
-        iph->hdr_checksum = rte_ipv4_cksum(iph);
-}
-
-/**
- * @brief udp_encode: Put the UDP payload of incoming mbuf into encoder and put
- * all outputs of the encoder to the TX queue identified by portid.
- *
- * @note:
- *
- * - If only coded the UDP payload, the length is assumed to be the same for all
- *   coming segments. Otherwise the length (UDP total length) should also be
- *   coded. Since potential padding operations could be performed during
- *   encoding and the length information is lost.
- *
- * - Since En(De)coder has its own memory buffer to store data, no shared
- *   temporary buffer is needed.
- *
- */
-static void udp_encode(struct rte_mbuf* m_in, uint16_t portid)
-{
-        static struct sk_buff skb;
-        uint16_t in_pl_len = 0; // length of input UDP payload
-        uint16_t num_coded = 0;
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-        struct rte_mbuf* m_out;
-        uint8_t* mbuf_data;
-        /* A encoding buffer is used since the length of the encoder output is
-         * unknown before calling nck_get_coded */
-        static uint8_t enc_buf[MAX_NC_BUFFER];
-
-        iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
-        udph = (struct udp_hdr*)((char*)iph
-            + ((iph->version_ihl & 0x0F) * 32 / 8));
-        /* MARK: This one is calculated wegen that currently I do not know how
-         * to get the pointer to the end of the UDP payload */
-        in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-        mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
-
-        skb_new(&skb, enc_buf, sizeof(enc_buf));
-        skb_reserve(&skb, sizeof(uint16_t)); // reserve only empty skbs
-        rte_memcpy(skb.data, mbuf_data, in_pl_len);
-        skb_put(&skb, in_pl_len);
-        skb_push_u16(&skb, skb.len); // htons
-        nck_put_source(&enc, &skb);
-
-        /*if (nck_put_source(&enc, &skb) == -1) {*/
-        /*RTE_LOG(ERR, "[ENC] Invalid input for encoder.");*/
-        /*rte_pktmbuf_free(m_in);*/
-        /*return;*/
-        /*}*/
-
-        while (nck_has_coded(&enc)) {
-                /* Clone a new mbuf for output */
-                num_coded += 1;
-                m_out = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-                iph = rte_pktmbuf_mtod_offset(
-                    m_out, struct ipv4_hdr*, ETHER_HDR_LEN);
-                udph = (struct udp_hdr*)((char*)iph
-                    + ((iph->version_ihl & 0x0F) * 32 / 8));
-                mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
-
-                skb_new(&skb, enc_buf, sizeof(enc_buf));
-                skb_reserve(&skb, sizeof(uint8_t));
-                nck_get_coded(&enc, &skb);
-                skb_push_u8(&skb, MAGIC_NUM);
-                RTE_LOG(DEBUG, USER1,
-                    "[ENC] Output num: %u, Input length: %u, Encoded data "
-                    "length: %u.\n",
-                    num_coded, in_pl_len, skb.len);
-                rte_pktmbuf_append(m_out, (skb.len - in_pl_len));
-                rte_memcpy(mbuf_data, skb.data, skb.len);
-
-                udph->dgram_len = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                iph->total_length
-                    = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
-                        + (skb.len - in_pl_len));
-                recalc_cksum(iph, udph);
-                if (unlikely(coder_type == -1)) {
-                        m_cmy = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-                        udp_recode(m_out, portid);
-                } else {
-                        l2fwd_put_rxq(m_out, portid);
-                }
-        }
-
-        rte_pktmbuf_free(m_in);
-}
-
-static void udp_recode(struct rte_mbuf* m_in, uint16_t portid)
-{
-        static struct sk_buff skb;
-        static uint8_t rec_buf[MAX_NC_BUFFER];
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-        uint16_t in_pl_len;
-        uint16_t num_recoded = 0;
-        struct rte_mbuf* m_out = NULL;
-        uint8_t* mbuf_data;
-
-        skb_new(&skb, rec_buf, sizeof(rec_buf));
-        iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
-        udph = (struct udp_hdr*)((char*)iph
-            + ((iph->version_ihl & 0x0F) * 32 / 8));
-        in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-        mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
-        rte_memcpy(skb.data, mbuf_data, in_pl_len);
-        skb_put(&skb, in_pl_len);
-        if (skb_pull_u8(&skb) != MAGIC_NUM) {
-                rte_pktmbuf_free(m_in);
-                RTE_LOG(DEBUG, USER1, "[REC] Recv an invalid input.\n");
-                return;
-        }
-        nck_put_coded(&rec, &skb);
-
-        while (nck_has_coded(&rec)) {
-                /* Clone a new mbuf for output */
-                num_recoded += 1;
-                m_out = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-                iph = rte_pktmbuf_mtod_offset(
-                    m_out, struct ipv4_hdr*, ETHER_HDR_LEN);
-                udph = (struct udp_hdr*)((char*)iph
-                    + ((iph->version_ihl & 0x0F) * 32 / 8));
-                mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
-
-                skb_new(&skb, rec_buf, sizeof(rec_buf));
-                skb_reserve(&skb, sizeof(uint8_t));
-                nck_get_coded(&rec, &skb);
-                skb_push_u8(&skb, MAGIC_NUM);
-                RTE_LOG(DEBUG, USER1,
-                    "[REC] Output num: %u, Input length: %u, Recoded data "
-                    "length: %u.\n",
-                    num_recoded, in_pl_len, skb.len);
-                rte_pktmbuf_append(m_out, (skb.len - in_pl_len));
-                rte_memcpy(mbuf_data, skb.data, skb.len);
-
-                udph->dgram_len = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                iph->total_length
-                    = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
-                        + (skb.len - in_pl_len));
-                recalc_cksum(iph, udph);
-
-                if (unlikely(coder_type == -1)) {
-                        udp_decode(m_out, portid);
-                } else {
-                        l2fwd_put_rxq(m_out, portid);
-                }
-        }
-        rte_pktmbuf_free(m_in);
-}
-
-/**
- * @brief udp_decode: Put the payload of incoming mbuf into decoder and put all
- * outputs of the decoder to the TX queue
- *
- * @note:
- */
-static void udp_decode(struct rte_mbuf* m_in, uint16_t portid)
-{
-        static struct sk_buff skb;
-        static uint8_t dec_buf[MAX_NC_BUFFER]; // Could be avoided
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-        uint16_t in_pl_len;
-        uint16_t num_decoded = 0;
-        struct rte_mbuf* m_out = NULL;
-        uint8_t* mbuf_data;
-
-        skb_new(&skb, dec_buf, sizeof(dec_buf));
-        iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
-        udph = (struct udp_hdr*)((char*)iph
-            + ((iph->version_ihl & 0x0F) * 32 / 8));
-        in_pl_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
-        mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
-        rte_memcpy(skb.data, mbuf_data, in_pl_len);
-        skb_put(&skb, in_pl_len);
-        if (skb_pull_u8(&skb) != MAGIC_NUM) {
-                rte_pktmbuf_free(m_in);
-                RTE_LOG(DEBUG, USER1, "[DEC] Recv an invalid input.\n");
-                return;
-        }
-        nck_put_coded(&dec, &skb);
-
-        if (!nck_has_source(&dec)) {
-                rte_pktmbuf_free(m_in);
-                RTE_LOG(DEBUG, USER1, "[DEC] Decoder has no output.\n");
-                return;
-        }
-
-        while (nck_has_source(&dec)) {
-                num_decoded += 1;
-                m_out = rte_pktmbuf_clone(m_in, l2fwd_pktmbuf_pool);
-                iph = rte_pktmbuf_mtod_offset(
-                    m_out, struct ipv4_hdr*, ETHER_HDR_LEN);
-                udph = (struct udp_hdr*)((char*)iph
-                    + ((iph->version_ihl & 0x0F) * 32 / 8));
-                mbuf_data = (uint8_t*)(udph) + UDP_HDR_LEN;
-                skb_new(&skb, dec_buf, in_pl_len);
-                nck_get_source(&dec, &skb);
-                skb.len = skb_pull_u16(&skb);
-                rte_pktmbuf_trim(m_out, (in_pl_len - skb.len));
-                rte_memcpy((char*)(udph) + UDP_HDR_LEN, skb.data, skb.len);
-                RTE_LOG(DEBUG, USER1,
-                    "[DEC] Output num: %u, Input length: %u, Decoded "
-                    "data length: %u.\n",
-                    num_decoded, in_pl_len, skb.len);
-
-                udph->dgram_len = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
-                iph->total_length
-                    = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
-                        - (in_pl_len - skb.len));
-                recalc_cksum(iph, udph);
-
-                if (unlikely(coder_type == -1)) {
-                        /* The m_out and m_cmy should be the same */
-                        RTE_ASSERT(memcmp(m_out, m_cmy, m_out.buf_len) == 0);
-                        rte_pktmbuf_free(m_cmy);
-                } else {
-                        l2fwd_put_rxq(m_out, portid);
-                }
-        }
-
-        rte_pktmbuf_free(m_in);
-}
-
-UDP_NC_FUNC get_nc_func(int coder_type)
-{
-        if (coder_type == 0) {
-                return udp_encode;
-        }
-        if (coder_type == 1) {
-                return udp_decode;
-        }
-        if (coder_type == -1) {
-                return udp_encode;
-        }
-
-        RTE_LOG(INFO, USER1, "[WARN] Just forwarding\n");
-        return NULL;
-}
-
-inline static void l2fwd_mac_updating(struct rte_mbuf* m)
+inline static __attribute__((always_inline)) void l2fwd_mac_updating(
+    struct rte_mbuf* m)
 {
         struct ether_hdr* eth;
         eth = rte_pktmbuf_mtod(m, struct ether_hdr*);
@@ -515,6 +304,17 @@ void l2fwd_put_rxq(struct rte_mbuf* m, uint16_t portid)
         if (sent) {
                 RTE_LOG(DEBUG, USER1,
                     "Trigger %d UDP packets drained in the TX buffer\n", sent);
+        }
+}
+
+void nc_udp(int coder_type, struct rte_mbuf* m, uint16_t portid)
+{
+        if (coder_type == 1) {
+                encode_udp(&enc, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
+        } else if (coder_type == 2) {
+                decode_udp(&dec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
+        } else if (coder_type == 3) {
+                recode_udp(&rec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
         }
 }
 
@@ -644,7 +444,8 @@ static void l2fwd_main_loop(void)
                                                 nb_udp_dgrams += 1;
                                                 rte_prefetch0(
                                                     rte_pktmbuf_mtod(m, void*));
-                                                udp_nc_opt(m, portid);
+
+                                                nc_udp(coder_type, m, portid);
                                         }
                                         /* Evaluate processing delay of burst
                                          * packets */
@@ -1060,32 +861,12 @@ int main(int argc, char** argv)
                 break;
 
         case -1:
-                RTE_LOG(INFO, USER1,
-                    "Coder type: NC encoder + recoder + decoder.\n");
-                RTE_LOG(INFO, USER1, "[WARN] Used for debugging.\n");
-                if (nck_create_encoder(
-                        &enc, NULL, options, nck_option_from_array)) {
-                        rte_exit(EXIT_FAILURE, "Failed to create encoder.\n");
-                }
-                if (nck_create_recoder(
-                        &rec, NULL, options, nck_option_from_array)) {
-                        rte_exit(EXIT_FAILURE, "Failed to create recoder.\n");
-                }
-                if (nck_create_decoder(
-                        &dec, NULL, options, nck_option_from_array)) {
-                        rte_exit(EXIT_FAILURE, "Failed to create decoder.\n");
-                }
-                break;
-
-        case -2:
-                RTE_LOG(INFO, USER1, "Coder type: Forwarding\n");
+                RTE_LOG(INFO, USER1, "[WARN] Simple Forwarding.\n");
                 break;
 
         default:
                 rte_exit(EXIT_FAILURE, "Unknown coder type.\n");
         }
-
-        udp_nc_opt = get_nc_func(coder_type);
 
         RTE_LOG(INFO, USER1, "Maximal number of burst packets: %d\n",
             max_pkt_burst);
@@ -1095,7 +876,7 @@ int main(int argc, char** argv)
 
         /* check port mask to possible port mask */
         if (l2fwd_enabled_port_mask & ~((1 << nb_ports) - 1))
-                rte_exit(EXIT_FAILURE, "Invalid portmask; possible (0x%x)\n",
+                rte_exit(EXIT_FAILURE, "Invalid port mask; possible (0x%x)\n",
                     (1 << nb_ports) - 1);
 
         for (portid = 0; portid < RTE_MAX_ETHPORTS; portid++)
@@ -1295,10 +1076,23 @@ int main(int argc, char** argv)
                 rte_pdump_uninit();
         }
 
-        RTE_LOG(INFO, EAL, "App exits.\n");
-        RTE_LOG(INFO, EAL, "Release hugepages.\n");
-        /* MARK: New feature supported by v18.02 */
+        switch (coder_type) {
+        case 0:
+                nck_free(&enc);
+                break;
+        case 1:
+                nck_free(&dec);
+                break;
+        case 2:
+                nck_free(&rec);
+                break;
+
+        case -1:
+                break;
+        }
+
         rte_eal_cleanup();
 
+        RTE_LOG(INFO, EAL, "App exits.\n");
         return ret;
 }
