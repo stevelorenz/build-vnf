@@ -255,6 +255,8 @@ static inline int8_t filter_ether_frame(struct rte_mbuf* m)
         return 1;
 }
 
+/* TODO:  <30-07-18, Zuo> Add NSH header inside UDP */
+
 __attribute__((unused)) static inline bool is_ipv4_pkt(struct rte_mbuf* m)
 {
         struct ether_hdr* ethh;
@@ -276,8 +278,7 @@ __attribute__((unused)) static inline bool is_udp_dgram(struct rte_mbuf* m)
         return false;
 }
 
-inline static __attribute__((always_inline)) void l2fwd_mac_updating(
-    struct rte_mbuf* m)
+static void l2fwd_mac_updating(struct rte_mbuf* m)
 {
         struct ether_hdr* eth;
         eth = rte_pktmbuf_mtod(m, struct ether_hdr*);
@@ -300,6 +301,8 @@ void l2fwd_put_rxq(struct rte_mbuf* m, uint16_t portid)
 
         buffer = tx_buffer[dst_port];
 
+        /* TODO:  <30-07-18, Zuo> Add TX latency manually here, the OpenStack
+         * SFC extension seems can not handle such fast situation */
         sent = rte_eth_tx_buffer(dst_port, 0, buffer, m);
 
         /* Possible draining processes */
@@ -317,6 +320,8 @@ void nc_udp(int coder_type, struct rte_mbuf* m, uint16_t portid)
                 decode_udp(&dec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
         } else if (coder_type == 2) {
                 recode_udp(&rec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
+        } else {
+                l2fwd_put_rxq(m, portid);
         }
 }
 

@@ -15,6 +15,7 @@ CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-unused-but-set-parameter
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-deprecated-declarations
+CFLAGS += -Wno-unused-but-set-variable
 
 # External libraries
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/

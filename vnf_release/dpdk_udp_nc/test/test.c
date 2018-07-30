@@ -1,7 +1,7 @@
 /*
  * test.c
- * About: Test ncmbuf
  *
+ * About: Test ncmbuf
  */
 
 #include <errno.h>
@@ -41,8 +41,10 @@
 #define MBUF_l2_HDR_LEN 14
 #define MBUF_l3_HDR_LEN 20
 #define MBUF_l4_UDP_HDR_LEN 8
+
 #define TEST_DATA_SIZE 1400
 #define TEST_HDR_LEN 42
+
 #define MAGIC_DATA 0x17
 
 #define UNCODED_BUFFER_LEN 2
@@ -53,6 +55,8 @@
 void put_coded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_recoded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid);
+void print_mbuf_buf(struct rte_mbuf* m_buf[], size_t buff_size);
+void print_mbuf(struct rte_mbuf* m);
 
 struct rte_mbuf* gen_test_udp(
     struct rte_mempool* mbuf_pool, uint16_t hdr_len, uint16_t data_len);
@@ -87,6 +91,32 @@ void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid)
         static uint16_t idx = 0;
         DECODED_BUFFER[idx] = m;
         idx++;
+}
+
+void print_mbuf(struct rte_mbuf* m)
+{
+        struct ipv4_hdr* iph;
+        struct udp_hdr* udph;
+
+        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
+        udph = (struct udp_hdr*)((char*)iph + 20);
+        printf(
+            "[PRINT] UDP dgram length:%u\n", rte_be_to_cpu_16(udph->dgram_len));
+}
+
+void print_mbuf_buf(struct rte_mbuf* m_buf[], size_t buff_size)
+{
+        size_t i;
+        struct ipv4_hdr* iph;
+        struct udp_hdr* udph;
+
+        for (i = 0; i < buff_size; ++i) {
+                iph = rte_pktmbuf_mtod_offset(
+                    m_buf[i], struct ipv4_hdr*, ETHER_HDR_LEN);
+                udph = (struct udp_hdr*)((char*)iph + 20);
+                printf("Index:%lu, udp dgram length:%u\n", i,
+                    rte_be_to_cpu_16(udph->dgram_len));
+        }
 }
 
 struct rte_mbuf* gen_test_udp(
@@ -130,6 +160,9 @@ int main(int argc, char** argv)
         argc -= ret;
         argv += ret;
 
+        rte_log_set_global_level(RTE_LOG_DEBUG);
+        rte_log_set_level(RTE_LOGTYPE_USER1, RTE_LOG_DEBUG);
+
         test_pktmbuf_pool = rte_pktmbuf_pool_create("test_mbuf_pool", NB_MBUF,
             MEMPOOL_CACHE_SIZE, 0, MBUF_DATA_SIZE, rte_socket_id());
 
@@ -171,31 +204,39 @@ int main(int argc, char** argv)
         cur_tsc = rte_get_tsc_cycles();
         printf(
             "[TEST] Number of TSCs for encoding: %lu\n", (cur_tsc - prev_tsc));
+        print_mbuf_buf(CODED_BUFFER, CODED_BUFFER_LEN);
 
         /* Recoding operations */
-        prev_tsc = rte_get_tsc_cycles();
-        for (i = 0; i < CODED_BUFFER_LEN; ++i) {
-                recode_udp(&rec, CODED_BUFFER[i], test_pktmbuf_pool, -1,
-                    put_recoded_buffer);
-        }
-        cur_tsc = rte_get_tsc_cycles();
-        printf(
-            "[TEST] Number of TSCs for recoding: %lu\n", (cur_tsc - prev_tsc));
+        // prev_tsc = rte_get_tsc_cycles();
+        // for (i = 0; i < CODED_BUFFER_LEN; ++i) {
+        //         recode_udp(&rec, CODED_BUFFER[i], test_pktmbuf_pool, -1,
+        //             put_recoded_buffer);
+        // }
+        // cur_tsc = rte_get_tsc_cycles();
+        // printf(
+        //     "[TEST] Number of TSCs for recoding: %lu\n", (cur_tsc -
+        //     prev_tsc));
 
         /* Decoding operations */
         prev_tsc = rte_get_tsc_cycles();
         for (i = 0; i < CODED_BUFFER_LEN; ++i) {
+                print_mbuf(CODED_BUFFER[i]);
                 decode_udp(&dec, CODED_BUFFER[i], test_pktmbuf_pool, -1,
                     put_decoded_buffer);
         }
         cur_tsc = rte_get_tsc_cycles();
         printf(
             "[TEST] Number of TSCs for decoding: %lu\n", (cur_tsc - prev_tsc));
+        print_mbuf_buf(DECODED_BUFFER, DECODED_BUFFER_LEN);
 
         /* Compare UNCODED_BUFFER and CODED_BUFFER */
-        for (i = 0; i < CODED_BUFFER_LEN; ++i) {
-                RTE_ASSERT(memcmp(UNCODED_BUFFER[i], DECODED_BUFFER[i],
-                               UNCODED_BUFFER[i]->buf_len)
+        uint8_t* pt_uncoded;
+        uint8_t* pt_decoded;
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                pt_uncoded = rte_pktmbuf_mtod(UNCODED_BUFFER[i], uint8_t*);
+                pt_decoded = rte_pktmbuf_mtod(DECODED_BUFFER[i], uint8_t*);
+                RTE_ASSERT(memcmp(pt_uncoded, pt_decoded,
+                               TEST_HDR_LEN + TEST_DATA_SIZE)
                     == 0);
         }
         printf("[TEST] Decoding succeeded!\n");

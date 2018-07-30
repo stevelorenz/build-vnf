@@ -3,4 +3,3 @@
  */
 
 #include "kni.h"
-

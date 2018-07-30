@@ -26,7 +26,7 @@
 #include "ncmbuf.h"
 
 #define MAGIC_NUM 117
-#define NC_DATA_HDR_LEN 1
+#define NC_HDR_LEN 1
 #define UDP_HDR_LEN 8
 
 static inline __attribute__((always_inline)) void recalc_cksum(
@@ -50,6 +50,9 @@ void check_mbuf_size(struct rte_mempool* mbuf_pool, struct nck_encoder* enc)
                     rte_pktmbuf_data_room_size(mbuf_pool),
                     UDP_NC_DATA_HEADER_LEN, enc->coded_size);
         }
+        RTE_LOG(DEBUG, USER1,
+            "Mbuf data room is enough, enc->coded size: %lu\n",
+            enc->coded_size);
 }
 
 uint8_t encode_udp(struct nck_encoder* enc, struct rte_mbuf* m_in,
@@ -71,14 +74,14 @@ uint8_t encode_udp(struct nck_encoder* enc, struct rte_mbuf* m_in,
         pt_data = (uint8_t*)(udph) + UDP_HDR_LEN;
 
         /* Use m_in as the encoding buffer */
-        rte_pktmbuf_append(
-            m_in, (enc->coded_size - in_data_len) + NC_DATA_HDR_LEN);
+        rte_pktmbuf_append(m_in, (enc->coded_size - in_data_len) + NC_HDR_LEN);
 
-        skb_new(&skb, pt_data, enc->coded_size + NC_DATA_HDR_LEN);
+        skb_new(&skb, pt_data, enc->coded_size + NC_HDR_LEN);
         skb_reserve(&skb, sizeof(uint16_t));
         skb_put(&skb, in_data_len);
         /* Push data length since the data can be padded by the encoder */
         skb_push_u16(&skb, skb.len);
+        /* MARK: This step copy skb->data to encoder's own buffer */
         nck_put_source(enc, &skb);
 
         while (nck_has_coded(enc)) {
@@ -89,14 +92,14 @@ uint8_t encode_udp(struct nck_encoder* enc, struct rte_mbuf* m_in,
                 udph = (struct udp_hdr*)((char*)iph
                     + ((iph->version_ihl & 0x0F) * 32 / 8));
                 pt_data = (uint8_t*)(udph) + UDP_HDR_LEN;
-                skb_new(&skb, pt_data, enc->coded_size + NC_DATA_HDR_LEN);
-                skb_reserve(&skb, sizeof(uint8_t));
+                skb_new(&skb, pt_data, enc->coded_size + NC_HDR_LEN);
+                skb_reserve(&skb, NC_HDR_LEN);
                 nck_get_coded(enc, &skb);
                 skb_push_u8(&skb, MAGIC_NUM);
                 RTE_LOG(DEBUG, USER1,
-                    "[ENC] Output num: %u, input len: %u, output len: "
-                    "%u.\n",
-                    num_coded, in_data_len, skb.len);
+                    "[ENC] Output num: %u, input len: %u, coded_size: "
+                    "%lu, output len: %u.\n",
+                    num_coded, in_data_len, enc->coded_size, skb.len);
                 udph->dgram_len = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                 iph->total_length
                     = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
@@ -140,6 +143,7 @@ uint8_t recode_udp(struct nck_recoder* rec, struct rte_mbuf* m_in,
 
         if (!nck_has_coded(rec)) {
                 RTE_LOG(DEBUG, USER1, "[REC] Recoder has no coded output.\n");
+                skb_push_u8(&skb, MAGIC_NUM);
                 (*put_rxq)(m_in, portid); // forward received packets
                 return 0;
         }
@@ -198,14 +202,18 @@ uint8_t decode_udp(struct nck_decoder* dec, struct rte_mbuf* m_in,
         skb_put(&skb, in_data_len);
         if (skb_pull_u8(&skb) != MAGIC_NUM) {
                 rte_pktmbuf_free(m_in);
-                RTE_LOG(DEBUG, USER1, "[DEC] Recv an invalid input.\n");
+                RTE_LOG(DEBUG, USER1,
+                    "[DEC] Recv an invalid input. input len: %u\n",
+                    in_data_len);
                 return 0;
         }
         nck_put_coded(dec, &skb);
 
         if (!nck_has_source(dec)) {
                 rte_pktmbuf_free(m_in);
-                RTE_LOG(DEBUG, USER1, "[DEC] Decoder has no output.\n");
+                RTE_LOG(DEBUG, USER1,
+                    "[DEC] Decoder has no output. input len: %u\n",
+                    in_data_len);
                 return 0;
         }
 
