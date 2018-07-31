@@ -2,6 +2,14 @@
  * ncmbuf.h
  *
  * Description: Network code DPDK mbuf with NCKernel
+ *
+ *    Features:
+ *              - Efficient coding of UDP data
+ *
+ * Limitations:
+ *              - Jumbo frames are not supported
+ *
+ *       Email: xianglinks@gmail.com
  */
 
 #ifndef NCMBUF_H
@@ -12,9 +20,6 @@
 #include <nckernel.h>
 #include <skb.h>
 
-#define UDP_NC_MAX_DATA_LEN 1500
-#define UDP_NC_DATA_HEADER_LEN 90
-
 /**
  * @brief Check if the mbuf's data length is enough for encoding
  *      The data room of input mbuf is used as coding buffer to exchange data
@@ -23,23 +28,70 @@
  *
  * @param mbuf_pool
  * @param enc
- * @param header_size
+ * @param hdr_len
  */
-void check_mbuf_size(struct rte_mempool* mbuf_pool, struct nck_encoder* enc);
+void check_mbuf_size(
+    struct rte_mempool* mbuf_pool, struct nck_encoder* enc, uint16_t hdr_len);
+
+/**
+ * @brief Make a deep copy of a in mbuf encapsulated UDP segment.
+ *        Only UDP header is copied, the payload should be appended latter.
+ *
+ * @param m
+ * @param mbuf_pool
+ * @param hdr_len
+ *
+ * @return
+ */
+struct rte_mbuf* mbuf_udp_deep_copy(
+    struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len);
 
 /***********************
  *  Mbuf NC operaions  *
  ***********************/
 
-uint8_t encode_udp(struct nck_encoder* enc, struct rte_mbuf* m_in,
+/**
+ * @brief encode_udp_data
+ *
+ * @param enc
+ * @param m_in
+ * @param mbuf_pool
+ * @param portid
+ * @param put_rxq
+ *
+ * @return
+ */
+uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
     struct rte_mempool* mbuf_pool, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t));
 
-uint8_t recode_udp(struct nck_recoder* rec, struct rte_mbuf* m_in,
+/**
+ * @brief recode_udp_data
+ *
+ * @param rec
+ * @param m_in
+ * @param mbuf_pool
+ * @param portid
+ * @param put_rxq
+ *
+ * @return
+ */
+uint8_t recode_udp_data(struct nck_recoder* rec, struct rte_mbuf* m_in,
     struct rte_mempool* mbuf_pool, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t));
 
-uint8_t decode_udp(struct nck_decoder* dec, struct rte_mbuf* m_in,
+/**
+ * @brief decode_udp_data
+ *
+ * @param dec
+ * @param m_in
+ * @param mbuf_pool
+ * @param portid
+ * @param put_rxq
+ *
+ * @return
+ */
+uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
     struct rte_mempool* mbuf_pool, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t));
 

@@ -106,8 +106,8 @@
 #define MAX_TX_QUEUE_PER_PORT 4
 
 #define UDP_HDR_LEN 8
-#define UDP_NC_MAX_DATA_LEN 1500
-#define UDP_NC_DATA_HEADER_LEN 90
+#define NC_MAX_DATA_LEN 1500
+#define NC_MAX_HDR_LEN 90
 
 /**********************
  *  Global Variables  *
@@ -315,11 +315,14 @@ void l2fwd_put_rxq(struct rte_mbuf* m, uint16_t portid)
 void nc_udp(int coder_type, struct rte_mbuf* m, uint16_t portid)
 {
         if (coder_type == 0) {
-                encode_udp(&enc, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
+                encode_udp_data(
+                    &enc, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
         } else if (coder_type == 1) {
-                decode_udp(&dec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
+                decode_udp_data(
+                    &dec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
         } else if (coder_type == 2) {
-                recode_udp(&rec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
+                recode_udp_data(
+                    &rec, m, l2fwd_pktmbuf_pool, portid, l2fwd_put_rxq);
         } else {
                 l2fwd_put_rxq(m, portid);
         }
@@ -947,15 +950,15 @@ int main(int argc, char** argv)
             8192U);
         RTE_LOG(INFO, USER1, "Number of mbufs: %u\n", nb_mbufs);
         l2fwd_pktmbuf_pool = rte_pktmbuf_pool_create("l2fwd_mbuf_pool",
-            nb_mbufs, MEMPOOL_CACHE_SIZE, 0,
-            UDP_NC_MAX_DATA_LEN + UDP_NC_DATA_HEADER_LEN, rte_socket_id());
+            nb_mbufs, MEMPOOL_CACHE_SIZE, 0, NC_MAX_DATA_LEN + NC_MAX_HDR_LEN,
+            rte_socket_id());
 
         if (l2fwd_pktmbuf_pool == NULL) {
                 rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
         }
 
         if (coder_type == 0) {
-                check_mbuf_size(l2fwd_pktmbuf_pool, &enc);
+                check_mbuf_size(l2fwd_pktmbuf_pool, &enc, NC_MAX_HDR_LEN);
         }
 
         /* Configure enabled DPDK ports */
