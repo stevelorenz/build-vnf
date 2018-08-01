@@ -7,7 +7,7 @@
  *              - Efficient coding of UDP data
  *
  * Limitations:
- *              - Jumbo frames are not supported
+ *              - TODO: Jumbo frames are not supported
  *
  *       Email: xianglinks@gmail.com
  */
@@ -19,6 +19,9 @@
 
 #include <nckernel.h>
 #include <skb.h>
+
+/* TODO:  <01-08-18,Zuo> */
+// Add get_nc_func(uint16_t coder_type)
 
 /**
  * @brief Check if the mbuf's data length is enough for encoding
