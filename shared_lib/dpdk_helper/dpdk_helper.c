@@ -1,12 +1,7 @@
 /*
- * dpdk_test.h
- *
- * About: Helper functions to test DPDK App with simulations
+ * dpdk_test.c
  *
  */
-
-#ifndef DPDK_TEST_H
-#define DPDK_TEST_H
 
 #include <errno.h>
 #include <inttypes.h>
@@ -37,24 +32,13 @@
 #include <rte_ring.h>
 #include <rte_udp.h>
 
-struct rte_mempool* init_mempool()
-{
-
-        struct rte_mempool* mp;
-
-        mp = rte_pktmbuf_pool_create(
-            "test_mempool", 2048, 256, 0, 2048, rte_socket_id());
-
-        if (mp == NULL) {
-                rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
-        }
-}
+#include "dpdk_helper.h"
 
 struct rte_mbuf* mbuf_udp_deep_copy(
     struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len)
 {
         if (m->nb_segs > 1) {
-                RTE_LOG(ERR, NCMBUF,
+                RTE_LOG(ERR, USER1,
                     "Deep copy doest not support scattered segments.\n");
                 return NULL;
         }
@@ -67,4 +51,34 @@ struct rte_mbuf* mbuf_udp_deep_copy(
         return m_copy;
 }
 
-#endif /* !DPDK_TEST_H */
+void px_mbuf_udp(struct rte_mbuf* m)
+{
+        struct ipv4_hdr* iph;
+        struct udp_hdr* udph;
+        uint8_t* pt_data;
+        uint16_t data_len;
+        size_t i;
+        printf("Header part: \n");
+        pt_data = rte_pktmbuf_mtod(m, uint8_t*);
+        for (i = 0; i < (14 + 20 + 8); ++i) {
+                printf("%02x ", *(pt_data + i));
+        }
+        printf("\n");
+        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
+        udph = (struct udp_hdr*)((char*)iph + 20);
+        data_len = rte_be_to_cpu_16(udph->dgram_len) - 8;
+        // printf("[PRINT] UDP dgram len:%u, data len:%u\n",
+        // rte_be_to_cpu_16(udph->dgram_len), data_len);
+        pt_data = (uint8_t*)udph + 8;
+        printf("UDP data: \n");
+        for (i = 0; i < data_len; ++i) {
+                printf("%02x ", *(pt_data + i));
+        }
+        printf("\n");
+}
+
+void mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
+{
+        rte_pktmbuf_free(m1);
+        rte_pktmbuf_free(m2);
+}

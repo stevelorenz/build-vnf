@@ -35,7 +35,8 @@
 #include <rte_ring.h>
 #include <rte_udp.h>
 
-#include "ncmbuf.h"
+#include <dpdk_helper.h>
+#include <ncmbuf.h>
 
 #define NB_MBUF 2048
 #define MBUF_DATA_SIZE 2048
@@ -66,7 +67,6 @@ void put_coded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_recoded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid);
 void print_mbuf_buf(struct rte_mbuf* m_buf[], size_t buff_size);
-void print_mbuf_udp(struct rte_mbuf* m);
 /* TODO:  <30-07-18, Zuo> Use lists in sys/queue.h instead of fixed arrays
  * Move these test functions to dpdp_test in shared_lib.
  * */
@@ -94,26 +94,6 @@ void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid)
         static uint16_t idx = 0;
         DECODED_BUFFER[idx] = m;
         idx++;
-}
-
-void print_mbuf_udp(struct rte_mbuf* m)
-{
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-        uint8_t* pt_data;
-        uint16_t data_len;
-        size_t i;
-
-        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
-        udph = (struct udp_hdr*)((char*)iph + 20);
-        data_len = rte_be_to_cpu_16(udph->dgram_len) - 8;
-        printf("[PRINT] UDP dgram len:%u, data len:%u\n",
-            rte_be_to_cpu_16(udph->dgram_len), data_len);
-        pt_data = (uint8_t*)udph + 8;
-        for (i = 0; i < data_len; ++i) {
-                printf("%02x ", *(pt_data + i));
-        }
-        printf("\n");
 }
 
 void print_mbuf_buf(struct rte_mbuf* m_buf[], size_t buff_size)
@@ -162,7 +142,7 @@ struct rte_mbuf* gen_test_udp(
         iph->total_length = rte_cpu_to_be_16(
             data_len + MBUF_l4_UDP_HDR_LEN + MBUF_l3_HDR_LEN);
         iph->version_ihl = 0x45;
-        print_mbuf_udp(m);
+        px_mbuf_udp(m);
         return m;
 }
 
@@ -257,7 +237,7 @@ int main(int argc, char** argv)
         uint8_t* pt_uncoded;
         uint8_t* pt_decoded;
         for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
-                print_mbuf_udp(DECODED_BUFFER[i]);
+                px_mbuf_udp(DECODED_BUFFER[i]);
                 pt_uncoded = rte_pktmbuf_mtod(UNCODED_BUFFER[i], uint8_t*);
                 pt_decoded = rte_pktmbuf_mtod(DECODED_BUFFER[i], uint8_t*);
                 if (memcmp(

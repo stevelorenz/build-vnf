@@ -64,13 +64,14 @@ CFLAGS += -DSYMBOL_SIZE=\"1402\" -DSYMBOLS=\"2\" -DREDUNDANCY=\"1\"
 EXTRA_CFLAGS += -O1 -pg -g -fsanitize=address
 
 # External libraries
-# - DPDK helper
-DPDK_HELPER_PATH= /vagrant/shared_lib/
-CFLAGS += -I${DPDK_HELPER_PATH}
-# - NCKernel
+
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include
 LDLIBS += -L${NCKERNEL_PATH}/lib -lnckernel
+
+DPDKHELPER_PATH= /vagrant/shared_lib/dpdk_helper
+CFLAGS += -I${DPDKHELPER_PATH}
+LDLIBS += -L${DPDKHELPER_PATH}/build -ldpdkhelper
 
 include $(RTE_SDK)/mk/rte.extapp.mk
 endif

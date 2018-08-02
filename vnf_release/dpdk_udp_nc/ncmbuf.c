@@ -15,6 +15,8 @@
 #include <rte_mempool.h>
 #include <rte_udp.h>
 
+#include <dpdk_helper.h>
+
 #include "ncmbuf.h"
 
 #define NC_HDR_LEN 1
@@ -45,23 +47,6 @@ void check_mbuf_size(
                     rte_pktmbuf_data_room_size(mbuf_pool), hdr_len,
                     enc->coded_size, NC_HDR_LEN);
         }
-}
-
-struct rte_mbuf* mbuf_udp_deep_copy(
-    struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len)
-{
-        if (m->nb_segs > 1) {
-                RTE_LOG(ERR, NCMBUF,
-                    "Deep copy doest not support scattered segments.\n");
-                return NULL;
-        }
-        struct rte_mbuf* m_copy;
-        m_copy = rte_pktmbuf_alloc(mbuf_pool);
-        m_copy->data_len = hdr_len;
-        m_copy->pkt_len = hdr_len;
-        rte_memcpy(rte_pktmbuf_mtod(m_copy, uint8_t*),
-            rte_pktmbuf_mtod(m, uint8_t*), hdr_len);
-        return m_copy;
 }
 
 /* TODO:  <01-08-18, Zuo> Split this funciton into encode_input and

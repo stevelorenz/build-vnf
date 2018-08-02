@@ -18,18 +18,22 @@ CFLAGS += -Wno-deprecated-declarations
 CFLAGS += -Wno-unused-but-set-variable
 
 # External libraries
+
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include
 LDLIBS += -L${NCKERNEL_PATH}/lib -lnckernel
+
 APP_PATH = /vagrant/vnf_release/dpdk_udp_nc/
 CFLAGS += -I${APP_PATH}
-DPDK_HELPER_PATH= /vagrant/shared_lib/
-CFLAGS += -I${DPDK_HELPER_PATH}
 
-# binary name
+DPDKHELPER_PATH= /vagrant/shared_lib/dpdk_helper
+CFLAGS += -I${DPDKHELPER_PATH}
+LDLIBS += -L${DPDKHELPER_PATH}/build -ldpdkhelper
+
+# Binary name
 APP = test
 
-# all source are stored in SRCS-y
+# All source are stored in SRCS-y
 SRCS-y := test.c ../ncmbuf.c
 
 EXTRA_CFLAGS += -O0 -pg -g -fsanitize=address
