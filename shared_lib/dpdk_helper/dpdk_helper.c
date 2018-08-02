@@ -77,8 +77,34 @@ void px_mbuf_udp(struct rte_mbuf* m)
         printf("\n");
 }
 
+int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
+{
+        uint8_t* pt_m1;
+        uint8_t* pt_m2;
+        size_t i;
+
+        pt_m1 = rte_pktmbuf_mtod(m1, uint8_t*);
+        pt_m2 = rte_pktmbuf_mtod(m2, uint8_t*);
+        if (m1->data_len != m2->data_len) {
+                RTE_LOG(INFO, USER1,
+                    "Mbufs have different data_len. m1 len: %u, m2 len: %u\n",
+                    m1->data_len, m2->data_len);
+                return -2;
+        }
+
+        for (i = 0; i < m1->data_len; ++i) {
+                if (*pt_m1 < *pt_m2) {
+                        return -1;
+                } else if (*pt_m1 > *pt_m2) {
+                        return 1;
+                }
+        }
+        return 0;
+}
+
 void mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
 {
+        /* Header room */
         rte_pktmbuf_free(m1);
         rte_pktmbuf_free(m2);
 }

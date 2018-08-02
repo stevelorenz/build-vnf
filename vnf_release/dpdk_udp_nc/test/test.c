@@ -3,7 +3,6 @@
  *
  * About: Test ncmbuf
  *
- *        - Some helper functions can be summarized for other tests
  */
 
 #include <errno.h>
@@ -45,19 +44,22 @@
 #define MBUF_l3_HDR_LEN 20
 #define MBUF_l4_UDP_HDR_LEN 8
 
-#define TEST_DATA_SIZE 128
+#define TEST_DATA_SIZE 1400
 #define TEST_HDR_LEN 42
 
 #define MAGIC_DATA 0x17
 
-#define UNCODED_BUFFER_LEN 2
-#define CODED_BUFFER_LEN 3
-#define DECODED_BUFFER_LEN 2
+#define UNCODED_BUFFER_LEN 50
+#define CODED_BUFFER_LEN 75
+#define DECODED_BUFFER_LEN 50
 
 /* TODO:  <30-07-18,Zuo> Extend this to support multiple options */
-struct nck_option_value TEST_OPTION[]
-    = { { "protocol", "noack" }, { "symbol_size", "1402" }, { "symbols", "2" },
-              { "redundancy", "1" }, { NULL, NULL } };
+struct nck_option_value TEST_OPTION[] = { { "field", "binary8" },
+        { "protocol", "noack" }, { "symbol_size", "1402" }, { "symbols", "10" },
+        { "redundancy", "5" }, { NULL, NULL } };
+
+uint16_t SYMBOLS = 10;
+uint16_t REDUNDANCY = 5;
 
 struct rte_mbuf* gen_test_udp(
     struct rte_mempool* mbuf_pool, uint16_t hdr_len, uint16_t data_len);
@@ -66,10 +68,12 @@ struct rte_mbuf* gen_test_udp(
 void put_coded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_recoded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid);
-void print_mbuf_buf(struct rte_mbuf* m_buf[], size_t buff_size);
+void fill_select_pkts(uint16_t array[], uint16_t len, uint16_t st);
 /* TODO:  <30-07-18, Zuo> Use lists in sys/queue.h instead of fixed arrays
  * Move these test functions to dpdp_test in shared_lib.
+ * MAYBE use cffi to implement Python wrapper
  * */
+struct rte_mbuf* ORIGINAL_BUFFER[UNCODED_BUFFER_LEN];
 struct rte_mbuf* UNCODED_BUFFER[UNCODED_BUFFER_LEN];
 struct rte_mbuf* CODED_BUFFER[CODED_BUFFER_LEN];
 struct rte_mbuf* RECODED_BUFFER[CODED_BUFFER_LEN];
@@ -96,22 +100,6 @@ void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid)
         idx++;
 }
 
-void print_mbuf_buf(struct rte_mbuf* m_buf[], size_t buff_size)
-{
-        size_t i;
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-
-        for (i = 0; i < buff_size; ++i) {
-                iph = rte_pktmbuf_mtod_offset(
-                    m_buf[i], struct ipv4_hdr*, ETHER_HDR_LEN);
-                udph = (struct udp_hdr*)((char*)iph + 20);
-                printf("Index:%lu, udp dgram length:%u, ip total length: %u\n",
-                    i, rte_be_to_cpu_16(udph->dgram_len),
-                    rte_be_to_cpu_16(iph->total_length));
-        }
-}
-
 struct rte_mbuf* gen_test_udp(
     struct rte_mempool* mbuf_pool, uint16_t hdr_len, uint16_t data_len)
 {
@@ -128,9 +116,10 @@ struct rte_mbuf* gen_test_udp(
         m->data_len = hdr_len + data_len;
         m->pkt_len = hdr_len + data_len;
         pt_data = rte_pktmbuf_mtod(m, uint8_t*);
-        printf("[GEN] Header room: %u, pt_data offset: %ld, data offset:%d\n",
-            rte_pktmbuf_headroom(m), pt_data - (uint8_t*)(m->buf_addr),
-            m->data_off);
+        /*printf("[GEN] Header room: %u, pt_data offset: %ld, data
+         * offset:%d\n",*/
+        /*rte_pktmbuf_headroom(m), pt_data - (uint8_t*)(m->buf_addr),*/
+        /*m->data_off);*/
         memset(pt_data, MAGIC_DATA, hdr_len + data_len);
 
         iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
@@ -142,17 +131,45 @@ struct rte_mbuf* gen_test_udp(
         iph->total_length = rte_cpu_to_be_16(
             data_len + MBUF_l4_UDP_HDR_LEN + MBUF_l3_HDR_LEN);
         iph->version_ihl = 0x45;
-        px_mbuf_udp(m);
         return m;
+}
+
+void fill_select_pkts(uint16_t array[], uint16_t len, uint16_t st)
+{
+        uint16_t tmp;
+        uint16_t i = 0;
+        uint16_t j = 0;
+        uint16_t unique = 0;
+
+        memset(array, -1, len * sizeof(uint16_t));
+
+        for (i = 0; i < len; ++i) {
+                do {
+                        unique = 1;
+                        tmp = rte_rand() % len + st;
+                        for (j = 0; j < len; ++j) {
+                                if (array[j] == tmp) {
+                                        unique = 0;
+                                }
+                        }
+
+                } while (unique != 1);
+                array[i] = tmp;
+        }
 }
 
 int main(int argc, char** argv)
 {
         int ret;
+        int decode_succ = 1;
         struct rte_mempool* test_pktmbuf_pool;
         size_t i;
+        size_t j;
         uint64_t prev_tsc = 0;
         uint64_t cur_tsc = 0;
+
+        /*uint16_t g_size = SYMBOLS;*/
+        uint16_t select_pkts_per_gen[SYMBOLS];
 
         ret = rte_eal_init(argc, argv);
         if (ret < 0) {
@@ -194,6 +211,8 @@ int main(int argc, char** argv)
         for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
                 UNCODED_BUFFER[i] = gen_test_udp(
                     test_pktmbuf_pool, TEST_HDR_LEN, TEST_DATA_SIZE);
+                ORIGINAL_BUFFER[i] = mbuf_udp_deep_copy(UNCODED_BUFFER[i],
+                    test_pktmbuf_pool, (TEST_HDR_LEN + TEST_DATA_SIZE));
         }
         printf("------- Before Encoding ------\n");
 
@@ -219,35 +238,41 @@ int main(int argc, char** argv)
         //     "[TIME] Number of TSCs for recoding: %lu\n", (cur_tsc -
         //     prev_tsc));
 
-        // Simulate losses
-
         /* Decoding operations */
         printf("------- Before Decoding ------\n");
         prev_tsc = rte_get_tsc_cycles();
-        for (i = 0; i < CODED_BUFFER_LEN; ++i) {
-                decode_udp_data(&dec, CODED_BUFFER[i], test_pktmbuf_pool, -1,
-                    put_decoded_buffer);
+        // Simulate losses in each generation
+        fill_select_pkts(select_pkts_per_gen, SYMBOLS, 0);
+
+        for (i = 0; i < CODED_BUFFER_LEN; i = i + SYMBOLS + REDUNDANCY - 1) {
+                fill_select_pkts(select_pkts_per_gen, SYMBOLS, i);
+                for (j = 0; j < SYMBOLS; ++j) {
+                        decode_udp_data(&dec,
+                            CODED_BUFFER[select_pkts_per_gen[j]],
+                            test_pktmbuf_pool, -1, put_decoded_buffer);
+                }
         }
+
         cur_tsc = rte_get_tsc_cycles();
         printf("------- After Decoding ------\n");
         printf(
             "[TIME] Number of TSCs for decoding: %lu\n", (cur_tsc - prev_tsc));
 
         /* Compare UNCODED_BUFFER and CODED_BUFFER */
-        uint8_t* pt_uncoded;
-        uint8_t* pt_decoded;
         for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
-                px_mbuf_udp(DECODED_BUFFER[i]);
-                pt_uncoded = rte_pktmbuf_mtod(UNCODED_BUFFER[i], uint8_t*);
-                pt_decoded = rte_pktmbuf_mtod(DECODED_BUFFER[i], uint8_t*);
-                if (memcmp(
-                        pt_uncoded, pt_decoded, TEST_HDR_LEN + TEST_DATA_SIZE)
-                    != 0) {
-                        printf("[TEST] Index:%lu, decoding failed\n", i);
-                        return -1;
+                ret = mbuf_data_cmp(ORIGINAL_BUFFER[i], DECODED_BUFFER[i]);
+                if (ret != 0) {
+                        decode_succ = 0;
+                        printf("[ERR] Packet %lu failed to be decoded.\n", i);
+                        printf("------ Original Packet: \n");
+                        px_mbuf_udp(ORIGINAL_BUFFER[i]);
+                        printf("------ Decoded Packet: \n");
+                        px_mbuf_udp(DECODED_BUFFER[i]);
                 }
         }
-        printf("[TEST] Decoding succeeded!\n");
+        if (decode_succ == 1) {
+                printf("^_^ Decode successfully!\n");
+        }
 
         RTE_LOG(INFO, EAL, "Run cleanups.\n");
         nck_free(&enc);

@@ -20,6 +20,16 @@ struct rte_mempool* init_mempool(void);
 void px_mbuf_udp(struct rte_mbuf* m);
 
 /**
+ * @brief Compare data room of two mbufs
+ *
+ * @param m1
+ * @param m2
+ *
+ * @return
+ */
+int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
+
+/**
  * @brief Compare two in mbuf encapsulated UDP segments
  *
  * @param m1
