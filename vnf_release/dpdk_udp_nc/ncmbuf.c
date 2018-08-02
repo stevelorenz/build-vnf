@@ -325,7 +325,10 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
                         skb_new(&skb, pt_data, in_data_len);
                         nck_get_source(dec, &skb);
                         skb.len = rte_be_to_cpu_16(*(uint16_t*)(pt_data));
-                        rte_pktmbuf_trim(m_in, (in_data_len - skb.len));
+                        pt_data = pt_data + 2;
+                        rte_memcpy(
+                            pt_data - sizeof(uint16_t), pt_data, skb.len);
+                        rte_pktmbuf_trim(m_out, (in_data_len - skb.len));
                         udph->dgram_len
                             = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                         iph->total_length = rte_cpu_to_be_16(
