@@ -3,6 +3,8 @@
  *
  */
 
+#include <signal.h>
+
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -26,7 +28,7 @@
 
 #define RTE_LOGTYPE_NCMBUF RTE_LOGTYPE_USER1
 
-static inline __attribute__((always_inline)) void recalc_cksum(
+static inline __attribute__((always_inline)) void recalc_cksum_inline(
     struct ipv4_hdr* iph, struct udp_hdr* udph)
 {
         udph->dgram_cksum = 0;
@@ -48,10 +50,6 @@ void check_mbuf_size(
                     enc->coded_size, NC_HDR_LEN);
         }
 }
-
-/* TODO:  <01-08-18, Zuo> Split this funciton into encode_input and
- * encode_output. These functions can be used to implement recoder
- * */
 
 uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
     struct rte_mempool* mbuf_pool, uint16_t portid,
@@ -96,6 +94,7 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
         pt_data = (uint8_t*)(rte_pktmbuf_prepend(m_in, sizeof(uint16_t)));
         rte_memcpy(pt_data, pt_data + sizeof(uint16_t),
             (ETHER_HDR_LEN + in_iphdr_len + UDP_HDR_LEN));
+        rte_pktmbuf_trim(m_in, sizeof(uint16_t));
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
         udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
         pt_data = (uint8_t*)(udph) + UDP_HDR_LEN;
@@ -133,7 +132,7 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
                             = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
-                        recalc_cksum(iph, udph);
+                        recalc_cksum_inline(iph, udph);
                         (*put_rxq)(m_in, portid);
                 } else {
                         m_out = mbuf_udp_deep_copy(m_base, mbuf_pool,
@@ -151,12 +150,12 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
                             "[ENC] Redundant seg: %u, ret: %d, output len: "
                             "%u\n",
                             (num_coded - 1), ret, skb.len);
-                        rte_pktmbuf_append(m_out, skb.len);
+                        rte_pktmbuf_append(m_out, (skb.len - in_data_len));
                         udph->dgram_len
                             = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
-                        recalc_cksum(iph, udph);
+                        recalc_cksum_inline(iph, udph);
                         (*put_rxq)(m_out, portid);
                 }
 
@@ -231,7 +230,7 @@ uint8_t recode_udp_data(struct nck_recoder* rec, struct rte_mbuf* m_in,
                 iph->total_length
                     = rte_cpu_to_be_16(rte_be_to_cpu_16(iph->total_length)
                         + (skb.len - in_data_len));
-                recalc_cksum(iph, udph);
+                recalc_cksum_inline(iph, udph);
                 (*put_rxq)(m_out, portid);
         }
         rte_pktmbuf_free(m_in);
@@ -259,6 +258,7 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
         in_data_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
         pt_data = (uint8_t*)(udph) + UDP_HDR_LEN;
 
+        /* MARK: The data_len of m_in is already extended by encoder */
         m_base = mbuf_udp_deep_copy(
             m_in, mbuf_pool, (ETHER_HDR_LEN + in_iphdr_len + UDP_HDR_LEN));
 
@@ -293,17 +293,17 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
                         pt_data = pt_data + 2;
                         rte_memcpy(
                             pt_data - sizeof(uint16_t), pt_data, skb.len);
-                        rte_pktmbuf_trim(
-                            m_in, (in_data_len - skb.len + sizeof(uint16_t)));
+                        rte_pktmbuf_trim(m_in, (in_data_len - skb.len));
                         udph->dgram_len
                             = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
-                        recalc_cksum(iph, udph);
+                        recalc_cksum_inline(iph, udph);
                         (*put_rxq)(m_in, portid);
                 } else {
                         m_out = mbuf_udp_deep_copy(
                             m_base, mbuf_pool, in_iphdr_len + UDP_HDR_LEN);
+                        rte_pktmbuf_append(m_out, in_data_len);
                         iph = rte_pktmbuf_mtod_offset(
                             m_out, struct ipv4_hdr*, ETHER_HDR_LEN);
                         udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
@@ -319,7 +319,7 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
                             = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
-                        recalc_cksum(iph, udph);
+                        recalc_cksum_inline(iph, udph);
                         (*put_rxq)(m_out, portid);
                 }
                 RTE_LOG(DEBUG, NCMBUF,

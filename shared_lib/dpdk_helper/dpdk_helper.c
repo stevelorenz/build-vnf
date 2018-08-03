@@ -44,11 +44,19 @@ struct rte_mbuf* mbuf_udp_deep_copy(
         }
         struct rte_mbuf* m_copy;
         m_copy = rte_pktmbuf_alloc(mbuf_pool);
-        m_copy->data_len = hdr_len;
-        m_copy->pkt_len = hdr_len;
+        m_copy->data_len = m->data_len;
+        m_copy->pkt_len = m->pkt_len;
         rte_memcpy(rte_pktmbuf_mtod(m_copy, uint8_t*),
             rte_pktmbuf_mtod(m, uint8_t*), hdr_len);
         return m_copy;
+}
+
+void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
+{
+        udph->dgram_cksum = 0;
+        iph->hdr_checksum = 0;
+        udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
+        iph->hdr_checksum = rte_ipv4_cksum(iph);
 }
 
 void px_mbuf_udp(struct rte_mbuf* m)
@@ -58,6 +66,8 @@ void px_mbuf_udp(struct rte_mbuf* m)
         uint8_t* pt_data;
         uint16_t data_len;
         size_t i;
+        printf("Dataroom len: %u\n", m->data_len);
+
         printf("Header part: \n");
         pt_data = rte_pktmbuf_mtod(m, uint8_t*);
         for (i = 0; i < (14 + 20 + 8); ++i) {
@@ -102,9 +112,13 @@ int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
         return 0;
 }
 
-void mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
+int mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
 {
-        /* Header room */
+        /*uint8_t* pt_m1;*/
+        /*uint8_t* pt_m2;*/
+
         rte_pktmbuf_free(m1);
         rte_pktmbuf_free(m2);
+
+        return 0;
 }

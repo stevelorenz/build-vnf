@@ -69,6 +69,7 @@ void put_coded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_recoded_buffer(struct rte_mbuf* m, uint16_t portid);
 void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid);
 void fill_select_pkts(uint16_t array[], uint16_t len, uint16_t st);
+void print_sel_pkts(uint16_t array[], uint16_t len);
 /* TODO:  <30-07-18, Zuo> Use lists in sys/queue.h instead of fixed arrays
  * Move these test functions to dpdp_test in shared_lib.
  * MAYBE use cffi to implement Python wrapper
@@ -131,7 +132,17 @@ struct rte_mbuf* gen_test_udp(
         iph->total_length = rte_cpu_to_be_16(
             data_len + MBUF_l4_UDP_HDR_LEN + MBUF_l3_HDR_LEN);
         iph->version_ihl = 0x45;
+        recalc_cksum(iph, udph);
         return m;
+}
+
+void print_sel_pkts(uint16_t array[], uint16_t len)
+{
+        size_t i;
+        for (i = 0; i < len; ++i) {
+                printf("%u,", array[i]);
+        }
+        printf("\n");
 }
 
 void fill_select_pkts(uint16_t array[], uint16_t len, uint16_t st)
@@ -146,7 +157,7 @@ void fill_select_pkts(uint16_t array[], uint16_t len, uint16_t st)
         for (i = 0; i < len; ++i) {
                 do {
                         unique = 1;
-                        tmp = rte_rand() % len + st;
+                        tmp = rte_rand() % (SYMBOLS + REDUNDANCY) + st;
                         for (j = 0; j < len; ++j) {
                                 if (array[j] == tmp) {
                                         unique = 0;
@@ -227,6 +238,11 @@ int main(int argc, char** argv)
         printf(
             "[TIME] Number of TSCs for encoding: %lu\n", (cur_tsc - prev_tsc));
 
+        printf("Encoder output data len: \n");
+        for (i = 0; i < CODED_BUFFER_LEN; ++i) {
+                printf("%u\n", CODED_BUFFER[i]->data_len);
+        }
+
         /* Recoding operations */
         // prev_tsc = rte_get_tsc_cycles();
         // for (i = 0; i < CODED_BUFFER_LEN; ++i) {
@@ -241,12 +257,14 @@ int main(int argc, char** argv)
         /* Decoding operations */
         printf("------- Before Decoding ------\n");
         prev_tsc = rte_get_tsc_cycles();
-        // Simulate losses in each generation
-        fill_select_pkts(select_pkts_per_gen, SYMBOLS, 0);
 
-        for (i = 0; i < CODED_BUFFER_LEN; i = i + SYMBOLS + REDUNDANCY - 1) {
+        /* Simulate losses and reordering per generation */
+        for (i = 0; i < CODED_BUFFER_LEN; i = i + SYMBOLS + REDUNDANCY) {
                 fill_select_pkts(select_pkts_per_gen, SYMBOLS, i);
+                print_sel_pkts(select_pkts_per_gen, SYMBOLS);
                 for (j = 0; j < SYMBOLS; ++j) {
+                        printf("%u\n",
+                            CODED_BUFFER[select_pkts_per_gen[j]]->data_len);
                         decode_udp_data(&dec,
                             CODED_BUFFER[select_pkts_per_gen[j]],
                             test_pktmbuf_pool, -1, put_decoded_buffer);
@@ -268,6 +286,7 @@ int main(int argc, char** argv)
                         px_mbuf_udp(ORIGINAL_BUFFER[i]);
                         printf("------ Decoded Packet: \n");
                         px_mbuf_udp(DECODED_BUFFER[i]);
+                        break;
                 }
         }
         if (decode_succ == 1) {
