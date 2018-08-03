@@ -56,7 +56,7 @@ CFLAGS += -Wno-deprecated-declarations
 #EXTRA_CFLAGS += -O3
 
 # Set NCKernel codec parameters
-CFLAGS += -DSYMBOL_SIZE=\"1402\" -DSYMBOLS=\"2\" -DREDUNDANCY=\"1\"
+CFLAGS += -DSYMBOL_SIZE=\"1402\" -DSYMBOLS=\"4\" -DREDUNDANCY=\"2\" -DFIELD=\"binary8\"
 
 # Debugging and profile
 # - gprof

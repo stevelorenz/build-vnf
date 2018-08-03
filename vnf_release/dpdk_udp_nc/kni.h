@@ -1,5 +1,6 @@
 /*
  * kni.h
+ * About: Kernel NIC interface
  */
 
 #ifndef KNI_H

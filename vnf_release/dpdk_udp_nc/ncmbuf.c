@@ -80,6 +80,11 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
         m_base = mbuf_udp_deep_copy(
             m_in, mbuf_pool, (ETHER_HDR_LEN + in_iphdr_len + UDP_HDR_LEN));
 
+        if (m_base == NULL) {
+                rte_pktmbuf_free(m_in);
+                return 0;
+        }
+
         /* IDEA: The original mbuf is used to be copied to the encoder's buffer
          * Because the encoder could pad zeros if the input length is smaller
          * than coded_size, the length of original data could be lost. So the
@@ -261,6 +266,11 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
         /* MARK: The data_len of m_in is already extended by encoder */
         m_base = mbuf_udp_deep_copy(
             m_in, mbuf_pool, (ETHER_HDR_LEN + in_iphdr_len + UDP_HDR_LEN));
+
+        if (m_base == NULL) {
+                rte_pktmbuf_free(m_in);
+                return 0;
+        }
 
         skb_new(&skb, pt_data, in_data_len);
         skb_put(&skb, in_data_len);

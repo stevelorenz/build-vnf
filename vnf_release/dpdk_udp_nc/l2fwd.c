@@ -83,6 +83,10 @@
 #endif /* ifndef DEBUG 0 */
 
 /* NCKernel options */
+#ifndef FIELD
+#define FIELD "binary8"
+#endif
+
 #ifndef PROTOCOL
 #define PROTOCOL "noack"
 #endif
@@ -842,9 +846,10 @@ int main(int argc, char** argv)
         RTE_LOG(INFO, USER1,
             "Protocol: %s, Symbol size: %s, Symbols: %s, Redundancy:%s\n",
             PROTOCOL, SYMBOL_SIZE, SYMBOLS, REDUNDANCY);
-        struct nck_option_value options[] = { { "protocol", PROTOCOL },
-                { "symbol_size", SYMBOL_SIZE }, { "symbols", SYMBOLS },
-                { "redundancy", REDUNDANCY }, { NULL, NULL } };
+        struct nck_option_value options[]
+            = { { "field", FIELD }, { "protocol", PROTOCOL },
+                      { "symbol_size", SYMBOL_SIZE }, { "symbols", SYMBOLS },
+                      { "redundancy", REDUNDANCY }, { NULL, NULL } };
 
         switch (coder_type) {
         case 0:

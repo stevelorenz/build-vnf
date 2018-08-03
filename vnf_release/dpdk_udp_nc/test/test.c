@@ -190,7 +190,7 @@ int main(int argc, char** argv)
         argv += ret;
 
         rte_log_set_global_level(RTE_LOG_DEBUG);
-        rte_log_set_level(RTE_LOGTYPE_USER1, RTE_LOG_DEBUG);
+        rte_log_set_level(RTE_LOGTYPE_USER1, RTE_LOG_INFO);
 
         test_pktmbuf_pool = rte_pktmbuf_pool_create("test_mbuf_pool", NB_MBUF,
             MEMPOOL_CACHE_SIZE, 0, MBUF_DATA_SIZE, rte_socket_id());
@@ -235,13 +235,8 @@ int main(int argc, char** argv)
         }
         cur_tsc = rte_get_tsc_cycles();
         printf("------- After Encoding ------\n");
-        printf(
-            "[TIME] Number of TSCs for encoding: %lu\n", (cur_tsc - prev_tsc));
-
-        printf("Encoder output data len: \n");
-        for (i = 0; i < CODED_BUFFER_LEN; ++i) {
-                printf("%u\n", CODED_BUFFER[i]->data_len);
-        }
+        printf("[TIME] Time for encoding: %f ms\n",
+            (1.0 / rte_get_timer_hz()) * 1000.0 * (cur_tsc - prev_tsc));
 
         /* Recoding operations */
         // prev_tsc = rte_get_tsc_cycles();
@@ -263,8 +258,6 @@ int main(int argc, char** argv)
                 fill_select_pkts(select_pkts_per_gen, SYMBOLS, i);
                 print_sel_pkts(select_pkts_per_gen, SYMBOLS);
                 for (j = 0; j < SYMBOLS; ++j) {
-                        printf("%u\n",
-                            CODED_BUFFER[select_pkts_per_gen[j]]->data_len);
                         decode_udp_data(&dec,
                             CODED_BUFFER[select_pkts_per_gen[j]],
                             test_pktmbuf_pool, -1, put_decoded_buffer);
@@ -273,8 +266,8 @@ int main(int argc, char** argv)
 
         cur_tsc = rte_get_tsc_cycles();
         printf("------- After Decoding ------\n");
-        printf(
-            "[TIME] Number of TSCs for decoding: %lu\n", (cur_tsc - prev_tsc));
+        printf("[TIME] Time for decoding: %f ms\n",
+            (1.0 / rte_get_timer_hz()) * 1000.0 * (cur_tsc - prev_tsc));
 
         /* Compare UNCODED_BUFFER and CODED_BUFFER */
         for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
