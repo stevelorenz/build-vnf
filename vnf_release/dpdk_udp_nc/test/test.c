@@ -35,6 +35,7 @@
 #include <rte_udp.h>
 
 #include <dpdk_helper.h>
+#include <kni.h>
 #include <ncmbuf.h>
 
 #define NB_MBUF 2048

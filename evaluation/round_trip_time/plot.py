@@ -129,7 +129,7 @@ def plot_ipd(payload_size='1400B', profile=''):
         'xdp_fwd', 'xdp_xor',
         'lk_fwd',
         'click_fwd', 'click_appendts', 'click_xor',
-        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor', 'dpdk_nc_ed', 'dpdk_nc_ed2'
+        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor', 'dpdk_nc_b8_ed1', 'dpdk_nc_ed2'
     ]
     if payload_size == '1400B':
         items.remove('xdp_xor')

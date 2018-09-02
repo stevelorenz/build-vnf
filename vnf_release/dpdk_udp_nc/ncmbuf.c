@@ -21,9 +21,10 @@
 
 #include "ncmbuf.h"
 
-#define NC_HDR_LEN 1
 #define UDP_HDR_LEN 8
+#define UDP_HDR_DGRAM_LEN 2
 
+#define NC_HDR_LEN 1
 #define MAGIC_NUM 117
 
 #define RTE_LOGTYPE_NCMBUF RTE_LOGTYPE_USER1
@@ -65,8 +66,10 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
         struct udp_hdr* udph;
         uint8_t* pt_data;
         int ret;
+        uint32_t src_addr;
 
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
+        src_addr = iph->src_addr;
         in_iphdr_len = (iph->version_ihl & 0x0F) * 32 / 8;
         udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
         in_data_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
@@ -96,20 +99,20 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
          *
          * So method 1 SHOULD be used. header part(usually smaller) is moved.
          * */
-        pt_data = (uint8_t*)(rte_pktmbuf_prepend(m_in, sizeof(uint16_t)));
-        rte_memcpy(pt_data, pt_data + sizeof(uint16_t),
+        pt_data = (uint8_t*)(rte_pktmbuf_prepend(m_in, UDP_HDR_DGRAM_LEN));
+        rte_memcpy(pt_data, pt_data + UDP_HDR_DGRAM_LEN,
             (ETHER_HDR_LEN + in_iphdr_len + UDP_HDR_LEN));
-        rte_pktmbuf_trim(m_in, sizeof(uint16_t));
+        rte_pktmbuf_trim(m_in, UDP_HDR_DGRAM_LEN);
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
         udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
         pt_data = (uint8_t*)(udph) + UDP_HDR_LEN;
         in_data_len = rte_cpu_to_be_16(in_data_len);
-        rte_memcpy(pt_data, &in_data_len, sizeof(uint16_t));
+        rte_memcpy(pt_data, &in_data_len, UDP_HDR_DGRAM_LEN);
         in_data_len = rte_be_to_cpu_16(in_data_len);
         RTE_VERIFY(rte_cpu_to_be_16(in_data_len) == *(uint16_t*)(pt_data));
 
         skb_new(&skb, pt_data, enc->coded_size + NC_HDR_LEN);
-        skb_put(&skb, in_data_len + sizeof(uint16_t));
+        skb_put(&skb, in_data_len + UDP_HDR_DGRAM_LEN);
         /* MARK: This step copy skb->data(mbuf's data memory) to encoder's own
          * buffer */
         nck_put_source(enc, &skb);
@@ -138,6 +141,7 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
                         recalc_cksum_inline(iph, udph);
+                        iph->src_addr = src_addr;
                         (*put_rxq)(m_in, portid);
                 } else {
                         m_out = mbuf_udp_deep_copy(m_base, mbuf_pool,
@@ -161,6 +165,7 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
                         recalc_cksum_inline(iph, udph);
+                        iph->src_addr = src_addr;
                         (*put_rxq)(m_out, portid);
                 }
 
@@ -256,8 +261,10 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
         struct ipv4_hdr* iph;
         struct udp_hdr* udph;
         uint8_t* pt_data;
+        uint32_t src_addr;
 
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
+        src_addr = iph->src_addr;
         in_iphdr_len = (iph->version_ihl & 0x0F) * 32 / 8;
         udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
         in_data_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
@@ -302,13 +309,14 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
                         skb.len = rte_be_to_cpu_16(*(uint16_t*)pt_data);
                         pt_data = pt_data + 2;
                         rte_memcpy(
-                            pt_data - sizeof(uint16_t), pt_data, skb.len);
+                            pt_data - UDP_HDR_DGRAM_LEN, pt_data, skb.len);
                         rte_pktmbuf_trim(m_in, (in_data_len - skb.len));
                         udph->dgram_len
                             = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
                         recalc_cksum_inline(iph, udph);
+                        iph->src_addr = src_addr;
                         (*put_rxq)(m_in, portid);
                 } else {
                         m_out = mbuf_udp_deep_copy(
@@ -323,13 +331,14 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
                         skb.len = rte_be_to_cpu_16(*(uint16_t*)(pt_data));
                         pt_data = pt_data + 2;
                         rte_memcpy(
-                            pt_data - sizeof(uint16_t), pt_data, skb.len);
+                            pt_data - UDP_HDR_DGRAM_LEN, pt_data, skb.len);
                         rte_pktmbuf_trim(m_out, (in_data_len - skb.len));
                         udph->dgram_len
                             = rte_cpu_to_be_16(skb.len + UDP_HDR_LEN);
                         iph->total_length = rte_cpu_to_be_16(
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
                         recalc_cksum_inline(iph, udph);
+                        iph->src_addr = src_addr;
                         (*put_rxq)(m_out, portid);
                 }
                 RTE_LOG(DEBUG, NCMBUF,

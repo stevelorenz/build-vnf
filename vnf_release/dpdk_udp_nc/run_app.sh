@@ -33,3 +33,4 @@ sudo ./build/udp_nc -l $LCORES -m $SOCKET_MEM -- \
     -i $POLL_PAR \
     -o "$1" -b "$2" -t "$3" \
     -n "$4" -p "$5" -q "$6" \
+    --kni-mode

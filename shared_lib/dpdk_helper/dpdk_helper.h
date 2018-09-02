@@ -3,7 +3,7 @@
  *
  * About: Helper functions for DPDK development
  *
- *	  These are util functions that are not provided by official DPDK APIs
+ *        These are util functions that are not provided by official DPDK APIs
  *        (Version 18.02).
  *
  * Email: xianglinks@gmail.com
@@ -57,4 +57,13 @@ int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
  */
 int mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
 
+/**
+ * @brief mbuf_dump_bin
+ *
+ * @param f
+ * @param m
+ */
+void mbuf_dump_bin(struct rte_mbuf* m);
+
 #endif /* !DPDK_HELPER_H */
+

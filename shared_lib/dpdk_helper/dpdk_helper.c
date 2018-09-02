@@ -122,3 +122,9 @@ int mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
 
         return 0;
 }
+
+void mbuf_dump_bin(struct rte_mbuf* m)
+{
+        fclose(f);
+        rte_pktmbuf_free(m);
+}

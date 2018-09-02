@@ -53,22 +53,18 @@ CFLAGS += -O3
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-unused-but-set-parameter
 CFLAGS += -Wno-deprecated-declarations
-#EXTRA_CFLAGS += -O3
+EXTRA_CFLAGS += -O3
+# Debugging and profile
+#EXTRA_CFLAGS += -O0 -pg -g -fsanitize=address
 
 # Set NCKernel codec parameters
 CFLAGS += -DSYMBOL_SIZE=\"1402\" -DSYMBOLS=\"4\" -DREDUNDANCY=\"2\" -DFIELD=\"binary8\"
 
-# Debugging and profile
-# - gprof
-# - address sanitizer
-EXTRA_CFLAGS += -O1 -pg -g -fsanitize=address
-
 # External libraries
-
+CFLAGS += -I./
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include
 LDLIBS += -L${NCKERNEL_PATH}/lib -lnckernel
-
 DPDKHELPER_PATH= /vagrant/shared_lib/dpdk_helper
 CFLAGS += -I${DPDKHELPER_PATH}
 LDLIBS += -L${DPDKHELPER_PATH}/build -ldpdkhelper

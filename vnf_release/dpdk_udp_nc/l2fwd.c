@@ -53,6 +53,7 @@
 
 #include <rte_atomic.h>
 #include <rte_branch_prediction.h>
+#include <rte_bus_pci.h>
 #include <rte_byteorder.h>
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -62,6 +63,7 @@
 #include <rte_ether.h>
 #include <rte_interrupts.h>
 #include <rte_ip.h>
+#include <rte_kni.h>
 #include <rte_launch.h>
 #include <rte_lcore.h>
 #include <rte_log.h>
@@ -76,6 +78,7 @@
 #include <rte_random.h>
 #include <rte_udp.h>
 
+/*#include "kni.h"*/
 #include "ncmbuf.h"
 
 #ifndef DEBUG
@@ -127,6 +130,9 @@ static int debugging = 0;
 static int mac_updating = 1;
 
 static int packet_capturing = 0;
+
+/* Enable running in the kni mode */
+static int kni_mode = 0;
 
 static int coder_type = 0;
 
@@ -198,6 +204,26 @@ static struct rte_eth_conf port_conf = {
 };
 
 struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
+
+#define KNI_MAX_KTHREAD 32
+/*
+ * Structure of port parameters
+ */
+struct kni_port_params {
+        uint16_t port_id;    /* Port ID */
+        unsigned lcore_rx;   /* lcore ID for RX */
+        unsigned lcore_tx;   /* lcore ID for TX */
+        uint32_t nb_lcore_k; /* Number of lcores for KNI multi kernel threads */
+        uint32_t nb_kni;     /* Number of KNI devices to be created */
+        unsigned lcore_k[KNI_MAX_KTHREAD];    /* lcore ID list for kthreads */
+        struct rte_kni* kni[KNI_MAX_KTHREAD]; /* KNI context pointers */
+} __rte_cache_aligned;
+
+static struct kni_port_params* kni_port_params_array[RTE_MAX_ETHPORTS];
+
+/*static int kni_change_mtu(uint16_t portid, unsigned int new_mtu);*/
+static int kni_config_network_interface(uint16_t portid, uint8_t if_up);
+/*static int kni_config_mac_address(uint16_t portid, uint8_t mac_addr[]);*/
 
 /* NC coders and operation functions */
 struct nck_encoder enc;
@@ -583,6 +609,8 @@ static const char short_options[]
 #define CMD_LINE_OPT_NO_PACKET_CAPTURING "no-packet-capturing"
 #define CMD_LINE_OPT_DEBUGGING "debugging"
 #define CMD_LINE_OPT_NO_DEBUGGING "no-debugging"
+#define CMD_LINE_OPT_KNI_MODE "kni-mode"
+#define CMD_LINE_OPT_NO_KNI_MODE "no-kni-mode"
 
 enum {
         /* long options mapped to a short option */
@@ -599,6 +627,8 @@ static const struct option lgopts[] = { { CMD_LINE_OPT_MAC_UPDATING,
         { CMD_LINE_OPT_NO_PACKET_CAPTURING, no_argument, &packet_capturing, 0 },
         { CMD_LINE_OPT_DEBUGGING, no_argument, &debugging, 1 },
         { CMD_LINE_OPT_NO_DEBUGGING, no_argument, &debugging, 0 },
+        { CMD_LINE_OPT_KNI_MODE, no_argument, &kni_mode, 1 },
+        { CMD_LINE_OPT_NO_KNI_MODE, no_argument, &kni_mode, 0 },
         { NULL, 0, 0, 0 } };
 
 /* Parse the argument given in the command line of the application */
@@ -772,6 +802,91 @@ static void signal_handler(int signum)
         }
 }
 
+static int kni_config_network_interface(uint16_t portid, uint8_t if_up)
+{
+        int ret = 0;
+
+        RTE_LOG(INFO, USER1, "Configure network interface of %d %s\n", portid,
+            if_up ? "up" : "down");
+
+        if (if_up != 0) {
+                rte_eth_dev_stop(portid);
+                ret = rte_eth_dev_start(portid);
+        } else {
+                rte_eth_dev_stop(portid);
+        }
+
+        return ret;
+}
+
+/**
+ * @brief Allocate KNI devices
+ *
+ *        To make it simple, allocate only one KNI device for each port
+ *
+ * @return
+ */
+static int kni_alloc(uint16_t portid)
+{
+        struct rte_kni* kni;
+        struct kni_port_params** p = kni_port_params_array;
+        struct rte_kni_conf conf;
+
+        /* Create one KNI device */
+        memset(&conf, 0, sizeof(conf));
+        snprintf(conf.name, RTE_KNI_NAMESIZE, "vEth%u", portid);
+        conf.core_id = p[portid]->lcore_k[0];
+        conf.group_id = portid;
+        conf.mbuf_size = NC_MAX_DATA_LEN + NC_MAX_HDR_LEN;
+        conf.force_bind = 1;
+
+        /* The first KNI device associated to a port is the master */
+        struct rte_kni_ops ops;
+        struct rte_eth_dev_info dev_info;
+
+        memset(&dev_info, 0, sizeof(dev_info));
+        rte_eth_dev_info_get(
+            portid, &dev_info); // Get contextual info of an Eth device
+
+        if (dev_info.pci_dev) {
+                conf.addr = dev_info.pci_dev->addr;
+                conf.id = dev_info.pci_dev->id;
+        }
+
+        rte_eth_macaddr_get(portid, (struct ether_addr*)&conf.mac_addr);
+
+        memset(&ops, 0, sizeof(ops));
+        ops.port_id = portid;
+        // Ifce configuration callbacks can be added in the ops
+        /*ops.change_mtu = kni_change_mtu;*/
+        ops.config_network_if = kni_config_network_interface;
+        /*ops.config_mac_address = kni_config_mac_address;*/
+
+        kni = rte_kni_alloc(l2fwd_pktmbuf_pool, &conf, &ops);
+        p[portid]->kni[0] = kni;
+
+        return 0;
+}
+
+/**
+ * @brief Free KNI subsystem resources
+ *
+ */
+static int kni_free_kni(uint16_t portid)
+{
+        uint8_t i;
+        struct kni_port_params** p = kni_port_params_array;
+
+        for (i = 0; i < p[portid]->nb_kni; ++i) {
+                if (rte_kni_release(p[portid]->kni[i])) {
+                        RTE_LOG(INFO, USER1, "Failed to release KNI\n");
+                }
+                p[portid]->kni[i] = NULL;
+        }
+
+        return 0;
+}
+
 int main(int argc, char** argv)
 {
         struct lcore_queue_conf* qconf;
@@ -781,6 +896,7 @@ int main(int argc, char** argv)
         unsigned nb_ports_in_mask = 0;
         unsigned int nb_lcores = 0;
         unsigned int nb_mbufs;
+        size_t i;
 
         ret = rte_eal_init(argc, argv);
         if (ret < 0) {
@@ -920,6 +1036,7 @@ int main(int argc, char** argv)
 
         rx_lcore_id = 0;
         qconf = NULL;
+
         /* Initialize the port/queue configuration of each logical core */
         RTE_ETH_FOREACH_DEV(portid)
         {
@@ -964,6 +1081,35 @@ int main(int argc, char** argv)
 
         if (coder_type == 0) {
                 check_mbuf_size(l2fwd_pktmbuf_pool, &enc, NC_MAX_HDR_LEN);
+        }
+
+        /* Init KNI Subsystem */
+        RTE_LOG(
+            INFO, USER1, "KNI mode: %s\n", kni_mode ? "enabled" : "disabled");
+        if (kni_mode) {
+                rte_kni_init(nb_ports);
+                RTE_LOG(INFO, USER1,
+                    "Preallocate %d KNI interfaces, one interface per port.\n",
+                    nb_ports);
+
+                memset(
+                    &kni_port_params_array, 0, sizeof(kni_port_params_array));
+
+                RTE_ETH_FOREACH_DEV(portid)
+                {
+                        kni_port_params_array[portid] = rte_zmalloc(
+                            "KNI_port_params", sizeof(struct kni_port_params),
+                            RTE_CACHE_LINE_SIZE);
+                        kni_port_params_array[portid]->port_id = portid;
+                        kni_port_params_array[portid]->lcore_rx = 0;
+                        kni_port_params_array[portid]->lcore_tx = 0;
+                        kni_port_params_array[portid]->nb_kni = 1;
+
+                        for (i = 0; i < KNI_MAX_KTHREAD; ++i) {
+                                kni_port_params_array[portid]->lcore_k[i] = 0;
+                        }
+                        kni_port_params_array[portid]->nb_lcore_k = 1;
+                }
         }
 
         /* Configure enabled DPDK ports */
@@ -1060,6 +1206,10 @@ int main(int argc, char** argv)
                     l2fwd_ports_eth_addr[portid].addr_bytes[3],
                     l2fwd_ports_eth_addr[portid].addr_bytes[4],
                     l2fwd_ports_eth_addr[portid].addr_bytes[5]);
+
+                if (kni_mode) {
+                        kni_alloc(portid);
+                }
         }
 
         check_all_ports_link_status(l2fwd_enabled_port_mask);
@@ -1078,6 +1228,18 @@ int main(int argc, char** argv)
 
         /* Cleanups */
         RTE_LOG(INFO, EAL, "Run cleanups.\n");
+
+        if (kni_mode) {
+                RTE_LOG(INFO, USER1, "Release KNI resources\n");
+                RTE_ETH_FOREACH_DEV(portid) { kni_free_kni(portid); }
+                for (i = 0; i < nb_ports; ++i) {
+                        if (kni_port_params_array[i]) {
+                                rte_free(kni_port_params_array[i]);
+                                kni_port_params_array[i] = NULL;
+                        }
+                }
+        }
+
         RTE_ETH_FOREACH_DEV(portid)
         {
                 if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)

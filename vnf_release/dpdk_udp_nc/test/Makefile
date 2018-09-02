@@ -17,7 +17,10 @@ CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-deprecated-declarations
 CFLAGS += -Wno-unused-but-set-variable
 
+EXTRA_CFLAGS += -O0 -pg -g -fsanitize=address -fprofile-arcs -ftest-coverage
+
 # External libraries
+CFLAGS += -I../
 
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include
@@ -34,8 +37,6 @@ LDLIBS += -L${DPDKHELPER_PATH}/build -ldpdkhelper
 APP = test
 
 # All source are stored in SRCS-y
-SRCS-y := test.c ../ncmbuf.c
-
-EXTRA_CFLAGS += -O0 -pg -g -fsanitize=address
+SRCS-y := test.c ../ncmbuf.c ../kni.c
 
 include $(RTE_SDK)/mk/rte.extapp.mk

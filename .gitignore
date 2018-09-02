@@ -64,6 +64,11 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# Profiling and coverage
+*.gcov
+*.gcda
+*.gcno
+
 ------------
 -  Python  -
 ------------
@@ -186,3 +191,9 @@ delay_timer/*.csv
 ----------------
 *.pdf
 evaluation/one_way_delay/results/
+
+----------
+-  DPDK  -
+----------
+
+*.mbuf
