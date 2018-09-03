@@ -33,6 +33,7 @@
  * =====================================================================================
  */
 
+#include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
@@ -161,6 +162,12 @@ static uint32_t src_mac[ETHER_ADDR_LEN];
 static struct ether_addr dst_mac_addr;
 static struct ether_addr src_mac_addr;
 
+static struct in_addr vnf_dst_ip_addr;
+uint32_t vnf_dst_ip = 0;
+
+/*static struct in_addr dst_dst_ip_addr;*/
+/*uint32_t dst_dst_ip = 0;*/
+
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
@@ -243,6 +250,15 @@ void nc_udp(int coder_type, struct rte_mbuf* m, uint16_t portid);
 /******************************
  *  Function Implementations  *
  ******************************/
+
+static inline __attribute__((always_inline)) void recalc_cksum_inline(
+    struct ipv4_hdr* iph, struct udp_hdr* udph)
+{
+        udph->dgram_cksum = 0;
+        iph->hdr_checksum = 0;
+        udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
+        iph->hdr_checksum = rte_ipv4_cksum(iph);
+}
 
 /**
  * @brief Convert Uint32 IP address to x.x.x.x format
@@ -362,6 +378,28 @@ void nc_udp(int coder_type, struct rte_mbuf* m, uint16_t portid)
 }
 
 /**
+ * @brief Modify the destination IP address of given mbuf list
+ *
+ */
+static inline void mod_ip_dst_addr(
+    uint16_t nb_rx, struct rte_mbuf* pkts_burst[], uint32_t dst_addr)
+{
+        uint16_t i;
+        uint16_t in_iphdr_len;
+        struct ipv4_hdr* iph;
+        struct udp_hdr* udph;
+
+        for (i = 0; i < nb_rx; ++i) {
+                iph = rte_pktmbuf_mtod_offset(
+                    pkts_burst[i], struct ipv4_hdr*, ETHER_HDR_LEN);
+                rte_memcpy(&iph->dst_addr, &dst_addr, sizeof(uint32_t));
+                in_iphdr_len = (iph->version_ihl & 0x0F) * 32 / 8;
+                udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
+                recalc_cksum_inline(iph, udph);
+        }
+}
+
+/**
  * @brief Push received packets to the bound KNI device
  */
 static void push_kni(
@@ -369,6 +407,10 @@ static void push_kni(
 {
         uint16_t i;
         uint16_t push_num = 0;
+
+        /* Change destination IP address, this is required to allow operation in
+         * layer 3 */
+        mod_ip_dst_addr(nb_rx, pkts_burst, vnf_dst_ip);
 
         push_num = rte_kni_tx_burst(
             kni_port_params_array[portid]->kni[0], pkts_burst, nb_rx);
@@ -1059,6 +1101,10 @@ int main(int argc, char** argv)
                     dst_mac[0], dst_mac[1], dst_mac[2], dst_mac[3], dst_mac[4],
                     dst_mac[5]);
         }
+
+        /* TODO:  <03-09-18, Zuo> Add this in config parser */
+        inet_pton(AF_INET, "10.0.0.11", &vnf_dst_ip_addr);
+        vnf_dst_ip = vnf_dst_ip_addr.s_addr;
 
         RTE_LOG(INFO, USER1, "Packet capturing: %s\n",
             packet_capturing ? "enabled" : "disabled");
