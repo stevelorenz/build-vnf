@@ -24,4 +24,4 @@ sudo gdb --args ./build/udp_nc -l $LCORES -m $SOCKET_MEM -- \
     -i $POLL_PAR \
     -n 2 -p 0x3 -q 2\
     -s $SRC_MAC -d $DST_MAC \
-    --packet-capturing --debugging
+    --packet-capturing --debugging --kni-mode

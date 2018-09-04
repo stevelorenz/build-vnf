@@ -117,6 +117,9 @@
 #define NC_MAX_DATA_LEN 1500
 #define NC_MAX_HDR_LEN 90
 
+/* Number of packets to read in one go if Batch processing is used */
+#define DEFAULT_PKT_BURST_SZ 32
+
 /**********************
  *  Global Variables  *
  **********************/
@@ -230,6 +233,7 @@ static struct kni_port_params* kni_port_params_array[RTE_MAX_ETHPORTS];
 
 /* Since multiple threads can access this value, atomic counter is used here */
 static rte_atomic32_t kni_stop = RTE_ATOMIC32_INIT(0);
+static rte_atomic32_t kni_dev_up = RTE_ATOMIC32_INIT(0);
 
 /*static int kni_change_mtu(uint16_t portid, unsigned int new_mtu);*/
 static int kni_config_network_interface(uint16_t portid, uint8_t if_up);
@@ -429,15 +433,17 @@ static inline void mod_ip_addr(uint16_t nb_rx, struct rte_mbuf* pkts_burst[],
 /**
  * @brief Push received packets to the bound KNI device
  */
-static void push_kni(
-    uint16_t portid, uint16_t nb_rx, struct rte_mbuf* pkts_burst[])
+static void push_kni(uint16_t portid, uint16_t nb_rx,
+    struct rte_mbuf* pkts_burst[], uint8_t mod_ip)
 {
         uint16_t i;
         uint16_t push_num = 0;
 
-        /* Change destination IP address, this is required to allow operation in
-         * layer 4 */
-        mod_ip_addr(nb_rx, pkts_burst, NULL, &vnf_recv_dst_ip);
+        if (likely(mod_ip == 1)) {
+                /* Change destination IP address, this is required to allow
+                 * operation in layer 4 */
+                mod_ip_addr(nb_rx, pkts_burst, NULL, &vnf_recv_dst_ip);
+        }
 
         push_num = rte_kni_tx_burst(
             kni_port_params_array[portid]->kni[0], pkts_burst, nb_rx);
@@ -603,9 +609,6 @@ static void l2fwd_main_loop(void)
                                                 /* Long sleep force running
                                                  * thread to suspend */
                                                 usleep(poll_long_interval_us);
-                                                // MARK: Issue, it can delay the
-                                                // request mbufs sent from the
-                                                // kernel space. e.g. ip link up
                                         }
                                 } else {
                                         /* Process received burst packets */
@@ -613,8 +616,8 @@ static void l2fwd_main_loop(void)
                                         st_proc_tsc = rte_rdtsc();
                                         if (kni_mode) {
                                                 /* Put burst packets to kni */
-                                                push_kni(
-                                                    portid, nb_rx, pkts_burst);
+                                                push_kni(portid, nb_rx,
+                                                    pkts_burst, 1);
                                         } else {
                                                 for (j = 0; j < nb_rx; j++) {
                                                         m = pkts_burst[j];
@@ -674,60 +677,42 @@ static void l2fwd_main_loop(void)
         }
 }
 
-__attribute__((unused)) static int l2fwd_main_loop_kni(void)
+/**
+ * @brief Wait for all KNI devices to be setup, eating 100% CPU...
+ */
+static void kni_dev_setup(void)
 {
         uint8_t i;
-        int32_t f_stop;
-        const unsigned lcore_id = rte_lcore_id();
-        enum lcore_rxtx { LCORE_NONE, LCORE_RX, LCORE_TX, LCORE_BOTH };
-
-        /* Because of limited cores on the testbed
-         * Share the same lcore(id 0) for multiple ports
-         * This is also used currently in the non-KNI mode.
-         * */
-        if (lcore_id == 0) {
-                RTE_LOG(INFO, USER1,
-                    "Lcore 0 is reading and writing to all enabled "
-                    "ports:\n");
-                while (1) {
-                        f_stop = rte_atomic32_read(&kni_stop);
-                        if (f_stop) {
-                                break;
-                        }
-                        /* Operate for all ports sequentially
-                         * - Check if packets received by the ingress port
-                         *      -> True: retrieve ingress and drain egress
-                         *      -> False: wait poll_short_interval_us and try
-                         *                again. If trys reach threshold -> long
-                         *                sleep.
-                         * */
-                        for (i = 0; i < nb_ports; ++i) {
-                        }
-                        usleep(poll_long_interval_us);
-                }
-        } else {
-                RTE_LOG(INFO, USER1,
-                    "Lcore %u does nothing, enter idle looping.\n", lcore_id);
-                while (1) {
-                        f_stop = rte_atomic32_read(&kni_stop);
-                        if (f_stop) {
-                                break;
-                        }
-                        usleep(poll_long_interval_us);
-                }
-                return -1;
+        for (i = 0; i < nb_ports; ++i) {
+                rte_kni_handle_request(kni_port_params_array[i]->kni[0]);
         }
+}
 
+__attribute__((unused)) static int kni_dev_setup_loop(void)
+{
+        uint32_t dev_up_num = 0;
+        while (1) {
+                dev_up_num = rte_atomic32_read(&kni_dev_up);
+                if (dev_up_num == nb_ports) {
+                        RTE_LOG(INFO, USER1,
+                            "All KNI device are up, exit setup loop\n");
+                        break;
+                }
+                if (force_quit) {
+                        break;
+                }
+                kni_dev_setup();
+        }
         return 0;
 }
 
 static int l2fwd_launch_one_lcore(__attribute__((unused)) void* dummy)
 {
-        // if (kni_mode) {
-        //         RTE_LOG(INFO, USER1, "Entering main loop of KNI mode.\n");
-        //         l2fwd_main_loop_kni();
-        //         return 0;
-        // }
+        if (kni_mode) {
+                RTE_LOG(INFO, USER1, "Entering KNI device setup loop.\n");
+                kni_dev_setup_loop();
+        }
+        RTE_LOG(INFO, USER1, "Entering main loop for IO and processing.\n");
         l2fwd_main_loop();
         return 0;
 }
@@ -1027,6 +1012,9 @@ static int kni_config_network_interface(uint16_t portid, uint8_t if_up)
         if (if_up != 0) {
                 rte_eth_dev_stop(portid);
                 ret = rte_eth_dev_start(portid);
+                rte_atomic32_inc(&kni_dev_up);
+                RTE_LOG(INFO, USER1, "Current num of up KNI device: %d\n",
+                    rte_atomic32_read(&kni_dev_up));
         } else {
                 rte_eth_dev_stop(portid);
         }
