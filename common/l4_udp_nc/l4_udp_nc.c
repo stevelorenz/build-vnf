@@ -17,6 +17,10 @@
 
 #define BUFSIZE 1024
 
+#define RECV_IFCE_IP "10.0.0.11"
+#define SEND_IFCE_IP "10.0.0.12"
+#define DST_IFCE_IP "10.0.0.14"
+
 /*
  * error - wrapper for perror
  */
@@ -28,16 +32,21 @@ void error(char* msg)
 
 int main(int argc, char** argv)
 {
-        int sockfd;                    /* socket */
-        int portno;                    /* port to listen on */
-        unsigned int clientlen;        /* byte size of client's address */
-        struct sockaddr_in serveraddr; /* server's addr */
-        struct sockaddr_in clientaddr; /* client addr */
-        char* buf;                     /* message buf */
-        int optval;                    /* flag value for setsockopt */
-        int n;                         /* message byte size */
-
-        unsigned long recv_num = 0;
+        int recv_sock; /* socket */
+        int send_sock;
+        int portno;                       /* port to listen on */
+        unsigned int clt_addr_len;        /* byte size of client's address */
+        struct sockaddr_in srv_recv_addr; /* server's addr */
+        struct in_addr recv_ip;
+        struct sockaddr_in srv_send_addr;
+        struct in_addr send_ip;
+        struct sockaddr_in clt_addr; /* client addr */
+        struct sockaddr_in dst_addr;
+        struct in_addr dst_ip;
+        char buf[BUFSIZE];          /* message buf */
+        int optval;                 /* flag value for setsockopt */
+        int n;                      /* message byte size */
+        unsigned long recv_num = 0; /* number of received segments */
 
         /*
          * check command line arguments
@@ -48,12 +57,14 @@ int main(int argc, char** argv)
         }
         portno = atoi(argv[1]);
 
-        /*
-         * socket: create the parent socket
-         */
-        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (sockfd < 0)
-                error("ERROR opening socket");
+        recv_sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (recv_sock < 0)
+                error("ERROR opening ingress socket");
+
+        send_sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (send_sock < 0) {
+                error("ERROR opening egress socket");
+        }
 
         /* setsockopt: Handy debugging trick that lets
          * us rerun the server immediately after we kill it;
@@ -61,40 +72,56 @@ int main(int argc, char** argv)
          * Eliminates "ERROR on binding: Address already in use" error.
          */
         optval = 1;
-        setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&optval,
+        setsockopt(recv_sock, SOL_SOCKET, SO_REUSEADDR, (const void*)&optval,
+            sizeof(int));
+        setsockopt(send_sock, SOL_SOCKET, SO_REUSEADDR, (const void*)&optval,
             sizeof(int));
 
-        /*
-         * build the server's Internet address
-         */
-        bzero((char*)&serveraddr, sizeof(serveraddr));
-        serveraddr.sin_family = AF_INET;
-        serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        serveraddr.sin_port = htons((unsigned short)portno);
+        bzero((char*)&srv_recv_addr, sizeof(srv_recv_addr));
+        srv_recv_addr.sin_family = AF_INET;
+        inet_pton(AF_INET, RECV_IFCE_IP, &recv_ip);
+        srv_recv_addr.sin_addr.s_addr = recv_ip.s_addr;
+        srv_recv_addr.sin_port = htons((unsigned short)portno);
+
+        bzero((char*)&srv_send_addr, sizeof(srv_send_addr));
+        srv_send_addr.sin_family = AF_INET;
+        inet_pton(AF_INET, SEND_IFCE_IP, &send_ip);
+        srv_send_addr.sin_addr.s_addr = send_ip.s_addr;
+        srv_send_addr.sin_port = htons((unsigned short)portno);
+
+        bzero((char*)&dst_addr, sizeof(dst_addr));
+        dst_addr.sin_family = AF_INET;
+        inet_pton(AF_INET, DST_IFCE_IP, &dst_ip);
+        dst_addr.sin_addr.s_addr = dst_ip.s_addr;
+        dst_addr.sin_port = htons((unsigned short)portno);
+
+        if (bind(recv_sock, (struct sockaddr*)&srv_recv_addr,
+                sizeof(srv_recv_addr))
+            < 0)
+                error("ERROR on binding recv socket.");
+
+        if (bind(send_sock, (struct sockaddr*)&srv_send_addr,
+                sizeof(srv_send_addr))
+            < 0) {
+                error("ERROR on binding send socket.");
+        }
 
         /*
-         * bind: associate the parent socket with a port
-         */
-        if (bind(sockfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) < 0)
-                error("ERROR on binding");
-
-        /*
-         * main loop: wait for a datagram, then echo it
+         * main loop:
          */
         printf("Listen on port: %d...\n", portno);
-        clientlen = sizeof(clientaddr);
+        clt_addr_len = sizeof(clt_addr);
         while (1) {
-
-                /*
-                 * recvfrom: receive a UDP datagram from a client
-                 */
-                buf = malloc(BUFSIZE);
-                n = recvfrom(sockfd, buf, BUFSIZE, 0,
-                    (struct sockaddr*)&clientaddr, &clientlen);
+                n = recvfrom(recv_sock, buf, BUFSIZE, 0,
+                    (struct sockaddr*)&clt_addr, &clt_addr_len);
                 if (n < 0)
                         error("ERROR in recvfrom");
 
                 recv_num += 1;
                 printf("Already recv %lu UDP segments.\n", recv_num);
+
+                /* Simply forwarding */
+                sendto(send_sock, buf, n, 0, (struct sockaddr*)&dst_addr,
+                    sizeof(dst_addr));
         }
 }

@@ -162,11 +162,11 @@ static uint32_t src_mac[ETHER_ADDR_LEN];
 static struct ether_addr dst_mac_addr;
 static struct ether_addr src_mac_addr;
 
-static struct in_addr vnf_dst_ip_addr;
-uint32_t vnf_dst_ip = 0;
+static struct in_addr vnf_recv_ip_dst_addr;
+uint32_t vnf_recv_dst_ip = 0;
 
-/*static struct in_addr dst_dst_ip_addr;*/
-/*uint32_t dst_dst_ip = 0;*/
+static struct in_addr vnf_send_src_ip_addr;
+uint32_t vnf_send_src_ip = 0;
 
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
@@ -304,6 +304,23 @@ static inline int8_t filter_ether_frame(struct rte_mbuf* m)
         return 1;
 }
 
+/**
+ * @brief Filter an array of mbufs
+ */
+static inline void filter_mbuf_array(
+    struct rte_mbuf* mbuf_array[], uint16_t num)
+{
+        uint16_t i = 0;
+        int ret = 0;
+        for (i = 0; i < num; ++i) {
+                ret = filter_ether_frame(mbuf_array[i]);
+                if (ret != 1) {
+                        rte_pktmbuf_free(mbuf_array[i]);
+                        mbuf_array[i] = NULL;
+                }
+        }
+}
+
 /* TODO:  <30-07-18, Zuo> Add NSH header inside UDP */
 
 __attribute__((unused)) static inline bool is_ipv4_pkt(struct rte_mbuf* m)
@@ -378,11 +395,13 @@ void nc_udp(int coder_type, struct rte_mbuf* m, uint16_t portid)
 }
 
 /**
- * @brief Modify the destination IP address of given mbuf list
+ * @brief Modify the IP addresses of given mbuf list
+ *        This is required when KNI interfaces are used and frames are operated
+ *        with AF_INET sockets in layer 4.
  *
  */
-static inline void mod_ip_dst_addr(
-    uint16_t nb_rx, struct rte_mbuf* pkts_burst[], uint32_t dst_addr)
+static inline void mod_ip_addr(uint16_t nb_rx, struct rte_mbuf* pkts_burst[],
+    uint32_t* src_addr, uint32_t* dst_addr)
 {
         uint16_t i;
         uint16_t in_iphdr_len;
@@ -390,9 +409,17 @@ static inline void mod_ip_dst_addr(
         struct udp_hdr* udph;
 
         for (i = 0; i < nb_rx; ++i) {
+                if (pkts_burst[i] == NULL) {
+                        continue;
+                }
                 iph = rte_pktmbuf_mtod_offset(
                     pkts_burst[i], struct ipv4_hdr*, ETHER_HDR_LEN);
-                rte_memcpy(&iph->dst_addr, &dst_addr, sizeof(uint32_t));
+                if (src_addr != NULL) {
+                        rte_memcpy(&iph->src_addr, src_addr, sizeof(uint32_t));
+                }
+                if (dst_addr != NULL) {
+                        rte_memcpy(&iph->dst_addr, dst_addr, sizeof(uint32_t));
+                }
                 in_iphdr_len = (iph->version_ihl & 0x0F) * 32 / 8;
                 udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
                 recalc_cksum_inline(iph, udph);
@@ -409,8 +436,8 @@ static void push_kni(
         uint16_t push_num = 0;
 
         /* Change destination IP address, this is required to allow operation in
-         * layer 3 */
-        mod_ip_dst_addr(nb_rx, pkts_burst, vnf_dst_ip);
+         * layer 4 */
+        mod_ip_addr(nb_rx, pkts_burst, NULL, &vnf_recv_dst_ip);
 
         push_num = rte_kni_tx_burst(
             kni_port_params_array[portid]->kni[0], pkts_burst, nb_rx);
@@ -425,6 +452,36 @@ static void push_kni(
                 for (i = push_num; i < nb_rx - push_num; ++i) {
                         rte_pktmbuf_free(pkts_burst[i]);
                         pkts_burst[i] = NULL;
+                }
+        }
+}
+
+/**
+ * @brief Poll the KNI device and put received packets into rx queue
+ */
+static void poll_kni(uint16_t portid)
+{
+        uint8_t i = 0;
+        uint16_t num_rx = 0;
+        struct rte_mbuf* pkts_burst[max_pkt_burst];
+        num_rx = rte_kni_rx_burst(
+            kni_port_params_array[portid]->kni[0], pkts_burst, max_pkt_burst);
+
+        if (unlikely(num_rx == 0)) {
+                return;
+        } else if (unlikely(num_rx > max_pkt_burst)) {
+                RTE_LOG(ERR, USER1,
+                    "Error receiving from KNI, port number:%u\n", portid);
+                return;
+        }
+        rte_kni_handle_request(kni_port_params_array[portid]->kni[0]);
+        RTE_LOG(INFO, USER1, "Recv %u packets from KNI device\n", num_rx);
+
+        filter_mbuf_array(pkts_burst, num_rx);
+        mod_ip_addr(num_rx, pkts_burst, &vnf_send_src_ip, NULL);
+        for (i = 0; i < num_rx; ++i) {
+                if (pkts_burst[i] != NULL) {
+                        l2fwd_put_rxq(pkts_burst[i], portid);
                 }
         }
 }
@@ -490,13 +547,19 @@ static void l2fwd_main_loop(void)
                                 /* Get corresponded tx port of the rx port */
                                 portid
                                     = l2fwd_dst_ports[qconf->rx_port_list[i]];
+                                if (kni_mode) {
+                                        poll_kni(portid);
+                                }
+
                                 buffer = tx_buffer[portid];
-                                /* Drain all buffered packets in the tx queue */
+                                /* Drain all buffered packets in the tx
+                                 * queue */
                                 sent = rte_eth_tx_buffer_flush(
                                     portid, 0, buffer);
                                 if (sent) {
                                         RTE_LOG(DEBUG, USER1,
-                                            "Drain %d UDP packets in the tx "
+                                            "Drain %d UDP packets in "
+                                            "the tx "
                                             "queue\n",
                                             sent);
                                 }
@@ -1103,8 +1166,10 @@ int main(int argc, char** argv)
         }
 
         /* TODO:  <03-09-18, Zuo> Add this in config parser */
-        inet_pton(AF_INET, "10.0.0.11", &vnf_dst_ip_addr);
-        vnf_dst_ip = vnf_dst_ip_addr.s_addr;
+        inet_pton(AF_INET, "10.0.0.11", &vnf_recv_ip_dst_addr);
+        vnf_recv_dst_ip = vnf_recv_ip_dst_addr.s_addr;
+        inet_pton(AF_INET, "10.0.0.13", &vnf_send_src_ip_addr);
+        vnf_send_src_ip = vnf_send_src_ip_addr.s_addr;
 
         RTE_LOG(INFO, USER1, "Packet capturing: %s\n",
             packet_capturing ? "enabled" : "disabled");
