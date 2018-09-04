@@ -170,6 +170,8 @@ uint32_t vnf_recv_dst_ip = 0;
 
 static struct in_addr vnf_send_src_ip_addr;
 uint32_t vnf_send_src_ip = 0;
+static struct in_addr vnf_send_dst_ip_addr;
+uint32_t vnf_send_dst_ip = 0;
 
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
@@ -481,10 +483,10 @@ static void poll_kni(uint16_t portid)
                 return;
         }
         rte_kni_handle_request(kni_port_params_array[portid]->kni[0]);
-        RTE_LOG(INFO, USER1, "Recv %u packets from KNI device\n", num_rx);
+        RTE_LOG(DEBUG, USER1, "Recv %u packets from KNI device\n", num_rx);
 
         filter_mbuf_array(pkts_burst, num_rx);
-        mod_ip_addr(num_rx, pkts_burst, &vnf_send_src_ip, NULL);
+        mod_ip_addr(num_rx, pkts_burst, &vnf_send_src_ip, &vnf_send_dst_ip);
         for (i = 0; i < num_rx; ++i) {
                 if (pkts_burst[i] != NULL) {
                         l2fwd_put_rxq(pkts_burst[i], portid);
@@ -1158,6 +1160,8 @@ int main(int argc, char** argv)
         vnf_recv_dst_ip = vnf_recv_ip_dst_addr.s_addr;
         inet_pton(AF_INET, "10.0.0.13", &vnf_send_src_ip_addr);
         vnf_send_src_ip = vnf_send_src_ip_addr.s_addr;
+        inet_pton(AF_INET, "10.0.0.14", &vnf_send_dst_ip_addr);
+        vnf_send_dst_ip = vnf_send_dst_ip_addr.s_addr;
 
         RTE_LOG(INFO, USER1, "Packet capturing: %s\n",
             packet_capturing ? "enabled" : "disabled");

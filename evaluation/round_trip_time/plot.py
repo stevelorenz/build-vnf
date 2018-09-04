@@ -112,7 +112,7 @@ def label_bar(rects, ax):
     for rect in rects:
         height = rect.get_height()
         ax.text(rect.get_x() + rect.get_width() / 2., 1.1*height,
-                '%.3f' % height, fontsize=5,
+                '%.2f' % height, fontsize=5,
                 ha='center', va='bottom')
 
 
@@ -129,7 +129,9 @@ def plot_ipd(payload_size='1400B', profile=''):
         'xdp_fwd', 'xdp_xor',
         'lk_fwd',
         'click_fwd', 'click_appendts', 'click_xor',
-        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor', 'dpdk_nc_b8_ed1', 'dpdk_nc_ed2'
+        'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor',
+        'dpdk_fwd_kni'
+        # 'dpdk_nc_b8_ed1', 'dpdk_nc_ed2'
     ]
     if payload_size == '1400B':
         items.remove('xdp_xor')
@@ -147,9 +149,10 @@ def plot_ipd(payload_size='1400B', profile=''):
                     'FWD',
                     'FWD', 'ATS', 'XOR',
                     'FWD', 'ATS', 'XOR',
-                    'NC1', 'NC2'
+                    'FWD'
+                    # 'NC1', 'NC2'
                     ]
-    colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 3)]
+    colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4)]
     hatch_patterns = ('xx', 'xx', '++', '\\\\', '\\\\',
                       '\\\\', '//', '//', '//', '//', '//')
     labels = [""] * len(csv_files)
@@ -158,27 +161,31 @@ def plot_ipd(payload_size='1400B', profile=''):
                         'FWD',
                         'FWD', 'ATS', 'XOR',
                         'FWD', 'ATS', 'XOR',
-                        'NC1', 'NC2'
+                        'FWD'
+                        # 'NC1', 'NC2'
                         ]
-        colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3, 3, 3)]
+        colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3, 4)]
         hatch_patterns = ('xx', '++', '\\\\', '\\\\',
                           '\\\\', '//', '//', '//', '//', '//')
         labels[0] = "XDP"
         labels[1] = "LKF"
         labels[2] = "Click"
         labels[5] = "DPDK"
+        labels[8] = "DPDK KNI"
 
     if payload_size == '256B':
         xtick_labels = ['FWD', 'XOR',
                         'FWD',
                         'FWD', 'ATS', 'XOR',
                         'FWD', 'ATS', 'XOR',
-                        'NC1', 'NC2'
+                        # 'NC1', 'NC2'
+                        'FWD'
                         ]
         labels[0] = "XDP"
         labels[2] = "LKF"
         labels[3] = "Click"
         labels[6] = "DPDK"
+        labels[9] = "DPDK KNI"
 
     bar_width = 0.08
     gap = 0.03
@@ -201,7 +208,7 @@ def plot_ipd(payload_size='1400B', profile=''):
     rtt_ax.set_xticks([0 + x * (bar_width + gap)
                        for x in range(len(csv_files))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
-    rtt_ax.set_ylim(0, 1.0)
+    rtt_ax.set_ylim(0, 3.0)
     rtt_ax.set_xticklabels(xtick_labels, fontsize=3)
     rtt_ax.grid(linestyle='--')
 
@@ -211,6 +218,11 @@ def plot_ipd(payload_size='1400B', profile=''):
     rtt_ax.set_title(title)
 
     save_fig(fig, './rtt_fix_ipd_%s_%s' % (payload_size, profile))
+
+
+def plot_cdf():
+    """Plot CDF for comparing DPDK and DPDK KNI"""
+    pass
 
 
 if __name__ == '__main__':
