@@ -237,10 +237,12 @@ def plot_cdf():
         for profil in profils
         for pl_size in pl_sizes
     ]
+    csv_files.append('udp_rtt_xdp_dpdk_fwd_1400B_5ms.csv')
     rtt_map = dict()
     keys = [
         'DPDK FWD 256B', 'DPDK FWD 1400B',
-        'KNI FWD 256B', 'KNI FWD 1400B'
+        'KNI FWD 256B', 'KNI FWD 1400B',
+        'XDP + DPDK FWD 1400B'
     ]
     for i, csv_name in enumerate(csv_files):
         csv_path = os.path.join('./results/rtt/', csv_name)
