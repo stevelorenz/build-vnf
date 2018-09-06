@@ -22,11 +22,6 @@ import pyroute2
 
 DEBUG = False
 
-UDP_PAYLOAD_SIZE = 128
-XOR_OFFSET = 16
-# MARK: Current XOR_OFFSET, the alignment offset is const 2 bytes
-ALIGN_OFFSET = 2
-
 CFLAGS = ["-w", "-Wall", "-O3"]
 
 
@@ -61,6 +56,9 @@ if __name__ == "__main__":
                         help='Source MAC address for chaining. Delimiter=:')
     parser.add_argument('--dst_mac', type=str, default="",
                         help='Destination MAC address')
+    parser.add_argument('-l', '--payload_size', type=int, default=256,
+                        help="UDP payload size, used to filter out UDP segments"
+                        + " with different payload size")
 
     args = parser.parse_args()
 
@@ -86,6 +84,9 @@ if __name__ == "__main__":
             "[WARN] Debugging mode is enabled. This SHOULD slow down all packet processing operations."
         )
         CFLAGS.append("-DDEBUG=1")
+
+    CFLAGS.append("-DUDP_PAYLOAD_LEN={}".format(args.payload_size))
+    print("[INFO] Allowed UDP Payload size: {} Bytes".format(args.payload_size))
 
     ifce_lst = map(str.strip, args.i.split(','))
     XDP_ACTION = 'BOUNCE'
@@ -119,12 +120,15 @@ if __name__ == "__main__":
 
     # Start main loop
     udp_nb_map = bpf["udp_nb_map"]
+    # filter_out_nb_map = bpf["filter_out_nb_map"]
     print("Start main loop, hit CTRL+C to stop")
     while True:
         try:
             if DEBUG:
                 udp_nb = udp_nb_map.sum(0).value
-                print("Number of valid UDP segments: {}".format(udp_nb))
+                print("TS: {}, Number of valid UDP segments: {}".format(
+                    time.time(), udp_nb)
+                )
             time.sleep(0.5)
         except KeyboardInterrupt:
             break

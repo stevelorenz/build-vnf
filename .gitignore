@@ -189,7 +189,6 @@ delay_timer/*.csv
 ----------------
 -  Evaluation  -
 ----------------
-*.pdf
 evaluation/one_way_delay/results/
 
 ----------
