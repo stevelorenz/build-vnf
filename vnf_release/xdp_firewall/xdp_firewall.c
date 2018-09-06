@@ -17,20 +17,19 @@
 #define KBUILD_MODNAME "xdp_firewall"
 
 #ifndef XDP_UTIL_H
-#include "../../../shared_lib/xdp_util.h"
+#include "../../shared_lib/xdp_util.h"
 #endif
 
 #ifndef XDP_ACTION
-#define XDP_ACTION BOUNCE
+#define XDP_ACTION REDIRECT
 #endif
 
-/* Map for TX port */
+/* Map for redirected port */
 BPF_DEVMAP(tx_port, 1);
 
-/* Map for number of received packets */
+/* Map of invalid UDP segments */
 BPF_PERCPU_ARRAY(udp_nb_map, long, 1);
 
-/* UDP forwarding functions */
 uint16_t ingress_xdp_redirect(struct xdp_md* ctx)
 {
         void* data_end = (void*)(long)ctx->data_end;
@@ -41,6 +40,11 @@ uint16_t ingress_xdp_redirect(struct xdp_md* ctx)
         ACTION action = XDP_ACTION;
         uint64_t nh_off = 0;
         uint32_t key = 0;
+
+        SRC_DST_MAC_INIT
+
+        /* L2 rules */
+        h_proto = get_eth_proto(data, nh_off, data_end);
 
         value = udp_nb_map.lookup(&key);
         if (value) {

@@ -221,8 +221,51 @@ def plot_ipd(payload_size='1400B', profile=''):
 
 
 def plot_cdf():
-    """Plot CDF for comparing DPDK and DPDK KNI"""
-    pass
+    """Plot CDF for comparing pure DPDK and DPDK KNI"""
+    tex.setup(width=1, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17,
+              params={
+                  'hatch.linewidth': 0.5
+              }
+              )
+    cmap = cm.get_cmap('tab10')
+    profils = [
+        'dpdk_fwd', 'dpdk_fwd_kni'
+    ]
+    pl_sizes = ['256B', '1400B']
+    csv_files = [
+        '_'.join(['udp_rtt', profil, pl_size, '5ms.csv'])
+        for profil in profils
+        for pl_size in pl_sizes
+    ]
+    rtt_map = dict()
+    keys = [
+        'DPDK FWD 256B', 'DPDK FWD 1400B',
+        'KNI FWD 256B', 'KNI FWD 1400B'
+    ]
+    for i, csv_name in enumerate(csv_files):
+        csv_path = os.path.join('./results/rtt/', csv_name)
+        rtt_arr = np.genfromtxt(csv_path, delimiter=',',
+                                usecols=list(range(0, TOTAL_PACK_NUM))) / 1000.0
+        rtt_arr = rtt_arr[:, WARM_UP_NUM:]
+        rtt_arr = rtt_arr.flatten()
+        rtt_map[keys[i]] = rtt_arr[:]
+
+    # Use histograms to plot a cumulative distribution
+    fig, ax = plt.subplots()
+    n_bins = 50
+    for key, value in rtt_map.items():
+        n, bins, patches = ax.hist(value, n_bins, density=True, histtype='step',
+                                   cumulative=True, label=key)
+        patches[0].set_xy(patches[0].get_xy()[:-1])
+
+    plt.axvline(x=1, color='black', ls='--')
+
+    handles, labels = ax.get_legend_handles_labels()
+    ax.set_xlim(0, 5)
+    ax.set_ylabel('Likelihood of Occurrence')
+    ax.set_xlabel('Round Trip Time (ms)')
+    ax.legend(handles, labels, loc='lower right')
+    save_fig(fig, 'rtt_cdf_ipd_5ms')
 
 
 if __name__ == '__main__':
@@ -233,5 +276,7 @@ if __name__ == '__main__':
         plot_ipd('256B', 'nfv')
         plot_ipd('1400B', 'bm')
         plot_ipd('256B', 'bm')
+    elif sys.argv[1] == 'cdf':
+        plot_cdf()
     else:
         raise RuntimeError('Unknown option!')
