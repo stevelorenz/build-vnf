@@ -1,0 +1,91 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{url}
+\usepackage{amsmath}
+%\usepackage{algorithmic}
+\usepackage{algorithm2e}
+\usepackage{mathtools}
+\usepackage{ctable}
+\usepackage{listings}
+\usepackage{subcaption}
+\usepackage[export]{adjustbox}
+
+\lstset
+{ %Formatting for code in appendix
+    %basicstyle=\footnotesize,
+    numbers=left,
+    xleftmargin=\parindent,
+    stepnumber=1,
+    showstringspaces=false,
+    tabsize=3,
+    breaklines=true,
+    breakatwhitespace=false,
+    %
+    belowcaptionskip=1\baselineskip,
+    frame=L,
+    language=python,
+    showstringspaces=false,
+    basicstyle=\footnotesize\ttfamily,
+    keywordstyle=\bfseries\color{green!40!black},
+    commentstyle=\itshape\color{purple!40!black},
+    identifierstyle=\color{blue},
+    stringstyle=\color{orange},
+}
+
+
+%
+% For notes
+\usepackage{xcolor}
+\newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
+\newcommand{\red}[1]{\textcolor{red}{ [#1]}}
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+\newcommand{\giang}[1]{\textcolor{orange}{[#1]}}
+\newcommand{\zuo}[1]{\textcolor{purple}{[#1]}}
+\newcommand{\issue}[1]{\textcolor{red}{[Issue: #1]}}
+\newcommand{\redleft}[1]{\textcolor{red}{ [$\leftarrow$ #1]}}
+
+
+% correct bad hyphenation here
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+
+\begin{document}
+\title{TBD: Both In-Kernel and Bypass are needed - A Practical Approach to Low-Latency Virtualized Network Functions}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\author{\IEEEauthorblockN{
+        Zuo Xiang\IEEEauthorrefmark{1},
+        Frank Gabriel\IEEEauthorrefmark{1},
+        Giang T. Nguyen\IEEEauthorrefmark{1} \IEEEauthorrefmark{2},
+        Zhongyi Fan\IEEEauthorrefmark{1},
+    and Frank H. P. Fitzek\IEEEauthorrefmark{1}}
+    \IEEEauthorblockA{\IEEEauthorrefmark{1}Deutsche Telekom Chair of Communication Networks}
+    \IEEEauthorblockA{\IEEEauthorrefmark{2}SFB-912 HAEC, Technische Universit\"at Dresden, Germany \\
+    Email: \{firstname.lastname\}@tu-dresden.de}
+}
+
+
+\maketitle
+\input{sections/sketch}
+
+%\input{sections/abstract}
+%\input{sections/introduction}
+%\input{sections/background}
+%\input{sections/model}
+%\input{sections/campaign}
+%\input{sections/results}
+%\input{sections/conclusion}
+%\input{sections/sketch}
+
+\section*{Acknowledgment}
+This work is supported in part by the German Research Foundation (DFG) within the Collaborative Research Center SFB 912 (HAEC).
+
+\bibliographystyle{IEEEtran}
+\bibliography{bibtex}
+
+\end{document}
