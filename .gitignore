@@ -189,6 +189,7 @@ delay_timer/*.csv
 ----------------
 -  Evaluation  -
 ----------------
+
 evaluation/one_way_delay/results/
 
 ----------
@@ -196,3 +197,9 @@ evaluation/one_way_delay/results/
 ----------
 
 *.mbuf
+
+-----------
+-  Paper  -
+-----------
+
+paper/.build
