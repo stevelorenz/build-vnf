@@ -130,6 +130,7 @@ static volatile bool force_quit;
 static int debugging = 0;
 
 /*static int verbose = 0;*/
+static int filtering = 1;
 
 static int mac_updating = 1;
 
@@ -319,6 +320,7 @@ static inline void filter_mbuf_array(
         uint16_t i = 0;
         int ret = 0;
         for (i = 0; i < num; ++i) {
+                rte_prefetch0(rte_pktmbuf_mtod(mbuf_array[i], void*));
                 ret = filter_ether_frame(mbuf_array[i]);
                 if (ret != 1) {
                         rte_pktmbuf_free(mbuf_array[i]);
@@ -485,6 +487,7 @@ static void poll_kni(uint16_t portid)
         rte_kni_handle_request(kni_port_params_array[portid]->kni[0]);
         RTE_LOG(DEBUG, USER1, "Recv %u packets from KNI device\n", num_rx);
 
+        /* Filter out device OAM messages from kernel */
         filter_mbuf_array(pkts_burst, num_rx);
         mod_ip_addr(num_rx, pkts_burst, &vnf_send_src_ip, &vnf_send_dst_ip);
         for (i = 0; i < num_rx; ++i) {
@@ -494,15 +497,16 @@ static void poll_kni(uint16_t portid)
         }
 }
 
-/* Main forwarding and processing loop
- *
- * MARK: - This function handles packet receiving, processing and transmitting.
- *       - If the KNI mode is enabled, packets are read and written to the KNI
- *       device. Currently hard-coded.
- *
- * TODO(zuo): - Split this function into e.g. IO and processing to make it not
- *              so nested.
- * */
+/**
+ * @brief Handle ingress frames
+ */
+static void l2fwd_ingress(void) {}
+
+/**
+ * @brief Handle egress frames
+ */
+static void l2fwd_egress(void) {}
+
 static void l2fwd_main_loop(void)
 {
         /* MARK: Packets are read in a burst of size MAX_PKT_BURST
@@ -512,7 +516,6 @@ static void l2fwd_main_loop(void)
         struct rte_mbuf* m;
         unsigned lcore_id;
         unsigned i, j, portid, nb_rx;
-        int8_t filter_ret = 0;
         struct lcore_queue_conf* qconf;
         uint64_t prev_tsc, diff_tsc, cur_tsc;
         uint16_t sent;
@@ -616,30 +619,19 @@ static void l2fwd_main_loop(void)
                                         /* Process received burst packets */
                                         /* Handle prefetches */
                                         st_proc_tsc = rte_rdtsc();
+                                        if (filtering) {
+                                                filter_mbuf_array(
+                                                    pkts_burst, nb_rx);
+                                        }
                                         if (kni_mode) {
                                                 /* Put burst packets to kni */
                                                 push_kni(portid, nb_rx,
                                                     pkts_burst, 1);
                                         } else {
+                                                /* Process burst packets */
                                                 for (j = 0; j < nb_rx; j++) {
                                                         m = pkts_burst[j];
-                                                        rte_prefetch0(
-                                                            rte_pktmbuf_mtod(
-                                                                m, void*));
-                                                        if ((filter_ret
-                                                                = filter_ether_frame(
-                                                                    m))
-                                                            != 1) {
-                                                                RTE_LOG(DEBUG,
-                                                                    USER1,
-                                                                    "TSC: %ld, "
-                                                                    "Error "
-                                                                    "code: "
-                                                                    "%d\n",
-                                                                    rte_rdtsc(),
-                                                                    filter_ret);
-                                                                rte_pktmbuf_free(
-                                                                    m);
+                                                        if (m == NULL) {
                                                                 continue;
                                                         }
                                                         nb_udp_dgrams += 1;
@@ -710,13 +702,31 @@ __attribute__((unused)) static int kni_dev_setup_loop(void)
 
 static int l2fwd_launch_one_lcore(__attribute__((unused)) void* dummy)
 {
-        if (kni_mode) {
+        if (kni_mode && rte_lcore_count() == 1) {
+                RTE_LOG(INFO, USER1, "KNI mode with single lcore\n");
                 RTE_LOG(INFO, USER1, "Entering KNI device setup loop.\n");
                 kni_dev_setup_loop();
+                RTE_LOG(
+                    INFO, USER1, "Entering main loop for IO and processing.\n");
+                l2fwd_main_loop();
+                return 0;
+        } else if (kni_mode && rte_lcore_count() > 2) {
+                /* TODO:  <08-09-18, Zuo> Add loop funcs for multi-core with KNI
+                 * mode */
+                RTE_LOG(INFO, USER1, "KNI mode with single lcore\n");
+                while (1) {
+                        if (force_quit) {
+                                break;
+                        }
+                }
+                return 0;
+        } else {
+                RTE_LOG(
+                    INFO, USER1, "Entering main loop for IO and processing.\n");
+                RTE_LOG(INFO, USER1, "[MARK] Only support single lcore \n");
+                l2fwd_main_loop();
+                return 0;
         }
-        RTE_LOG(INFO, USER1, "Entering main loop for IO and processing.\n");
-        l2fwd_main_loop();
-        return 0;
 }
 
 /* display usage */
@@ -809,6 +819,8 @@ static const char short_options[]
 #define CMD_LINE_OPT_NO_DEBUGGING "no-debugging"
 #define CMD_LINE_OPT_KNI_MODE "kni-mode"
 #define CMD_LINE_OPT_NO_KNI_MODE "no-kni-mode"
+#define CMD_LINE_OPT_FILTERING "filtering"
+#define CMD_LINE_OPT_NO_FILTERING "no-filtering"
 
 enum {
         /* long options mapped to a short option */
@@ -827,6 +839,8 @@ static const struct option lgopts[] = { { CMD_LINE_OPT_MAC_UPDATING,
         { CMD_LINE_OPT_NO_DEBUGGING, no_argument, &debugging, 0 },
         { CMD_LINE_OPT_KNI_MODE, no_argument, &kni_mode, 1 },
         { CMD_LINE_OPT_NO_KNI_MODE, no_argument, &kni_mode, 0 },
+        { CMD_LINE_OPT_FILTERING, no_argument, &filtering, 1 },
+        { CMD_LINE_OPT_NO_FILTERING, no_argument, &filtering, 0 },
         { NULL, 0, 0, 0 } };
 
 /* Parse the argument given in the command line of the application */
@@ -1144,6 +1158,9 @@ int main(int argc, char** argv)
         RTE_LOG(INFO, USER1, "MAC updating: %s\n",
             mac_updating ? "enabled" : "disabled");
 
+        RTE_LOG(INFO, USER1, "Eth frame filtering: %s\n",
+            filtering ? "enabled" : "disabled");
+
         if (mac_updating) {
                 RTE_LOG(INFO, USER1,
                     "Source MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -1310,6 +1327,8 @@ int main(int argc, char** argv)
         RTE_LOG(
             INFO, USER1, "KNI mode: %s\n", kni_mode ? "enabled" : "disabled");
         if (kni_mode) {
+                RTE_LOG(INFO, USER1, "Number of available lcores: %u\n",
+                    rte_lcore_count());
                 rte_kni_init(nb_ports);
                 RTE_LOG(INFO, USER1,
                     "Preallocate %d KNI interfaces, one interface per port.\n",
