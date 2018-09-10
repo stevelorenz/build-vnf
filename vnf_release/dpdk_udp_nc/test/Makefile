@@ -37,6 +37,6 @@ LDLIBS += -L${DPDKHELPER_PATH}/build -ldpdkhelper
 APP = test
 
 # All source are stored in SRCS-y
-SRCS-y := test.c ../ncmbuf.c ../kni.c
+SRCS-y := test.c ../ncmbuf.c
 
 include $(RTE_SDK)/mk/rte.extapp.mk

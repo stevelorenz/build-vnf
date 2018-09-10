@@ -143,6 +143,8 @@ static int coder_type = 0;
 
 static uint8_t nb_ports = 0;
 
+static uint8_t nb_used_lcores = 1;
+
 /* Burst-based packet processing
  * Default maximal received packets at each time
  * Smaller pkt_burst -> lower per-packet latency -> lower bandwidth
@@ -224,8 +226,6 @@ struct rte_mempool* l2fwd_pktmbuf_pool = NULL;
  */
 struct kni_port_params {
         uint16_t port_id;    /* Port ID */
-        unsigned lcore_rx;   /* lcore ID for RX */
-        unsigned lcore_tx;   /* lcore ID for TX */
         uint32_t nb_lcore_k; /* Number of lcores for KNI multi kernel threads */
         uint32_t nb_kni;     /* Number of KNI devices to be created */
         unsigned lcore_k[KNI_MAX_KTHREAD];    /* lcore ID list for kthreads */
@@ -237,6 +237,11 @@ static struct kni_port_params* kni_port_params_array[RTE_MAX_ETHPORTS];
 /* Since multiple threads can access this value, atomic counter is used here */
 static rte_atomic32_t kni_stop = RTE_ATOMIC32_INIT(0);
 static rte_atomic32_t kni_dev_up = RTE_ATOMIC32_INIT(0);
+
+/* A flag indicate if the kni egress thread SHOULD sleep, situation(s):
+ * - No frames are received by ingress thread for amount of tries
+ * */
+static rte_atomic16_t kni_egress_sleep = RTE_ATOMIC16_INIT(0);
 
 /*static int kni_change_mtu(uint16_t portid, unsigned int new_mtu);*/
 static int kni_config_network_interface(uint16_t portid, uint8_t if_up);
@@ -497,15 +502,179 @@ static void poll_kni(uint16_t portid)
         }
 }
 
-/**
- * @brief Handle ingress frames
- */
-static void l2fwd_ingress(void) {}
+/******************************************
+ *  Just Used for Performance Comparison  *
+ ******************************************/
 
-/**
- * @brief Handle egress frames
- */
-static void l2fwd_egress(void) {}
+/* ---------------------------------------------------------------------------*/
+
+static void kni_ingress_loop(void)
+{
+        struct rte_mbuf* pkts_burst[max_pkt_burst];
+        unsigned lcore_id;
+        unsigned i, portid, nb_rx;
+        struct lcore_queue_conf* qconf;
+        uint8_t egress_sleep_flag;
+
+        lcore_id = rte_lcore_id();
+        qconf = &lcore_queue_conf[lcore_id];
+
+        /* MARK: qconf SHOULD be modified to support multi-core feature */
+        if (qconf->n_rx_port == 0) {
+                RTE_LOG(INFO, USER1, "Lcore %u has nothing to do\n", lcore_id);
+                return;
+        }
+
+        for (i = 0; i < qconf->n_rx_port; i++) {
+                portid = qconf->rx_port_list[i];
+                qconf->start_rx_flag[i] = true;
+                qconf->rx_burst_try[i] = 0;
+        }
+        RTE_LOG(INFO, USER1, "Lcore %u enter kni ingress loop\n", lcore_id);
+        while (!force_quit) {
+                for (i = 0; i < qconf->n_rx_port; i++) {
+                        portid = qconf->rx_port_list[i];
+                        if (qconf->start_rx_flag[i]) {
+                                nb_rx = rte_eth_rx_burst(
+                                    portid, 0, pkts_burst, max_pkt_burst);
+                                if (unlikely(nb_rx > (uint16_t)max_pkt_burst)) {
+                                        RTE_LOG(ERR, USER1,
+                                            "Error receiving from eth dev\n");
+                                        return;
+                                }
+                                if (likely(nb_rx == 0)) {
+                                        if (max_poll_short_try == 0) {
+                                                /* Keep polling, SHOULD use 100%
+                                                 * of CPU */
+                                                continue;
+                                        }
+                                        /* execute "pause" instruction to avoid
+                                         * context switch for short sleep */
+                                        if (qconf->rx_burst_try[i]
+                                            < max_poll_short_try) {
+                                                qconf->rx_burst_try[i] += 1;
+                                                rte_delay_us(
+                                                    poll_short_interval_us);
+                                        } else {
+                                                egress_sleep_flag
+                                                    = rte_atomic16_read(
+                                                        &kni_egress_sleep);
+                                                if (egress_sleep_flag == 0) {
+                                                        rte_atomic16_inc(
+                                                            &kni_egress_sleep);
+                                                }
+                                                /* Long sleep force running
+                                                 * thread to suspend */
+                                                usleep(poll_long_interval_us);
+                                        }
+                                } else {
+                                        /* Process received burst packets */
+                                        rte_atomic16_clear(&kni_egress_sleep);
+                                        st_proc_tsc = rte_rdtsc();
+                                        if (filtering) {
+                                                filter_mbuf_array(
+                                                    pkts_burst, nb_rx);
+                                        }
+                                        /* Put burst packets to kni
+                                         * device */
+                                        push_kni(portid, nb_rx, pkts_burst, 1);
+                                        /* ISSUE: global variables are used here
+                                           SHOULD be replaced with local
+                                           variables
+                                           */
+                                        if (debugging == 1) {
+                                                proc_tsc
+                                                    = rte_rdtsc() - st_proc_tsc;
+                                                proc_time
+                                                    = (1.0 / rte_get_timer_hz())
+                                                    * proc_tsc * 1000;
+                                                RTE_LOG(INFO, USER1,
+                                                    "[Port:%d] Process a burst "
+                                                    "of %d packets, proc time: "
+                                                    "%.4f ms, number of "
+                                                    "already received UDP "
+                                                    "packets: %ld\n",
+                                                    portid, nb_rx, proc_time,
+                                                    nb_udp_dgrams);
+                                        }
+                                        /* Reset rx try times */
+                                        qconf->rx_burst_try[i] = 0;
+                                }
+                        } else {
+                                /* TODO (Maybe): Check the link status and
+                                 * update start_rx flags */
+                        }
+                }
+        }
+}
+
+static void kni_egress_loop(void)
+{
+        unsigned lcore_id;
+        unsigned i, portid;
+        struct lcore_queue_conf* qconf;
+        uint64_t prev_tsc, diff_tsc, cur_tsc;
+        uint16_t sent;
+        uint16_t sleep_flag;
+
+        const uint64_t drain_tsc
+            = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S * burst_tx_drain_us;
+        struct rte_eth_dev_tx_buffer* buffer;
+
+        prev_tsc = 0;
+
+        lcore_id = rte_lcore_id();
+        RTE_LOG(INFO, USER1, "Lcore %u use the qconf of Lcore 0\n", lcore_id);
+        qconf = &lcore_queue_conf[0];
+
+        if (qconf->n_rx_port == 0) {
+                RTE_LOG(INFO, USER1, "Lcore %u has nothing to do\n", lcore_id);
+                return;
+        }
+
+        for (i = 0; i < qconf->n_rx_port; i++) {
+                portid = qconf->rx_port_list[i];
+                qconf->start_rx_flag[i] = true;
+                qconf->rx_burst_try[i] = 0;
+        }
+
+        RTE_LOG(INFO, USER1, "Lcore %u enter kni egress loop\n", lcore_id);
+        while (!force_quit) {
+                sleep_flag = rte_atomic16_read(&kni_egress_sleep);
+                if (sleep_flag == 1) {
+                        usleep(poll_long_interval_us);
+                }
+                cur_tsc = rte_rdtsc();
+                diff_tsc = cur_tsc - prev_tsc;
+                if (unlikely(diff_tsc > drain_tsc)) {
+                        /* TX burst queue drain */
+                        for (i = 0; i < qconf->n_rx_port; i++) {
+                                /* Get corresponded tx port of the rx port */
+                                portid
+                                    = l2fwd_dst_ports[qconf->rx_port_list[i]];
+                                if (kni_mode) {
+                                        poll_kni(portid);
+                                }
+
+                                buffer = tx_buffer[portid];
+                                /* Drain all buffered packets in the tx
+                                 * queue */
+                                sent = rte_eth_tx_buffer_flush(
+                                    portid, 0, buffer);
+                                if (sent) {
+                                        RTE_LOG(DEBUG, USER1,
+                                            "Drain %d UDP packets in "
+                                            "the tx "
+                                            "queue\n",
+                                            sent);
+                                }
+                        }
+
+                        prev_tsc = cur_tsc;
+                }
+        }
+}
+/* ---------------------------------------------------------------------------*/
 
 static void l2fwd_main_loop(void)
 {
@@ -579,10 +748,6 @@ static void l2fwd_main_loop(void)
                         prev_tsc = cur_tsc;
                 }
 
-                /* TODO:  <22-07-18,zuo>
-                 * - The filtering can be peformed on multiple mbufs instead of
-                 *   one by one. (Reduce number of filter function calls)
-                 * */
                 for (i = 0; i < qconf->n_rx_port; i++) {
                         portid = qconf->rx_port_list[i];
                         /* MARK: A burst number of packets are returned by this
@@ -700,30 +865,41 @@ __attribute__((unused)) static int kni_dev_setup_loop(void)
         return 0;
 }
 
-static int l2fwd_launch_one_lcore(__attribute__((unused)) void* dummy)
+static void l2fwd_kni_dual_lcore_loop(void)
 {
-        if (kni_mode && rte_lcore_count() == 1) {
-                RTE_LOG(INFO, USER1, "KNI mode with single lcore\n");
-                RTE_LOG(INFO, USER1, "Entering KNI device setup loop.\n");
+        RTE_LOG(INFO, USER1, "Current lcore ID: %u\n", rte_lcore_id());
+        if (rte_lcore_id() == 0) {
+                RTE_LOG(INFO, USER1,
+                    "Lcore %u, Entering setup loop for all KNI devices\n",
+                    rte_lcore_id());
                 kni_dev_setup_loop();
                 RTE_LOG(
-                    INFO, USER1, "Entering main loop for IO and processing.\n");
-                l2fwd_main_loop();
-                return 0;
-        } else if (kni_mode && rte_lcore_count() > 2) {
-                /* TODO:  <08-09-18, Zuo> Add loop funcs for multi-core with KNI
-                 * mode */
-                RTE_LOG(INFO, USER1, "KNI mode with single lcore\n");
-                while (1) {
-                        if (force_quit) {
-                                break;
-                        }
-                }
+                    INFO, USER1, "Lcore %u is used for RX.\n", rte_lcore_id());
+                kni_ingress_loop();
+        } else if (rte_lcore_id() == 1) {
+                RTE_LOG(
+                    INFO, USER1, "Lcore %u is used for TX.\n", rte_lcore_id());
+                kni_egress_loop();
+        }
+}
+
+static int l2fwd_launch_one_lcore(__attribute__((unused)) void* dummy)
+{
+        if (kni_mode == 1 && nb_used_lcores == 2) {
+                RTE_LOG(
+                    INFO, USER1, "Entering main loop for KNI with dual-core\n");
+                l2fwd_kni_dual_lcore_loop();
                 return 0;
         } else {
+                RTE_LOG(INFO, USER1, "[MARK] Only support single lcore \n");
+                if (kni_mode == 1) {
+                        RTE_LOG(INFO, USER1,
+                            "Lcore %u, Entering setup loop for KNI devices\n",
+                            rte_lcore_id());
+                        kni_dev_setup_loop();
+                }
                 RTE_LOG(
                     INFO, USER1, "Entering main loop for IO and processing.\n");
-                RTE_LOG(INFO, USER1, "[MARK] Only support single lcore \n");
                 l2fwd_main_loop();
                 return 0;
         }
@@ -1116,6 +1292,56 @@ static int kni_free_kni(uint16_t portid)
         return 0;
 }
 
+static void clean_up(void)
+{
+        uint16_t portid;
+        uint16_t i;
+
+        RTE_LOG(INFO, EAL, "Run cleanups.\n");
+
+        if (kni_mode) {
+                RTE_LOG(INFO, USER1, "Release KNI resources\n");
+                RTE_ETH_FOREACH_DEV(portid) { kni_free_kni(portid); }
+                for (i = 0; i < nb_ports; ++i) {
+                        if (kni_port_params_array[i]) {
+                                rte_free(kni_port_params_array[i]);
+                                kni_port_params_array[i] = NULL;
+                        }
+                }
+        }
+
+        RTE_ETH_FOREACH_DEV(portid)
+        {
+                if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
+                        continue;
+                RTE_LOG(INFO, USER1, "Closing port %d...", portid);
+                rte_eth_dev_stop(portid);
+                rte_eth_dev_close(portid);
+                RTE_LOG(INFO, USER1, " Done\n");
+        }
+
+        if (packet_capturing == 1) {
+                rte_pdump_uninit();
+        }
+
+        switch (coder_type) {
+        case 0:
+                nck_free(&enc);
+                break;
+        case 1:
+                nck_free(&dec);
+                break;
+        case 2:
+                nck_free(&rec);
+                break;
+
+        case -1:
+                break;
+        }
+
+        rte_eal_cleanup();
+}
+
 int main(int argc, char** argv)
 {
         struct lcore_queue_conf* qconf;
@@ -1129,7 +1355,13 @@ int main(int argc, char** argv)
 
         ret = rte_eal_init(argc, argv);
         if (ret < 0) {
+                rte_eal_cleanup();
                 rte_exit(EXIT_FAILURE, "Invalid EAL arguments\n");
+        }
+        if (rte_lcore_count() < 1 || rte_lcore_count() > 2) {
+                rte_eal_cleanup();
+                rte_exit(EXIT_FAILURE,
+                    "Invalid numbers of lcores. Support 1-2 cores\n");
         }
         argc -= ret;
         argv += ret;
@@ -1142,6 +1374,12 @@ int main(int argc, char** argv)
         ret = udp_nc_parse_args(argc, argv);
         if (ret < 0) {
                 rte_exit(EXIT_FAILURE, "Invalid L2FWD arguments\n");
+        }
+
+        if (nb_ports != 2) {
+                rte_eal_cleanup();
+                rte_exit(EXIT_FAILURE,
+                    "Invalid number of ports. Support exactly 2 ports\n");
         }
 
         RTE_LOG(INFO, USER1, "DEBUG mode: %s\n",
@@ -1327,29 +1565,48 @@ int main(int argc, char** argv)
         RTE_LOG(
             INFO, USER1, "KNI mode: %s\n", kni_mode ? "enabled" : "disabled");
         if (kni_mode) {
-                RTE_LOG(INFO, USER1, "Number of available lcores: %u\n",
-                    rte_lcore_count());
+                RTE_LOG(INFO, USER1,
+                    "[WARN] KNI mode is ONLY used for comparison. The code is "
+                    "not stable\n");
+                RTE_LOG(INFO, USER1,
+                    "[WARN] Some LOG messages are not correct if KNI mode "
+                    "is enabled. Check the messages starting with [KNI]\n");
+                nb_used_lcores = rte_lcore_count();
+                RTE_LOG(INFO, USER1, "Number of to be used lcores: %u\n",
+                    nb_used_lcores);
+                RTE_LOG(INFO, USER1,
+                    "[KNI] Multi-core affinity mechanism: one-core for RX and "
+                    "one-core for TX\n");
                 rte_kni_init(nb_ports);
                 RTE_LOG(INFO, USER1,
-                    "Preallocate %d KNI interfaces, one interface per port.\n",
+                    "[KNI] Preallocate %d KNI interfaces, one interface per "
+                    "port.\n",
                     nb_ports);
 
                 memset(
                     &kni_port_params_array, 0, sizeof(kni_port_params_array));
-
                 RTE_ETH_FOREACH_DEV(portid)
                 {
                         kni_port_params_array[portid] = rte_zmalloc(
                             "KNI_port_params", sizeof(struct kni_port_params),
                             RTE_CACHE_LINE_SIZE);
                         kni_port_params_array[portid]->port_id = portid;
-                        kni_port_params_array[portid]->lcore_rx = 0;
-                        kni_port_params_array[portid]->lcore_tx = 0;
                         kni_port_params_array[portid]->nb_kni = 1;
 
-                        for (i = 0; i < KNI_MAX_KTHREAD; ++i) {
-                                kni_port_params_array[portid]->lcore_k[i] = 0;
+                        if (rte_lcore_count() == 1) {
+                                for (i = 0; i < KNI_MAX_KTHREAD; ++i) {
+                                        kni_port_params_array[portid]
+                                            ->lcore_k[i]
+                                            = 0;
+                                }
+                        } else {
+                                for (i = 0; i < KNI_MAX_KTHREAD; ++i) {
+                                        kni_port_params_array[portid]
+                                            ->lcore_k[i]
+                                            = portid;
+                                }
                         }
+
                         kni_port_params_array[portid]->nb_lcore_k = 1;
                 }
         }
@@ -1457,7 +1714,9 @@ int main(int argc, char** argv)
         check_all_ports_link_status(l2fwd_enabled_port_mask);
 
         ret = 0;
-        /* launch per-lcore init on every lcore */
+        /* Launch per-lcore init and operation function on every lcore
+         * These functions run into main loops
+         * */
         rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL, CALL_MASTER);
         RTE_LCORE_FOREACH_SLAVE(lcore_id)
         {
@@ -1467,51 +1726,7 @@ int main(int argc, char** argv)
                 }
         }
 
-        /* Cleanups */
-        RTE_LOG(INFO, EAL, "Run cleanups.\n");
-
-        if (kni_mode) {
-                RTE_LOG(INFO, USER1, "Release KNI resources\n");
-                RTE_ETH_FOREACH_DEV(portid) { kni_free_kni(portid); }
-                for (i = 0; i < nb_ports; ++i) {
-                        if (kni_port_params_array[i]) {
-                                rte_free(kni_port_params_array[i]);
-                                kni_port_params_array[i] = NULL;
-                        }
-                }
-        }
-
-        RTE_ETH_FOREACH_DEV(portid)
-        {
-                if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
-                        continue;
-                RTE_LOG(INFO, USER1, "Closing port %d...", portid);
-                rte_eth_dev_stop(portid);
-                rte_eth_dev_close(portid);
-                RTE_LOG(INFO, USER1, " Done\n");
-        }
-
-        if (packet_capturing == 1) {
-                rte_pdump_uninit();
-        }
-
-        switch (coder_type) {
-        case 0:
-                nck_free(&enc);
-                break;
-        case 1:
-                nck_free(&dec);
-                break;
-        case 2:
-                nck_free(&rec);
-                break;
-
-        case -1:
-                break;
-        }
-
-        rte_eal_cleanup();
-
+        clean_up();
         RTE_LOG(INFO, EAL, "App exits.\n");
         return ret;
 }
