@@ -228,21 +228,17 @@ def plot_cdf():
               }
               )
     cmap = cm.get_cmap('tab10')
-    profils = [
-        'dpdk_fwd', 'dpdk_fwd_kni'
-    ]
-    pl_sizes = ['256B', '1400B']
-    csv_files = [
-        '_'.join(['udp_rtt', profil, pl_size, '5ms.csv'])
-        for profil in profils
-        for pl_size in pl_sizes
-    ]
+    csv_files = list()
+    csv_files.append('udp_rtt_direct_1400B_5ms.csv')
+    csv_files.append('udp_rtt_dpdk_fwd_kni_1vcpu_1400B_5ms.csv')
+    # csv_files.append('udp_rtt_dpdk_fwd_kni_2vcpu_1400B_5ms.csv')
     csv_files.append('udp_rtt_xdp_dpdk_fwd_1400B_5ms.csv')
     rtt_map = dict()
     keys = [
-        'DPDK FWD 256B', 'DPDK FWD 1400B',
-        'KNI FWD 256B', 'KNI FWD 1400B',
-        'XDP + DPDK FWD 1400B'
+        'Direct Connection',
+        'DPDK KNI 1 vCPU',
+        # 'DPDK KNI 2 vCPU',
+        'XDP + DPDK'
     ]
     for i, csv_name in enumerate(csv_files):
         csv_path = os.path.join('./results/rtt/', csv_name)
@@ -254,10 +250,13 @@ def plot_cdf():
 
     # Use histograms to plot a cumulative distribution
     fig, ax = plt.subplots()
-    n_bins = 50
+    n_bins = 100
+    idx = 0
     for key, value in rtt_map.items():
         n, bins, patches = ax.hist(value, n_bins, density=True, histtype='step',
-                                   cumulative=True, label=key)
+                                   cumulative=True, label=key, color=cmap(idx),
+                                   edgecolor=cmap(idx))
+        idx += 1
         patches[0].set_xy(patches[0].get_xy()[:-1])
 
     plt.axvline(x=1, color='black', ls='--')
