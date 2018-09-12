@@ -64,8 +64,8 @@ def label_bar(rects, ax):
     """
     for rect in rects:
         height = rect.get_height()
-        ax.text(rect.get_x() + rect.get_width() / 2., 1.1*height,
-                '%.2f' % height, fontsize=5,
+        ax.text(rect.get_x() + rect.get_width() / 2., height + 0.5,
+                '%.1f' % height, fontsize=6,
                 ha='center', va='bottom')
 
 
@@ -78,35 +78,45 @@ def plot_bw():
     PAYLOAD_SIZE = [256, 512, 1024, 1400]
     cmap = cm.get_cmap('tab10')
     csv_names = [
-        'udp_bw_dpdk_fwd_kni_1core.csv'
+        'udp_bw_dpdk_fwd_kni_1core.csv',
+        'udp_bw_dpdk_fwd_kni_2core.csv',
+        'udp_bw_xdp_dpdk_fwd.csv'
     ]
 
     N = 4
     ind = np.arange(N)    # the x locations for the groups
-    width = 0.35         # the width of the bars
+    width = 0.25         # the width of the bars
     fig, ax = plt.subplots()
     labels = [
         "DPDK KNI 1 vCPU",
+        "DPDK KNI 2 vCPU",
+        "XDP + DPDK"
 
     ]
+    hatch_patterns = ('xxxx', '////', '++++', '*', 'o', 'O', '.')
+
     for idx, csv in enumerate(csv_names):
         csv_path = os.path.join("./bandwidth/results/", csv)
         bw_arr = np.genfromtxt(csv_path, delimiter=',',
-                               usecols=list(range(0, 2)))
+                               usecols=list(range(0, 2))) / 1000.0
         bw_avg = bw_arr[:, 1]
-        p1 = ax.bar(ind, bw_avg, width, color=cmap(idx), bottom=0,
-                    label=labels[idx])
+        bar = ax.bar(ind + idx * width, bw_avg, width, color=cmap(idx), bottom=0,
+                     edgecolor='black', alpha=0.8, lw=0.6,
+                     hatch=hatch_patterns[idx],
+                     label=labels[idx])
+        label_bar(bar, ax)
 
-    ax.set_ylabel('Bandwidth (Kbits/sec)')
+    ax.set_ylabel('Bandwidth (Mbits/sec)')
 
-    ax.set_xticks(ind + width / 2)
+    ax.set_xticks(ind + (len(labels) - 1)*(width / 2))
     ax.set_xticklabels(('256', '512', '1024', '1400'))
     ax.set_xlabel('Payload Size (Bytes)')
+    ax.set_ylim(0, 35)
 
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, loc='upper left')
-    ax.autoscale_view()
-    ax.grid(linestyle='--')
+    # ax.autoscale_view()
+    # ax.grid(linestyle='--')
 
     save_fig(fig, "./bandwidth")
 

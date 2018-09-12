@@ -4,8 +4,10 @@
 
 """
 About: UDP One-Way Delay (OWD) timer
+
        - Packets are sent via layer 4 socket (AF_INET, SOCK_DGRAM)
        - Use synchronous and blocking IO
+       - The server CAN also calculate the bandwidth. Only used for tests.
 
 Email: xianglinks@gmail.com
 """
@@ -68,7 +70,7 @@ def run_client():
         send_sock.close()
 
 
-def run_server():
+def run_server(bw, payload_size):
     """Run UDP server"""
 
     recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM,
@@ -92,6 +94,8 @@ def run_server():
 
     owd_result = list()
     data_buffer = list()
+    bw_mon_st = 0
+    bw_mon_end = 0
 
     try:
         for rd in range(1, ROUND + 1):
@@ -107,29 +111,50 @@ def run_server():
                 # So now first try to receiving as fast as possible and
                 # calculate latter...
                 data = recv_sock.recv(SRV_BUFFER_SIZE)
+                if recv_idx == 0:
+                    bw_mon_st = time.time()
                 recv_ts = int(time.time() * 1e6)
                 data_buffer.append((data, recv_ts))
                 recv_idx += 1
             else:
+                bw_mon_end = time.time()
                 # Check if receive all packets
                 if len(data_buffer) != N_PACKETS:
                     raise Exception("[Server] Not all packets are received.")
-                logger.info(
-                    "[Server] Finish receiving packets, check ordering and calculate OWDs")
-                for recv_idx, (data, recv_ts) in enumerate(data_buffer):
-                    send_idx, send_ts = struct.unpack('!QQ', data[0:16])
-                    if recv_idx != send_idx:
-                        raise Exception(
-                            "The packet order is not right!, send_idx:%d, recv_idx:%d"
-                            % (send_idx, recv_idx)
-                        )
-                    owd = recv_ts - send_ts
-                    owd_result.append(owd)
+                if bw:
+                    logger.info(
+                        "[Server] Finish receiving packets, check ordering and calculate bandwidth")
+                    for recv_idx, (data, recv_ts) in enumerate(data_buffer):
+                        send_idx, send_ts = struct.unpack('!QQ', data[0:16])
+                        if recv_idx != send_idx:
+                            raise Exception(
+                                "The packet order is not right!, send_idx:%d, recv_idx:%d"
+                                % (send_idx, recv_idx)
+                            )
+                    # bytes/second
+                    bw = ((N_PACKETS-1) * payload_size) / \
+                        (bw_mon_end - bw_mon_st)
+                    # Mbits/second
+                    bw = bw * 8 / (10.0**6)
+                    csv_file.write(str(bw))
+                    csv_file.write('\n')
+                else:
+                    logger.info(
+                        "[Server] Finish receiving packets, check ordering and calculate OWDs")
+                    for recv_idx, (data, recv_ts) in enumerate(data_buffer):
+                        send_idx, send_ts = struct.unpack('!QQ', data[0:16])
+                        if recv_idx != send_idx:
+                            raise Exception(
+                                "The packet order is not right!, send_idx:%d, recv_idx:%d"
+                                % (send_idx, recv_idx)
+                            )
+                        owd = recv_ts - send_ts
+                        owd_result.append(owd)
 
-                csv_file.write(
-                    ','.join(map(str, owd_result))
-                )
-                csv_file.write('\n')
+                    csv_file.write(
+                        ','.join(map(str, owd_result))
+                    )
+                    csv_file.write('\n')
 
     except Exception as e:
         csv_file.write(str(e))
@@ -157,6 +182,8 @@ if __name__ == "__main__":
                         help='Server recv buffer size in bytes')
     parser.add_argument('-r', '--round', type=int, default=1,
                         help='Number of sending rounds')
+    parser.add_argument('--bw', action='store_true',
+                        help='Measure bandwidth instead of OWD on the server side')
 
     group.add_argument('-c', '--client', metavar='Address', type=str,
                        help='Run in UDP client mode')
@@ -201,7 +228,10 @@ if __name__ == "__main__":
         SRV_ADDR = (ip, int(port))
         OUTPUT_FILE = args.output_file
         logger.info('Run UDP server listening on %s:%s.', ip, port)
-        run_server()
+        if args.bw:
+            logger.info('Measure bandwidth instead of OWD.')
+        PAYLOAD_SIZE = args.payload_size
+        run_server(args.bw, PAYLOAD_SIZE)
 
     if args.client:
         BIND_SRC_ADDR = False
