@@ -231,13 +231,13 @@ def plot_cdf():
     csv_files = list()
     csv_files.append('udp_rtt_direct_1400B_5ms.csv')
     csv_files.append('udp_rtt_dpdk_fwd_kni_1vcpu_1400B_5ms.csv')
-    # csv_files.append('udp_rtt_dpdk_fwd_kni_2vcpu_1400B_5ms.csv')
+    csv_files.append('udp_rtt_dpdk_fwd_kni_2vcpu_1400B_5ms.csv')
     csv_files.append('udp_rtt_xdp_dpdk_fwd_1400B_5ms.csv')
     rtt_map = dict()
     keys = [
         'Direct Connection',
         'DPDK KNI 1 vCPU',
-        # 'DPDK KNI 2 vCPU',
+        'DPDK KNI 2 vCPU',
         'XDP + DPDK'
     ]
     for i, csv_name in enumerate(csv_files):

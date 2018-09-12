@@ -1373,6 +1373,7 @@ int main(int argc, char** argv)
         /* Parse application arguments (after the EAL ones) */
         ret = udp_nc_parse_args(argc, argv);
         if (ret < 0) {
+                rte_eal_cleanup();
                 rte_exit(EXIT_FAILURE, "Invalid L2FWD arguments\n");
         }
 
@@ -1380,6 +1381,12 @@ int main(int argc, char** argv)
                 rte_eal_cleanup();
                 rte_exit(EXIT_FAILURE,
                     "Invalid number of ports. Support exactly 2 ports\n");
+        }
+
+        if (filtering && kni_mode) {
+                rte_eal_cleanup();
+                rte_exit(EXIT_FAILURE,
+                    "KNI mode does not support filtering function.\n");
         }
 
         RTE_LOG(INFO, USER1, "DEBUG mode: %s\n",
@@ -1411,6 +1418,9 @@ int main(int argc, char** argv)
         }
 
         /* TODO:  <03-09-18, Zuo> Add this in config parser */
+        RTE_LOG(INFO, USER1,
+            "[WARN] KNI mode related IP modifications are hard-coded, remember "
+            "to modify the IP address before compiling\n");
         inet_pton(AF_INET, "10.0.0.11", &vnf_recv_ip_dst_addr);
         vnf_recv_dst_ip = vnf_recv_ip_dst_addr.s_addr;
         inet_pton(AF_INET, "10.0.0.13", &vnf_send_src_ip_addr);
