@@ -87,36 +87,42 @@ def plot_bw():
     ind = np.arange(N)    # the x locations for the groups
     width = 0.25         # the width of the bars
     fig, ax = plt.subplots()
+
     labels = [
         "DPDK KNI 1 vCPU",
         "DPDK KNI 2 vCPU",
         "XDP + DPDK"
 
     ]
-    hatch_patterns = ('xxxx', '////', '++++', '*', 'o', 'O', '.')
+    markers = ['o', '^', 'x']
+    line_styles = ['-', '-.', '--']
 
     for idx, csv in enumerate(csv_names):
         csv_path = os.path.join("./bandwidth/results/", csv)
         bw_arr = np.genfromtxt(csv_path, delimiter=',',
                                usecols=list(range(0, 2))) / 1000.0
         bw_avg = bw_arr[:, 1]
-        bar = ax.bar(ind + idx * width, bw_avg, width, color=cmap(idx), bottom=0,
-                     edgecolor='black', alpha=0.8, lw=0.6,
-                     hatch=hatch_patterns[idx],
-                     label=labels[idx])
-        label_bar(bar, ax)
+        # bar = ax.bar(ind + idx * width, bw_avg, width, color=cmap(idx), bottom=0,
+        #              edgecolor='black', alpha=0.8, lw=0.6,
+        #              hatch=hatch_patterns[idx],
+        #              label=labels[idx])
+        # label_bar(bar, ax)
+
+        ax.plot(ind, bw_avg, color=cmap(idx), ls=line_styles[idx],
+                label=labels[idx], marker=markers[idx], markerfacecolor="None",
+                markeredgecolor=cmap(idx), ms=3)
 
     ax.set_ylabel('Bandwidth (Mbits/sec)')
 
-    ax.set_xticks(ind + (len(labels) - 1)*(width / 2))
+    ax.set_xticks(ind)
     ax.set_xticklabels(('256', '512', '1024', '1400'))
     ax.set_xlabel('Payload Size (Bytes)')
-    ax.set_ylim(0, 35)
+    # ax.set_ylim(0, 35)
 
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, loc='upper left')
     # ax.autoscale_view()
-    # ax.grid(linestyle='--')
+    ax.grid(linestyle='--')
 
     save_fig(fig, "./bandwidth")
 

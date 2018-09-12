@@ -130,7 +130,7 @@ def plot_ipd(payload_size='1400B', profile=''):
         'lk_fwd',
         'click_fwd', 'click_appendts', 'click_xor',
         'dpdk_fwd', 'dpdk_appendts', 'dpdk_xor',
-        'dpdk_fwd_kni'
+        # 'dpdk_fwd_kni'
         # 'dpdk_nc_b8_ed1', 'dpdk_nc_ed2'
     ]
     if payload_size == '1400B':
@@ -149,7 +149,7 @@ def plot_ipd(payload_size='1400B', profile=''):
                     'FWD',
                     'FWD', 'ATS', 'XOR',
                     'FWD', 'ATS', 'XOR',
-                    'FWD'
+                    # 'FWD'
                     # 'NC1', 'NC2'
                     ]
     colors = [cmap(x) for x in (0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4)]
@@ -161,7 +161,7 @@ def plot_ipd(payload_size='1400B', profile=''):
                         'FWD',
                         'FWD', 'ATS', 'XOR',
                         'FWD', 'ATS', 'XOR',
-                        'FWD'
+                        # 'FWD'
                         # 'NC1', 'NC2'
                         ]
         colors = [cmap(x) for x in (0, 1, 2, 2, 2, 3, 3, 3, 4)]
@@ -171,7 +171,7 @@ def plot_ipd(payload_size='1400B', profile=''):
         labels[1] = "LKF"
         labels[2] = "Click"
         labels[5] = "DPDK"
-        labels[8] = "DPDK KNI"
+        # labels[8] = "DPDK KNI"
 
     if payload_size == '256B':
         xtick_labels = ['FWD', 'XOR',
@@ -185,7 +185,7 @@ def plot_ipd(payload_size='1400B', profile=''):
         labels[2] = "LKF"
         labels[3] = "Click"
         labels[6] = "DPDK"
-        labels[9] = "DPDK KNI"
+        # labels[9] = "DPDK KNI"
 
     bar_width = 0.08
     gap = 0.03
@@ -208,7 +208,7 @@ def plot_ipd(payload_size='1400B', profile=''):
     rtt_ax.set_xticks([0 + x * (bar_width + gap)
                        for x in range(len(csv_files))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
-    rtt_ax.set_ylim(0, 3.0)
+    rtt_ax.set_ylim(0, 0.5)
     rtt_ax.set_xticklabels(xtick_labels, fontsize=3)
     rtt_ax.grid(linestyle='--')
 

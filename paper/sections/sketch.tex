@@ -66,6 +66,17 @@ MARK: \blue{Blue is used for hint and comments.} \red{Red is used for issues, pr
     \item CPU usage of KNI and XDP+DPDK on the physical node. \blue{Nova compute node}
 \end{itemize}
 
+\begin{table}[htbp]
+    \begin{tabular}{|c|c|c|c|c|c|}
+        \hline
+        Approach        & User & System & IO-Wait & Guest & Total \\ \hline
+        DPDK KNI 1 vCPU & 25.21 & 23.35  & 0.04    & 1.70  & 50.3  \\ \hline
+        DPDK KNI 2 vCPU & 25.23 & 47.18  & 0.04    & 2.88  & 75.33 \\ \hline
+        XDP + DPDK      & 25.24 & 22.97  & 0.04    & 2.18  & 50.43 \\ \hline
+    \end{tabular}
+    \caption{CPU usage of the compute node (in percent)}
+\end{table}
+
 \item \begin{itemize}[Conclusion]
     \item If latency counts, our approach is better.
 \end{itemize}
