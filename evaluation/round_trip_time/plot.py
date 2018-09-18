@@ -232,13 +232,15 @@ def plot_cdf():
     csv_files.append('udp_rtt_direct_1400B_5ms.csv')
     csv_files.append('udp_rtt_dpdk_fwd_kni_1vcpu_1400B_5ms.csv')
     csv_files.append('udp_rtt_dpdk_fwd_kni_2vcpu_1400B_5ms.csv')
+    csv_files.append('udp_rtt_dpdk_dpdk_fwd_1400B_5ms.csv')
     csv_files.append('udp_rtt_xdp_dpdk_fwd_1400B_5ms.csv')
     rtt_map = dict()
     keys = [
-        'Direct Connection',
-        'DPDK KNI 1 vCPU',
-        'DPDK KNI 2 vCPU',
-        'XDP + DPDK'
+        'Direct Forwarding',
+        "Centralized 1 vCPU",
+        "Centralized 2 vCPU",
+        "Chain-based DPDK + DPDK",
+        "Chain-based XDP + DPDK"
     ]
     for i, csv_name in enumerate(csv_files):
         csv_path = os.path.join('./results/rtt/', csv_name)
@@ -250,7 +252,7 @@ def plot_cdf():
 
     # Use histograms to plot a cumulative distribution
     fig, ax = plt.subplots()
-    n_bins = 100
+    n_bins = 500
     idx = 0
     for key, value in rtt_map.items():
         n, bins, patches = ax.hist(value, n_bins, density=True, histtype='step',
@@ -259,10 +261,11 @@ def plot_cdf():
         idx += 1
         patches[0].set_xy(patches[0].get_xy()[:-1])
 
-    plt.axvline(x=1, color='black', ls='--')
+    # plt.axvline(x=1, color='black', ls='--')
 
     handles, labels = ax.get_legend_handles_labels()
-    ax.set_xlim(0, 5)
+    # ax.set_xlim(0, 5)
+    ax.set_xscale('log')
     ax.set_ylabel('Likelihood of Occurrence')
     ax.set_xlabel('Round Trip Time (ms)')
     ax.legend(handles, labels, loc='lower right')

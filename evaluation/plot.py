@@ -89,9 +89,9 @@ def plot_bw():
     fig, ax = plt.subplots()
 
     labels = [
-        "DPDK KNI 1 vCPU",
-        "DPDK KNI 2 vCPU",
-        "XDP + DPDK"
+        "Centralized Approach 1 vCPU",
+        "Centralized Approach 2 vCPU",
+        "Chain-based Approach"
 
     ]
     markers = ['o', '^', 'x']

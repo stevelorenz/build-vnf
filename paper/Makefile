@@ -42,3 +42,9 @@ show: $(DOCUMENT).pdf
 
 clean:
 	-rm -r $(BUILD_DIR)
+
+draft: draft.tex
+	mkdir -p $(BUILD_DIR)
+	pdflatex -output-directory=$(BUILD_DIR) draft.tex 2>&1 | tee draft.log
+	mv $(BUILD_DIR)/draft.pdf ./
+	xdg-open draft.pdf
