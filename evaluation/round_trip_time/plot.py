@@ -16,12 +16,31 @@ import numpy as np
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.pyplot import cm
 from scipy import stats
 
 WARM_UP_NUM = 50
 TOTAL_PACK_NUM = 500
 FIG_FMT = 'png'
+
+STYLE_MAP = {
+    'Direct Forwarding': {'color': 0, 'ls': '-.'},
+    # "Centralized 1 vCPU": {'color': 1, 'ls': ':'},
+    "Centralized": {'color': 1, 'ls': 'dashed'},
+    "Chain-based": {'color': 2, 'ls': 'solid'},
+}
+
+STYLE_MAP_ADV = {
+    'Binary': 0,
+    'Binary8': 1,
+}
+
+CMAP = cm.get_cmap('tab10')
+
+# Use the maximum of the Sturges and Freedman-Diaconis bin choice.
+# N_BINS = 'auto'
+N_BINS = 100000
 
 
 def calc_hwci(data, confidence=0.95):
@@ -32,7 +51,7 @@ def calc_hwci(data, confidence=0.95):
 def save_fig(fig, path, fmt=FIG_FMT):
     """Save fig to path"""
     fig.savefig(path + '.%s' % fmt, pad_iches=0,
-                bbox_inches='tight', dpi=400, format=fmt)
+                bbox_inches='tight', dpi=1200, format=fmt)
 
 
 def warn_x_std(value_arr, path=None, ret_inv_lst=False, x=3):
@@ -230,17 +249,16 @@ def plot_cdf():
     cmap = cm.get_cmap('tab10')
     csv_files = list()
     csv_files.append('udp_rtt_direct_1400B_5ms.csv')
-    csv_files.append('udp_rtt_dpdk_fwd_kni_1vcpu_1400B_5ms.csv')
+    # csv_files.append('udp_rtt_dpdk_fwd_kni_1vcpu_1400B_5ms.csv')
     csv_files.append('udp_rtt_dpdk_fwd_kni_2vcpu_1400B_5ms.csv')
-    csv_files.append('udp_rtt_dpdk_dpdk_fwd_1400B_5ms.csv')
+    # csv_files.append('udp_rtt_dpdk_dpdk_fwd_1400B_5ms.csv')
     csv_files.append('udp_rtt_xdp_dpdk_fwd_1400B_5ms.csv')
     rtt_map = dict()
     keys = [
         'Direct Forwarding',
-        "Centralized 1 vCPU",
-        "Centralized 2 vCPU",
-        "Chain-based DPDK + DPDK",
-        "Chain-based XDP + DPDK"
+        # "Centralized 1 vCPU",
+        "Centralized",
+        "Chain-based"
     ]
     for i, csv_name in enumerate(csv_files):
         csv_path = os.path.join('./results/rtt/', csv_name)
@@ -252,24 +270,33 @@ def plot_cdf():
 
     # Use histograms to plot a cumulative distribution
     fig, ax = plt.subplots()
-    n_bins = 500
-    idx = 0
     for key, value in rtt_map.items():
-        n, bins, patches = ax.hist(value, n_bins, density=True, histtype='step',
+        idx = STYLE_MAP[key]['color']
+        n, bins, patches = ax.hist(value, N_BINS, density=True, histtype='step',
+                                   ls=STYLE_MAP[key]['ls'],
                                    cumulative=True, label=key, color=cmap(idx),
                                    edgecolor=cmap(idx))
-        idx += 1
         patches[0].set_xy(patches[0].get_xy()[:-1])
 
+    # Plot the average value
     # plt.axvline(x=1, color='black', ls='--')
 
-    handles, labels = ax.get_legend_handles_labels()
-    # ax.set_xlim(0, 5)
+    # handles, labels = ax.get_legend_handles_labels()
+    # ax.legend(handles, labels, loc='lower right')
+
+    custom_lines = [Line2D([0], [0], color=CMAP(0)),
+                    Line2D([0], [0], color=CMAP(1)),
+                    Line2D([0], [0], color=CMAP(2))]
+    ax.legend(custom_lines, keys, loc='upper left', ncol=2)
+
+
+# ax.set_xlim(0, 5)
     ax.set_xscale('log')
     ax.set_ylabel('Likelihood of Occurrence')
+    ax.set_ylim(0, 1.35)
     ax.set_xlabel('Round Trip Time (ms)')
-    ax.legend(handles, labels, loc='lower right')
-    save_fig(fig, 'rtt_cdf_ipd_5ms')
+    ax.set_yticks([y / 10.0 for y in range(0, 11)])
+    save_fig(fig, 'rtt_cdf_ipd_5ms', 'pdf')
 
 
 if __name__ == '__main__':
