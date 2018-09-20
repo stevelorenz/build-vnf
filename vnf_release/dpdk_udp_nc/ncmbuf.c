@@ -4,6 +4,7 @@
  */
 
 #include <signal.h>
+#include <stdio.h>
 
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
@@ -29,6 +30,10 @@
 
 #define RTE_LOGTYPE_NCMBUF RTE_LOGTYPE_USER1
 
+#ifndef MEASURE_PER_PACKET_LATENCY
+#define MEASURE_PER_PACKET_LATENCY 0
+#endif
+
 static inline __attribute__((always_inline)) void recalc_cksum_inline(
     struct ipv4_hdr* iph, struct udp_hdr* udph)
 {
@@ -50,6 +55,13 @@ void check_mbuf_size(
                     rte_pktmbuf_data_room_size(mbuf_pool), hdr_len,
                     enc->coded_size, NC_HDR_LEN);
         }
+
+        if (MEASURE_PER_PACKET_LATENCY == 1) {
+                RTE_LOG(INFO, NCMBUF,
+                    "[WARN] Enable measuring per-packet latency. This option "
+                    "is only used for LOCAL evaluation. This can increase the "
+                    "encoding latency significantly\n");
+        }
 }
 
 uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
@@ -67,6 +79,13 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
         uint8_t* pt_data;
         int ret;
         uint32_t src_addr;
+
+#if defined(MEASURE_PER_PACKET_LATENCY) && (MEASURE_PER_PACKET_LATENCY == 1)
+        uint64_t before_enc;
+        uint64_t after_enc;
+        double enc_time;
+        before_enc = rte_get_tsc_cycles();
+#endif
 
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
         src_addr = iph->src_addr;
@@ -178,6 +197,16 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
         }
 
         rte_pktmbuf_free(m_base);
+
+#if defined(MEASURE_PER_PACKET_LATENCY) && (MEASURE_PER_PACKET_LATENCY == 1)
+        after_enc = rte_get_tsc_cycles();
+        enc_time
+            = (1.0 / rte_get_timer_hz()) * 1000.0 * (after_enc - before_enc);
+        /*printf("[TIME] Per-packet latency: %f ms\n", enc_time);*/
+        FILE* f = fopen("per_packet_delay_nc.csv", "a+");
+        fprintf(f, "%f\n", enc_time);
+        fclose(f);
+#endif
 
         return 0;
 }
