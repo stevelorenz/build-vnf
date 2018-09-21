@@ -25,9 +25,9 @@ TOTAL_PACK_NUM = 500
 FIG_FMT = 'png'
 
 STYLE_MAP = {
-    'Direct Forwarding': {'color': 0, 'ls': '-.'},
+    'Direct Forwarding': {'color': 1, 'ls': '-.'},
     # "Centralized 1 vCPU": {'color': 1, 'ls': ':'},
-    "Centralized": {'color': 1, 'ls': 'dashed'},
+    "Centralized": {'color': 4, 'ls': 'dashed'},
     "Chain-based": {'color': 2, 'ls': 'solid'},
 }
 
@@ -266,6 +266,12 @@ def plot_cdf():
                                 usecols=list(range(0, TOTAL_PACK_NUM))) / 1000.0
         rtt_arr = rtt_arr[:, WARM_UP_NUM:]
         rtt_arr = rtt_arr.flatten()
+        # Calculate avg and cdi
+        avg = np.average(rtt_arr)
+        calc_hwci
+        print("Name: {}, avg: {}, hwci: {}".format(keys[i], np.average(rtt_arr),
+                                                   calc_hwci(rtt_arr)))
+
         rtt_map[keys[i]] = rtt_arr[:]
 
     # Use histograms to plot a cumulative distribution
@@ -284,8 +290,8 @@ def plot_cdf():
     # handles, labels = ax.get_legend_handles_labels()
     # ax.legend(handles, labels, loc='lower right')
 
-    custom_lines = [Line2D([0], [0], color=CMAP(0)),
-                    Line2D([0], [0], color=CMAP(1)),
+    custom_lines = [Line2D([0], [0], color=CMAP(1)),
+                    Line2D([0], [0], color=CMAP(4)),
                     Line2D([0], [0], color=CMAP(2))]
     ax.legend(custom_lines, keys, loc='upper left', ncol=2)
 

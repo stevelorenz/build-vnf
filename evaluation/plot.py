@@ -19,7 +19,14 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 from scipy import stats
 
-FIG_FMT = 'png'
+FIG_FMT = 'pdf'
+
+STYLE_MAP = {
+    'Direct Forwarding': {'color': 0, 'ls': '-.'},
+    # "Centralized 1 vCPU": {'color': 1, 'ls': ':'},
+    "Centralized": {'color': 4, 'ls': 'dashed'},
+    "Chain-based": {'color': 2, 'ls': 'solid'},
+}
 
 
 def calc_hwci(data, confidence=0.95):
@@ -78,7 +85,6 @@ def plot_bw():
     PAYLOAD_SIZE = [256, 512, 1024, 1400]
     cmap = cm.get_cmap('tab10')
     csv_names = [
-        'udp_bw_dpdk_fwd_kni_1core.csv',
         'udp_bw_dpdk_fwd_kni_2core.csv',
         'udp_bw_xdp_dpdk_fwd.csv'
     ]
@@ -89,13 +95,12 @@ def plot_bw():
     fig, ax = plt.subplots()
 
     labels = [
-        "Centralized Approach 1 vCPU",
-        "Centralized Approach 2 vCPU",
-        "Chain-based Approach"
+        "Centralized",
+        "Chain-based"
 
     ]
-    markers = ['o', '^', 'x']
-    line_styles = ['-', '-.', '--']
+    markers = ['o', 'x', '^']
+    line_styles = ['dashed', 'solid', '--']
 
     for idx, csv in enumerate(csv_names):
         csv_path = os.path.join("./bandwidth/results/", csv)
@@ -108,20 +113,19 @@ def plot_bw():
         #              label=labels[idx])
         # label_bar(bar, ax)
 
-        ax.plot(ind, bw_avg, color=cmap(idx), ls=line_styles[idx],
+        ax.plot(ind, bw_avg, color=cmap(STYLE_MAP[labels[idx]]['color']), ls=line_styles[idx],
                 label=labels[idx], marker=markers[idx], markerfacecolor="None",
-                markeredgecolor=cmap(idx), ms=3)
+                markeredgecolor=cmap(STYLE_MAP[labels[idx]]['color']), ms=3)
 
     ax.set_ylabel('Bandwidth (Mbits/sec)')
 
     ax.set_xticks(ind)
     ax.set_xticklabels(('256', '512', '1024', '1400'))
     ax.set_xlabel('Payload Size (Bytes)')
-    # ax.set_ylim(0, 35)
 
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, loc='upper left')
-    # ax.autoscale_view()
+    ax.autoscale_view()
     ax.grid(linestyle='--')
 
     save_fig(fig, "./bandwidth")
