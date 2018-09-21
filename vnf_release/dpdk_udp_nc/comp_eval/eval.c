@@ -230,8 +230,8 @@ int main(int argc, char** argv)
         RTE_LOG(INFO, EAL, "Evaluate AES CTR encryption.\n");
 
         for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
-                aes_ctr_xcrypt_udp_data_delay(UNCODED_BUFFER[i],
-                    test_pktmbuf_pool, -1, NULL, &(delay_arr[i]));
+                aes_ctr_xcrypt_udp_data_delay(
+                    UNCODED_BUFFER[i], -1, NULL, &(delay_arr[i]));
         }
 
         f = fopen("per_packet_delay_aes_ctr_enc.csv", "a+");
@@ -242,9 +242,8 @@ int main(int argc, char** argv)
 
         RTE_LOG(INFO, EAL, "Evaluate AES CTR decryption.\n");
         for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
-                aes_ctr_xcrypt_udp_data_delay(UNCODED_BUFFER[i],
-                    test_pktmbuf_pool, -1, put_decrypted_buffer,
-                    &(delay_arr[i]));
+                aes_ctr_xcrypt_udp_data_delay(UNCODED_BUFFER[i], -1,
+                    put_decrypted_buffer, &(delay_arr[i]));
         }
 
         f = fopen("per_packet_delay_aes_ctr_dec.csv", "a+");

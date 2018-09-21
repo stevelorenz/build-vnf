@@ -371,8 +371,7 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
         return 0;
 }
 
-uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in,
-    struct rte_mempool* mbuf_pool, uint16_t portid,
+uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t))
 {
         uint16_t in_data_len;
@@ -390,10 +389,17 @@ uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in,
                 0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7, 0x2d, 0x98, 0x10,
                 0xa3, 0x09, 0x14, 0xdf, 0xf4 };
 
+#elif defined(AES192) && (AES192 == 1)
+        uint8_t key[24] = { 0x8e, 0x73, 0xb0, 0xf7, 0xda, 0x0e, 0x64, 0x52,
+                0xc8, 0x10, 0xf3, 0x2b, 0x80, 0x90, 0x79, 0xe5, 0x62, 0xf8,
+                0xea, 0xd2, 0x52, 0x2c, 0x6b, 0x7b };
+
+#elif defined(AES128) && (AES128 == 1)
+        uint8_t key[16] = { 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
+                0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
+#endif
         static uint8_t iv[16] = { 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6,
                 0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff };
-
-#endif
 
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
         src_addr = iph->src_addr;
@@ -415,15 +421,14 @@ uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in,
         return 0;
 }
 
-uint8_t aes_ctr_xcrypt_udp_data_delay(struct rte_mbuf* m_in,
-    struct rte_mempool* mbuf_pool, uint16_t portid,
+uint8_t aes_ctr_xcrypt_udp_data_delay(struct rte_mbuf* m_in, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t), double* delay_val)
 {
         uint64_t before_ts;
         uint8_t ret;
 
         before_ts = rte_get_tsc_cycles();
-        ret = aes_ctr_xcrypt_udp_data(m_in, mbuf_pool, portid, put_rxq);
+        ret = aes_ctr_xcrypt_udp_data(m_in, portid, put_rxq);
         *delay_val = (1.0 / rte_get_timer_hz()) * 1000.0
             * (rte_get_tsc_cycles() - before_ts);
 

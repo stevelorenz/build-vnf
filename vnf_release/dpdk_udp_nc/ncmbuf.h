@@ -118,12 +118,10 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
  *
  * @return
  */
-uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in,
-    struct rte_mempool* mbuf_pool, uint16_t portid,
+uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t));
 
-uint8_t aes_ctr_xcrypt_udp_data_delay(struct rte_mbuf* m_in,
-    struct rte_mempool* mbuf_pool, uint16_t portid,
+uint8_t aes_ctr_xcrypt_udp_data_delay(struct rte_mbuf* m_in, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t), double* delay_val);
 
 #endif /* !NCMBUF_H */
