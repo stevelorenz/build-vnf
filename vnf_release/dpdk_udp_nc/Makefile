@@ -5,7 +5,7 @@
 APP = udp_nc
 
 # All source are stored in SRCS-y
-SRCS-y := l2fwd.c ncmbuf.c kni.c
+SRCS-y := l2fwd.c ncmbuf.c kni.c aes.c
 
 # Build using pkg-config variables if possible
 $(shell pkg-config --exists libdpdk)

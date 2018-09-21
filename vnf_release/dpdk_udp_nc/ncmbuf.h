@@ -54,7 +54,7 @@ struct rte_mbuf* mbuf_udp_deep_copy(
  ***********************/
 
 /**
- * @brief encode_udp_data
+ * @brief Encode UDP segments
  *
  * @param enc
  * @param m_in
@@ -67,6 +67,15 @@ struct rte_mbuf* mbuf_udp_deep_copy(
 uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
     struct rte_mempool* mbuf_pool, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t));
+
+/**
+ * @brief Encode UDP segments with monitoring per-packet latency
+ *
+ * @return
+ */
+uint8_t encode_udp_data_delay(struct nck_encoder* enc, struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t), double* delay_val);
 
 /**
  * @brief recode_udp_data
@@ -97,5 +106,24 @@ uint8_t recode_udp_data(struct nck_recoder* rec, struct rte_mbuf* m_in,
 uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
     struct rte_mempool* mbuf_pool, uint16_t portid,
     void (*put_rxq)(struct rte_mbuf*, uint16_t));
+
+/**
+ * @brief aes_encrpt_udp_data
+ *
+ * @param enc
+ * @param m_in
+ * @param mbuf_pool
+ * @param portid
+ * @param put_rxq
+ *
+ * @return
+ */
+uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t));
+
+uint8_t aes_ctr_xcrypt_udp_data_delay(struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t), double* delay_val);
 
 #endif /* !NCMBUF_H */

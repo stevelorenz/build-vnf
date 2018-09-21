@@ -20,6 +20,7 @@
 
 #include <dpdk_helper.h>
 
+#include "aes.h"
 #include "ncmbuf.h"
 
 #define UDP_HDR_LEN 8
@@ -28,11 +29,10 @@
 #define NC_HDR_LEN 1
 #define MAGIC_NUM 117
 
-#define RTE_LOGTYPE_NCMBUF RTE_LOGTYPE_USER1
+#define CTR 1
+#define AES256 1
 
-#ifndef MEASURE_PER_PACKET_LATENCY
-#define MEASURE_PER_PACKET_LATENCY 0
-#endif
+#define RTE_LOGTYPE_NCMBUF RTE_LOGTYPE_USER1
 
 static inline __attribute__((always_inline)) void recalc_cksum_inline(
     struct ipv4_hdr* iph, struct udp_hdr* udph)
@@ -55,13 +55,6 @@ void check_mbuf_size(
                     rte_pktmbuf_data_room_size(mbuf_pool), hdr_len,
                     enc->coded_size, NC_HDR_LEN);
         }
-
-        if (MEASURE_PER_PACKET_LATENCY == 1) {
-                RTE_LOG(INFO, NCMBUF,
-                    "[WARN] Enable measuring per-packet latency. This option "
-                    "is only used for LOCAL evaluation. This can increase the "
-                    "encoding latency significantly\n");
-        }
 }
 
 uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
@@ -79,13 +72,6 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
         uint8_t* pt_data;
         int ret;
         uint32_t src_addr;
-
-#if defined(MEASURE_PER_PACKET_LATENCY) && (MEASURE_PER_PACKET_LATENCY == 1)
-        uint64_t before_enc;
-        uint64_t after_enc;
-        double enc_time;
-        before_enc = rte_get_tsc_cycles();
-#endif
 
         iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
         src_addr = iph->src_addr;
@@ -198,17 +184,22 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
 
         rte_pktmbuf_free(m_base);
 
-#if defined(MEASURE_PER_PACKET_LATENCY) && (MEASURE_PER_PACKET_LATENCY == 1)
-        after_enc = rte_get_tsc_cycles();
-        enc_time
-            = (1.0 / rte_get_timer_hz()) * 1000.0 * (after_enc - before_enc);
-        /*printf("[TIME] Per-packet latency: %f ms\n", enc_time);*/
-        FILE* f = fopen("per_packet_delay_nc.csv", "a+");
-        fprintf(f, "%f\n", enc_time);
-        fclose(f);
-#endif
-
         return 0;
+}
+
+uint8_t encode_udp_data_delay(struct nck_encoder* enc, struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t), double* delay_val)
+{
+        uint64_t before_enc;
+        uint8_t ret;
+
+        before_enc = rte_get_tsc_cycles();
+        ret = encode_udp_data(enc, m_in, mbuf_pool, portid, put_rxq);
+        *delay_val = (1.0 / rte_get_timer_hz()) * 1000.0
+            * (rte_get_tsc_cycles() - before_enc);
+
+        return ret;
 }
 
 uint8_t recode_udp_data(struct nck_recoder* rec, struct rte_mbuf* m_in,
@@ -378,4 +369,63 @@ uint8_t decode_udp_data(struct nck_decoder* dec, struct rte_mbuf* m_in,
         rte_pktmbuf_free(m_base);
 
         return 0;
+}
+
+uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t))
+{
+        uint16_t in_data_len;
+        uint16_t in_iphdr_len;
+        struct ipv4_hdr* iph;
+        struct udp_hdr* udph;
+        uint8_t* pt_data;
+        uint32_t src_addr;
+        struct AES_ctx ctx;
+
+#if defined(AES256) && (AES256 == 1)
+
+        static uint8_t key[32] = { 0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71,
+                0xbe, 0x2b, 0x73, 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81, 0x1f,
+                0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7, 0x2d, 0x98, 0x10,
+                0xa3, 0x09, 0x14, 0xdf, 0xf4 };
+
+        static uint8_t iv[16] = { 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6,
+                0xf7, 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff };
+
+#endif
+
+        iph = rte_pktmbuf_mtod_offset(m_in, struct ipv4_hdr*, ETHER_HDR_LEN);
+        src_addr = iph->src_addr;
+        in_iphdr_len = (iph->version_ihl & 0x0F) * 32 / 8;
+        udph = (struct udp_hdr*)((char*)iph + in_iphdr_len);
+        in_data_len = rte_be_to_cpu_16(udph->dgram_len) - UDP_HDR_LEN;
+        pt_data = (uint8_t*)(udph) + UDP_HDR_LEN;
+
+        AES_init_ctx_iv(&ctx, key, iv);
+        AES_CTR_xcrypt_buffer(&ctx, pt_data, in_data_len);
+
+        recalc_cksum_inline(iph, udph);
+        iph->src_addr = src_addr;
+
+        if (put_rxq != NULL) {
+                (*put_rxq)(m_in, portid);
+        }
+
+        return 0;
+}
+
+uint8_t aes_ctr_xcrypt_udp_data_delay(struct rte_mbuf* m_in,
+    struct rte_mempool* mbuf_pool, uint16_t portid,
+    void (*put_rxq)(struct rte_mbuf*, uint16_t), double* delay_val)
+{
+        uint64_t before_ts;
+        uint8_t ret;
+
+        before_ts = rte_get_tsc_cycles();
+        ret = aes_ctr_xcrypt_udp_data(m_in, mbuf_pool, portid, put_rxq);
+        *delay_val = (1.0 / rte_get_timer_hz()) * 1000.0
+            * (rte_get_tsc_cycles() - before_ts);
+
+        return ret;
 }

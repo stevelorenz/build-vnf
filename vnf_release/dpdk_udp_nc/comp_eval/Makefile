@@ -24,8 +24,9 @@ EXTRA_CFLAGS = -O3
 # External libraries
 CFLAGS += -I../
 
-# Enable measurement for per-packet latency
-CFLAGS += -DMEASURE_PER_PACKET_LATENCY=1
+#CFLAGS += -DEVAL_PROFILE=0  # noack
+CFLAGS += -DEVAL_PROFILE=1  # sliding window
+#CFLAGS += -DEVAL_PROFILE=2  # AES encryption
 
 NCKERNEL_PATH= /vagrant/vm_share/nckernel/
 CFLAGS += -I${NCKERNEL_PATH}/include
@@ -42,6 +43,6 @@ LDLIBS += -L${DPDKHELPER_PATH}/build -ldpdkhelper
 APP = eval
 
 # All source are stored in SRCS-y
-SRCS-y := eval.c ../ncmbuf.c
+SRCS-y := eval.c ../ncmbuf.c ../aes.c
 
 include $(RTE_SDK)/mk/rte.extapp.mk

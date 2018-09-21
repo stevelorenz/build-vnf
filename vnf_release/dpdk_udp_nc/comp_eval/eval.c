@@ -59,7 +59,11 @@
 
 #define UNCODED_BUFFER_LEN 320
 #define CODED_BUFFER_LEN 400
-#define DECODED_BUFFER_LEN 320
+#define DECORYPTED_BUFFER_LEN 320
+
+#ifndef EVAL_PROFILE
+#define EVAL_PROFILE 0
+#endif
 
 uint16_t SYMBOLS = 32;
 uint16_t REDUNDANCY = 8;
@@ -69,16 +73,14 @@ struct rte_mbuf* gen_test_udp(
 
 /* Not elegant... But currently no time for this... */
 void put_coded_buffer(struct rte_mbuf* m, uint16_t portid);
-void put_recoded_buffer(struct rte_mbuf* m, uint16_t portid);
-void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid);
+void put_decrypted_buffer(struct rte_mbuf* m, uint16_t portid);
 void fill_select_pkts(uint16_t array[], uint16_t len, uint16_t st);
 void print_sel_pkts(uint16_t array[], uint16_t len);
 
 struct rte_mbuf* ORIGINAL_BUFFER[UNCODED_BUFFER_LEN];
 struct rte_mbuf* UNCODED_BUFFER[UNCODED_BUFFER_LEN];
 struct rte_mbuf* CODED_BUFFER[CODED_BUFFER_LEN];
-struct rte_mbuf* RECODED_BUFFER[CODED_BUFFER_LEN];
-struct rte_mbuf* DECODED_BUFFER[DECODED_BUFFER_LEN];
+struct rte_mbuf* DECRYPTED_BUFFER[DECORYPTED_BUFFER_LEN];
 
 void put_coded_buffer(struct rte_mbuf* m, uint16_t portid)
 {
@@ -87,17 +89,10 @@ void put_coded_buffer(struct rte_mbuf* m, uint16_t portid)
         idx++;
 }
 
-void put_recoded_buffer(struct rte_mbuf* m, uint16_t portid)
+void put_decrypted_buffer(struct rte_mbuf* m, uint16_t portid)
 {
         static uint16_t idx = 0;
-        RECODED_BUFFER[idx] = m;
-        idx++;
-}
-
-void put_decoded_buffer(struct rte_mbuf* m, uint16_t portid)
-{
-        static uint16_t idx = 0;
-        DECODED_BUFFER[idx] = m;
+        DECRYPTED_BUFFER[idx] = m;
         idx++;
 }
 
@@ -139,6 +134,9 @@ int main(int argc, char** argv)
         size_t i;
         uint64_t prev_tsc = 0;
         uint64_t cur_tsc = 0;
+        double delay_arr[UNCODED_BUFFER_LEN] = { 0.0 };
+        FILE* f = NULL;
+        uint8_t succ = 0;
 
         ret = rte_eal_init(argc, argv);
         if (ret < 0) {
@@ -157,16 +155,29 @@ int main(int argc, char** argv)
                 rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
         }
 
+#if defined(EVAL_PROFILE) && (EVAL_PROFILE == 0)
         RTE_LOG(INFO, EAL, "Evaluate NC encoding: NOACK. \n");
 
         struct nck_option_value test_option[] = {
                 { "field", "binary8" },
-                /*{ "protocol", "sliding_window" }, { "symbol_size", "1402" },*/
-                { "protocol", "noack" }, { "symbol_size", "1402" },
-                { "symbols", "32" }, { "redundancy", "8" }, { NULL, NULL },
-                /*{ "feedback", "0"}*/
+                { "protocol", "noack" },
+                { "symbol_size", "1402" },
+                { "symbols", "32" },
+                { "redundancy", "8" },
+                { NULL, NULL },
         };
+#endif
 
+#if defined(EVAL_PROFILE) && (EVAL_PROFILE == 1)
+        RTE_LOG(INFO, EAL, "Evaluate NC encoding: Sliding Window. \n");
+
+        struct nck_option_value test_option[] = { { "field", "binary8" },
+                { "protocol", "sliding_window" }, { "symbol_size", "1402" },
+                { "symbols", "32" }, { "redundancy", "8" }, { NULL, NULL },
+                { "feedback", "0" } };
+#endif
+
+#if defined(EVAL_PROFILE) && ((EVAL_PROFILE == 0) || (EVAL_PROFILE == 1))
         struct nck_encoder enc;
 
         if (nck_create_encoder(
@@ -184,18 +195,85 @@ int main(int argc, char** argv)
 
         prev_tsc = rte_get_tsc_cycles();
         for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
-                encode_udp_data(&enc, UNCODED_BUFFER[i], test_pktmbuf_pool, -1,
-                    put_coded_buffer);
+                encode_udp_data_delay(&enc, UNCODED_BUFFER[i],
+                    test_pktmbuf_pool, -1, put_coded_buffer, &(delay_arr[i]));
         }
         cur_tsc = rte_get_tsc_cycles();
 
         printf("[TIME] Total time used for encoding: %f ms\n",
             (1.0 / rte_get_timer_hz()) * 1000.0 * (cur_tsc - prev_tsc));
 
+        f = fopen("per_packet_delay_nc.csv", "a+");
+
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                fprintf(f, "%f\n", delay_arr[i]);
+        }
+        fclose(f);
+#endif
+
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                if (UNCODED_BUFFER[i] != NULL) {
+                        rte_pktmbuf_free(UNCODED_BUFFER[i]);
+                }
+                if (ORIGINAL_BUFFER[i] != NULL) {
+                        rte_pktmbuf_free(ORIGINAL_BUFFER[i]);
+                }
+        }
+
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                UNCODED_BUFFER[i] = gen_test_udp(
+                    test_pktmbuf_pool, TEST_HDR_LEN, TEST_DATA_SIZE);
+                ORIGINAL_BUFFER[i] = mbuf_udp_deep_copy(UNCODED_BUFFER[i],
+                    test_pktmbuf_pool, (TEST_HDR_LEN + TEST_DATA_SIZE));
+        }
+
+        RTE_LOG(INFO, EAL, "Evaluate AES CTR encryption.\n");
+
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                aes_ctr_xcrypt_udp_data_delay(UNCODED_BUFFER[i],
+                    test_pktmbuf_pool, -1, NULL, &(delay_arr[i]));
+        }
+
+        f = fopen("per_packet_delay_aes_ctr_enc.csv", "a+");
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                fprintf(f, "%f\n", delay_arr[i]);
+        }
+        fclose(f);
+
+        RTE_LOG(INFO, EAL, "Evaluate AES CTR decryption.\n");
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                aes_ctr_xcrypt_udp_data_delay(UNCODED_BUFFER[i],
+                    test_pktmbuf_pool, -1, put_decrypted_buffer,
+                    &(delay_arr[i]));
+        }
+
+        f = fopen("per_packet_delay_aes_ctr_dec.csv", "a+");
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                fprintf(f, "%f\n", delay_arr[i]);
+        }
+        fclose(f);
+
+        succ = 1;
+        for (i = 0; i < UNCODED_BUFFER_LEN; ++i) {
+                ret = mbuf_data_cmp(ORIGINAL_BUFFER[i], DECRYPTED_BUFFER[i]);
+                if (ret != 0) {
+                        succ = 0;
+                        printf("[ERR] Packet %lu failed to be decoded.\n", i);
+                        printf("------ Original Packet: \n");
+                        px_mbuf_udp(ORIGINAL_BUFFER[i]);
+                        printf("------ Decrypted Packet: \n");
+                        px_mbuf_udp(DECRYPTED_BUFFER[i]);
+                        break;
+                }
+        }
+        if (succ == 1) {
+                printf("^_^ Decryption successfully!\n");
+        }
+
         RTE_LOG(INFO, EAL, "Run cleanups.\n");
         nck_free(&enc);
         rte_eal_cleanup();
 
-        RTE_LOG(INFO, EAL, "Test exits.\n");
+        RTE_LOG(INFO, EAL, "Evaluation exits.\n");
         return ret;
 }
