@@ -29,9 +29,6 @@
 #define NC_HDR_LEN 1
 #define MAGIC_NUM 117
 
-#define CTR 1
-#define AES256 1
-
 #define RTE_LOGTYPE_NCMBUF RTE_LOGTYPE_USER1
 
 static inline __attribute__((always_inline)) void recalc_cksum_inline(
@@ -147,7 +144,10 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
                         recalc_cksum_inline(iph, udph);
                         iph->src_addr = src_addr;
-                        (*put_rxq)(m_in, portid);
+                        if (likely(put_rxq != NULL)) {
+                                (*put_rxq)(m_in, portid);
+                        }
+
                 } else {
                         m_out = mbuf_udp_deep_copy(m_base, mbuf_pool,
                             (ETHER_HDR_LEN + in_iphdr_len + UDP_HDR_LEN));
@@ -171,7 +171,11 @@ uint8_t encode_udp_data(struct nck_encoder* enc, struct rte_mbuf* m_in,
                             skb.len + UDP_HDR_LEN + in_iphdr_len);
                         recalc_cksum_inline(iph, udph);
                         iph->src_addr = src_addr;
-                        (*put_rxq)(m_out, portid);
+                        if (likely(put_rxq != NULL)) {
+                                (*put_rxq)(m_out, portid);
+                        } else {
+                                rte_pktmbuf_free(m_out);
+                        }
                 }
 
                 RTE_LOG(DEBUG, NCMBUF,
@@ -382,8 +386,8 @@ uint8_t aes_ctr_xcrypt_udp_data(struct rte_mbuf* m_in, uint16_t portid,
         uint32_t src_addr;
         struct AES_ctx ctx;
 
+/* MARK: Key and IV are hard-coded currently */
 #if defined(AES256) && (AES256 == 1)
-
         static uint8_t key[32] = { 0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71,
                 0xbe, 0x2b, 0x73, 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81, 0x1f,
                 0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7, 0x2d, 0x98, 0x10,
