@@ -198,18 +198,18 @@ int main(int argc, char** argv)
                     (1.0 / rte_get_timer_hz()) * 1000.0 * (cur_tsc - prev_tsc));
 
                 if (j == 0) {
-                        f = fopen("per_packet_delay_nc_enc_noack_20_binary.csv",
+                        f = fopen("per_packet_delay_nc_enc_noack_25_binary.csv",
                             "a+");
                 } else if (j == 1) {
-                        f = fopen("per_packet_delay_nc_enc_sliding_window_20_"
+                        f = fopen("per_packet_delay_nc_enc_sliding_window_25_"
                                   "binary.csv",
                             "a+");
                 } else if (j == 2) {
                         f = fopen(
-                            "per_packet_delay_nc_enc_noack_20_binary8.csv",
+                            "per_packet_delay_nc_enc_noack_25_binary8.csv",
                             "a+");
                 } else if (j == 3) {
-                        f = fopen("per_packet_delay_nc_enc_sliding_window_20_"
+                        f = fopen("per_packet_delay_nc_enc_sliding_window_25_"
                                   "binary8.csv",
                             "a+");
                 } else {

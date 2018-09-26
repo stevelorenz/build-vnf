@@ -271,6 +271,8 @@ def plot_cdf():
         calc_hwci
         print("Name: {}, avg: {}, hwci: {}".format(keys[i], np.average(rtt_arr),
                                                    calc_hwci(rtt_arr)))
+        for q in range(1, 10):
+            print("{} Quantile {}".format(q/10.0, np.quantile(rtt_arr, q/10.0)))
 
         rtt_map[keys[i]] = rtt_arr[:]
 
