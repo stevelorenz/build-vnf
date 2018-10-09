@@ -44,7 +44,7 @@ def calc_std_err(data):
 def save_fig(fig, path, fmt=FIG_FMT):
     """Save fig to path"""
     fig.savefig(path + '.%s' % fmt, pad_iches=0,
-                bbox_inches='tight', dpi=400, format=fmt)
+                bbox_inches='tight', dpi=1200, format=fmt)
 
 
 def warn_x_std(value_arr, path=None, ret_inv_lst=False, x=3):
@@ -203,13 +203,15 @@ def plot_adv_comp_per_packet_delay(payload_size=1400):
     except Exception as e:
         print(e)
 
-    ax.axhline(y=20, ls="--", color='gray', lw=1)
+    ax.axhline(y=20, ls="--", color='black', lw=1)
 
     if payload_size == 256:
         ax.set_ylim(0, 30)
     else:
-        ax.set_yscale('log')
-        ax.set_ylim(1, 300)
+        # ax.set_yscale('log')
+        ax.set_ylim(1, 100)
+        # yticks = [1, 10, 20, 100]
+        # ax.set_yticks(yticks)
     ax.set_xlabel("Number of VNF(s)")
     ax.set_ylabel('Per-packet Processing Delay (us)')
     # ax.set_xticks(ind)
@@ -220,6 +222,7 @@ def plot_adv_comp_per_packet_delay(payload_size=1400):
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles, labels, loc='upper left', ncol=2)
     ax.autoscale_view()
+    ax.grid(ls='--')
     save_fig(fig, "./adv_comp_eval_{}".format(payload_size))
 
 

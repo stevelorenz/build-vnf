@@ -228,15 +228,15 @@ def plot_ipd(payload_size='1400B', profile=''):
                        for x in range(len(csv_files))])
     # rtt_ax.set_xticks([0, 0+bar_width+gap])
     rtt_ax.set_ylim(0, 0.5)
-    rtt_ax.set_xticklabels(xtick_labels, fontsize=3)
+    rtt_ax.set_xticklabels(xtick_labels, fontsize=6)
     rtt_ax.grid(linestyle='--')
 
     handles, labels = rtt_ax.get_legend_handles_labels()
     rtt_ax.legend(handles, labels, loc='upper left')
 
-    rtt_ax.set_title(title)
+    # rtt_ax.set_title(title)
 
-    save_fig(fig, './rtt_fix_ipd_%s_%s' % (payload_size, profile))
+    save_fig(fig, './rtt_fix_ipd_%s_%s' % (payload_size, profile), fmt='pdf')
 
 
 def plot_cdf():
@@ -287,14 +287,16 @@ def plot_cdf():
         patches[0].set_xy(patches[0].get_xy()[:-1])
 
     # Plot the average value
-    # plt.axvline(x=1, color='black', ls='--')
+    threshold = plt.axvline(x=0.35, color='black',
+                            ls='--', ymin=0, ymax=0.75, lw=1)
+    ax.grid(ls='--')
 
-    # handles, labels = ax.get_legend_handles_labels()
-    # ax.legend(handles, labels, loc='lower right')
-
-    custom_lines = [Line2D([0], [0], color=CMAP(1)),
-                    Line2D([0], [0], color=CMAP(4)),
-                    Line2D([0], [0], color=CMAP(2))]
+    keys.append('Threshold 0.35 ms')
+    custom_lines = [Line2D([0], [0], color=CMAP(1), ls='-.'),
+                    Line2D([0], [0], color=CMAP(4), ls='--'),
+                    Line2D([0], [0], color=CMAP(2), ls='-'),
+                    Line2D([0], [0], color='black', ls='--')
+                    ]
     ax.legend(custom_lines, keys, loc='upper left', ncol=2)
 
 
@@ -303,7 +305,9 @@ def plot_cdf():
     ax.set_ylabel('Likelihood of Occurrence')
     ax.set_ylim(0, 1.35)
     ax.set_xlabel('Round Trip Time (ms)')
-    ax.set_yticks([y / 10.0 for y in range(0, 11)])
+    yticks = [y / 10.0 for y in range(0, 11, 2)]
+    ax.set_yticks(yticks)
+
     save_fig(fig, 'rtt_cdf_ipd_5ms', 'pdf')
 
 
@@ -313,8 +317,8 @@ if __name__ == '__main__':
     elif sys.argv[1] == 'ipd':
         plot_ipd('1400B', 'nfv')
         plot_ipd('256B', 'nfv')
-        plot_ipd('1400B', 'bm')
-        plot_ipd('256B', 'bm')
+        # plot_ipd('1400B', 'bm')
+        # plot_ipd('256B', 'bm')
     elif sys.argv[1] == 'cdf':
         plot_cdf()
     else:
