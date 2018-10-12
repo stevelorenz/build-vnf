@@ -126,7 +126,7 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM for Click user space driver development ---
+  # --- VM for Click modular router development ---
   config.vm.define "click" do |click|
     click.vm.box = BOX
     click.vm.hostname = "click"
@@ -148,7 +148,7 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM for Click Kernel driver development ---
+  # --- VM for kernel development ---
   config.vm.define "kernel_latest" do |kernel_latest|
     kernel_latest.vm.box = BOX
     kernel_latest.vm.hostname = "kernellatest"
@@ -213,26 +213,6 @@ Vagrant.configure("2") do |config|
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
       vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
       vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
-    end
-  end
-
-  # --- VM for OpenStack Development ---
-  config.vm.define "ostack" do |ostack|
-    ostack.vm.box = BOX
-    ostack.vm.hostname = "ostack"
-
-    ostack.vm.network "private_network", ip: "10.0.0.30"
-    ostack.vm.provision :shell, inline: $bootstrap
-    ostack.vm.provision :shell, inline: $setup_devstack
-
-    # VirtualBox-specific configuration
-    ostack.vm.provider "virtualbox" do |vb|
-      # Set easy to remember VM name
-      vb.name = "ubuntu-16.04-ostack"
-      vb.memory = 8192
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
     end
   end
 

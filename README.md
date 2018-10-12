@@ -13,6 +13,8 @@ processing ability and delay performance of the tool should also be considered.
 
 Such VNFs can be latter e.g. integrated into NFV platforms or frameworks.
 
+Check out the [draft of our paper](./paper/paper_draft.pdf) to get more detailed information.
+
 ## Catalog ##
 
 Since this repo is research oriented, many PoCs or prototypes are also included. These sub-items are classified
@@ -24,62 +26,31 @@ with source code and also usage guide. These sub-items will be maintained and im
 ## Packet IO Frameworks ##
 
 1. Data Plane Development Kit (DPDK)
-1. IO Visor Project: eBPF + XDP
-1. Click Modular Router (Use user-space driver)
+
+1. IO Visor Project --- BCC: eBPF + XDP
+
+1. Click Modular Router (Only use the user-space driver)
+
 1. Linux Packet Socket (AF_PACKET)
+
 1. Linux XDP Socket (AF_XDP) (TBD, New since Linux v4.18)
-1. User-space NIC Driver: [IXY](https://github.com/emmericp/ixy) (TBD)
+<!--1. User-space NIC Driver: [IXY](https://github.com/emmericp/ixy) (TBD)-->
 
 ## Packet Processing Frameworks ##
 
-1. Network Coding Kernel Library (NCKernel): Used for network coded communications.
+1. [Kodo](http://steinwurf.com/products/kodo.html): Kodo makes it easy to deploy Erasure Correcting Codes in your
+application.
 
-## Brief Comparison ##
+1. Network Coding Kernel Library (NCKernel): This library contains encoders and decoders that can be used for network
+coded communications.
 
-1. DPDK:
-
-
-2. XDP:
-
-  - Pros:
-
-      - XDP provides bare metal packet processing at the lowest point in the software stack.
-
-      - New functions can be implemented dynamically with the integrated fast path without kernel modification.
-
-      - It does not replace the kernel TCP/IP stack and can utilize all features provided by the Kernel networking
-          stack.
-
-  - Cons:
-
-      - Current XDP implementation (Kernel 4.8) can only forward packets back out the same NIC they arrived on.
-          (Update) The XDP REDIRECT operation works on Kernel 4.17.
-
-      - Implementation pitfalls and limitations: Check the BPF documentation provided by the Cilium.
-
-      - For OpenStack Pike, the maximum number of queues in the VM interface has to be set to the same value as the number
-          of vCPUs in the guest (use virtio-net driver). Since XDP requires an additional TX queue per core which is not
-          visible to the networking stack.  Therefore, currently XDP can not be deployed in VMs on OpenStack directly.
-
-
-3. AF_PACKET:
-
-  - Pros:
-
-      - Built-in feature of Linux Kernel. No additional configuration or hardware features are required.
-
-  - Cons:
-
-      - Current AF_PACKET(V3) does not support zero-copy, lock-less structures, eliminations of syscalls for high IO
-          speed.
-
-
-4. Click Modular Router:
-
+1. [kokke/tiny-AES-c](https://github.com/kokke/tiny-AES-c): Portable AES implementation in C
 
 ## Evaluation Measurements ##
 
-**Measurements results (in CSV format) are not stored in the Repo, figures can be found ./evaluation/figurs**
+- **Measurements results (in CSV format) are not stored in the Repo, figures can be found ./evaluation/figurs**
+
+- Measurements tools can be found in ./delay_timer/ , ./perf/
 
 ## Version of used Tools ##
 
@@ -102,7 +73,7 @@ with source code and also usage guide. These sub-items will be maintained and im
 
 - NCKernel: commit: bf973e0 (2018-06-30)
 
-## References ##
+## Main References ##
 
 - [Cilium: BPF and XDP Reference Guide](http://docs.cilium.io/en/latest/bpf/#)
 - [Prototype Kernel: XDP](https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html)
