@@ -185,6 +185,7 @@ venv.bak/
 *.pcap
 resource_monitor/*.csv
 delay_timer/*.csv
+perf/*.csv
 
 ----------------
 -  Evaluation  -
@@ -198,8 +199,10 @@ evaluation/one_way_delay/results/
 
 *.mbuf
 
------------
--  Paper  -
------------
+----------
+-  Docs  -
+----------
 
 paper/.build
+doc/build
+doc/.build
