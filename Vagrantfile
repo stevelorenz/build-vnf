@@ -75,6 +75,11 @@ sudo apt install -y libncurses-dev bison build-essential flex
 # sudo make install
 SCRIPT
 
+$setup_dev_net= <<-SCRIPT
+# Enable IP forwarding
+sysctl -w net.ipv4.ip_forward=1
+SCRIPT
+
 ####################
 #  Vagrant Config  #
 ####################
@@ -90,7 +95,9 @@ Vagrant.configure("2") do |config|
     # 10.0.0.11 is always used for receiving packets ---> Use fix MAC address
     dpdk.vm.network "private_network", ip: "10.0.0.11", mac: "080027baf4c6"
     dpdk.vm.network "private_network", ip: "10.0.0.12", mac: "0800273c9768"
+    dpdk.vm.network "private_network", ip: "10.0.0.33", mac: "0800273c99c4"
     dpdk.vm.provision :shell, inline: $bootstrap
+    dpdk.vm.provision :shell, inline: $setup_dev_net
 
     # VirtualBox-specific configuration
     dpdk.vm.provider "virtualbox" do |vb|

@@ -8,9 +8,6 @@
 #  Variables  #
 ###############
 
-# DPDK version to use. If unspecified use master branch
-export DPDK_VERSION=v18.02-rc4
-
 # Path to the DPDK dir
 export RTE_SDK=${HOME}/dpdk
 
@@ -19,7 +16,7 @@ export RTE_TARGET=x86_64-native-linuxapp-gcc
 
 # Enable debugging with gdb
 # MARK: This add debug info also in testpmd app
-# export EXTRA_CFLAGS += -O2 -pg -g
+export EXTRA_CFLAGS+="-O2 -pg -g"
 
 # Hugepages mount point
 export HUGEPAGE_MOUNT=/mnt/huge
@@ -47,7 +44,14 @@ sudo apt -y install libnuma-dev libpcap-dev linux-headers-`uname -r`
 # get code from git repo
 git clone http://dpdk.org/git/dpdk ${RTE_SDK}
 cd "${RTE_SDK}" || exit
-git checkout -b dev ${DPDK_VERSION}
+
+if [[ $1 = 'stable' ]]; then
+    export DPDK_VERSION=v18.02-rc4
+    git checkout -b dev ${DPDK_VERSION}
+    echo "# Use stable branch: $DPDK_VERSION"
+else
+    echo "# Use the master branch."
+fi
 make config T=${RTE_TARGET}
 sed -ri 's,(PMD_PCAP=).*,\1y,' build/.config
 echo "# Compiling dpdk target from source."
@@ -77,11 +81,12 @@ echo "export EXTRA_CFLAGS=\"${EXTRA_CFLAGS}\"" >> ${HOME}/.bashrc
 echo "# Link built binaries."
 ln -sf ${RTE_SDK}/build ${RTE_SDK}/${RTE_TARGET}
 
-if [[ $1 = '-kvm' ]]; then
-    echo "Additional setups for using DPDK on KVM."
-    # Enable IOMMU
-    iommu=pt intel_iommu=on
-fi
+# MARK: This SHOULD be added during creating the customized image
+#if [[ $1 = '-kvm' ]]; then
+#    echo "Additional setups for using DPDK on KVM."
+#    # Enable IOMMU
+#    iommu=pt intel_iommu=on
+#fi
 
 echo ""
 echo "# Setup finished."
