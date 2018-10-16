@@ -1,7 +1,9 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 # About: Vagrant file for the development environment
-#        The measurements should be performed on the OpenStack cloud environment.
+#
+#        MARK: All evaluation measurements SHOULD be performed on our practical
+#        OpenStack cloud testbed.
 
 ###############
 #  Variables  #
@@ -122,7 +124,6 @@ Vagrant.configure("2") do |config|
       nic_type: "82540EM"
     bcc.vm.provision :shell, inline: $bootstrap
 
-    # VirtualBox-specific configuration
     bcc.vm.provider "virtualbox" do |vb|
       vb.name = "ubuntu-16.04-bcc"
       vb.memory = RAM
@@ -144,7 +145,6 @@ Vagrant.configure("2") do |config|
       nic_type: "82540EM"
     click.vm.provision :shell, inline: $bootstrap
 
-    # VirtualBox-specific configuration
     click.vm.provider "virtualbox" do |vb|
       vb.name = "ubuntu-16.04-click"
       vb.memory = RAM
@@ -155,7 +155,7 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM for kernel development ---
+  # --- VM for Linux Kernel development ---
   config.vm.define "kernel_latest" do |kernel_latest|
     kernel_latest.vm.box = BOX
     kernel_latest.vm.hostname = "kernellatest"
@@ -167,7 +167,6 @@ Vagrant.configure("2") do |config|
     kernel_latest.vm.provision :shell, inline: $bootstrap
     # kernel_latest.vm.provision :shell, inline: $setup_dev_kernel
 
-    # VirtualBox-specific configuration
     kernel_latest.vm.provider "virtualbox" do |vb|
       vb.name = "ubuntu-16.04-kernellatest"
       vb.memory = RAM
@@ -190,9 +189,32 @@ Vagrant.configure("2") do |config|
     just_for_fun.vm.provision :shell, inline: $bootstrap
     # just_for_fun.vm.provision :shell, inline: $setup_dev_kernel
 
-    # VirtualBox-specific configuration
     just_for_fun.vm.provider "virtualbox" do |vb|
       vb.name = "ubuntu-16.04-just-for-fun"
+      vb.memory = RAM
+      vb.cpus = CPUS
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+  end
+
+  # --- VM for SDN Controller Testbed ---
+  config.vm.define "sdnctltb" do |sdnctltb|
+    sdnctltb.vm.box = BOX
+    sdnctltb.vm.hostname = "sdnctltb"
+
+    sdnctltb.vm.network "private_network", ip: "10.0.0.23",
+      nic_type: "82540EM"
+    sdnctltb.vm.network "private_network", ip: "10.0.0.24",
+      nic_type: "82540EM"
+    # Web access to the controller
+    sdnctltb.vm.network :forwarded_port, guest: 8181, host: 18181
+    sdnctltb.vm.provision :shell, inline: $bootstrap
+    sdnctltb.vm.provision :shell, inline: $setup_dev_net
+
+    sdnctltb.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-sdnctltb"
       vb.memory = RAM
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
@@ -210,7 +232,6 @@ Vagrant.configure("2") do |config|
     trafficgen.vm.network "private_network", ip: "10.0.0.14", mac: "080027e1f17d"
     trafficgen.vm.provision :shell, inline: $bootstrap
 
-    # VirtualBox-specific configuration
     trafficgen.vm.provider "virtualbox" do |vb|
       # Set easy to remember VM name
       vb.name = "ubuntu-16.04-trafficgen"
