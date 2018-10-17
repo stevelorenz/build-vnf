@@ -82,6 +82,12 @@ $setup_dev_net= <<-SCRIPT
 sysctl -w net.ipv4.ip_forward=1
 SCRIPT
 
+$setup_x11_server= <<-SCRIPT
+sudo apt update
+sudo apt install xorg
+sudo apt install openbox
+SCRIPT
+
 ####################
 #  Vagrant Config  #
 ####################
@@ -177,44 +183,26 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM just for testing ---
-  config.vm.define "just_for_fun" do |just_for_fun|
-    just_for_fun.vm.box = BOX
-    just_for_fun.vm.hostname = "justforfun"
+  # --- VM for Mininet Testbed ---
+  config.vm.define "mininettb" do |mininettb|
+    mininettb.vm.box = BOX
+    mininettb.vm.hostname = "mininettb"
 
-    just_for_fun.vm.network "private_network", ip: "10.0.0.21",
+    mininettb.vm.network "private_network", ip: "10.0.0.23",
       nic_type: "82540EM"
-    just_for_fun.vm.network "private_network", ip: "10.0.0.22",
-      nic_type: "82540EM"
-    just_for_fun.vm.provision :shell, inline: $bootstrap
-    # just_for_fun.vm.provision :shell, inline: $setup_dev_kernel
-
-    just_for_fun.vm.provider "virtualbox" do |vb|
-      vb.name = "ubuntu-16.04-just-for-fun"
-      vb.memory = RAM
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
-    end
-  end
-
-  # --- VM for SDN Controller Testbed ---
-  config.vm.define "sdnctltb" do |sdnctltb|
-    sdnctltb.vm.box = BOX
-    sdnctltb.vm.hostname = "sdnctltb"
-
-    sdnctltb.vm.network "private_network", ip: "10.0.0.23",
-      nic_type: "82540EM"
-    sdnctltb.vm.network "private_network", ip: "10.0.0.24",
+    mininettb.vm.network "private_network", ip: "10.0.0.24",
       nic_type: "82540EM"
     # Web access to the controller
-    sdnctltb.vm.network :forwarded_port, guest: 8181, host: 18181
-    sdnctltb.vm.provision :shell, inline: $bootstrap
-    sdnctltb.vm.provision :shell, inline: $setup_dev_net
+    mininettb.vm.network :forwarded_port, guest: 8181, host: 18181
+    mininettb.vm.provision :shell, inline: $bootstrap
+    mininettb.vm.provision :shell, inline: $setup_dev_net
+    mininettb.vm.provision :shell, inline: $setup_x11_server
+    # Enable X11 forwarding
+    mininettb.ssh.forward_agent = true
+    mininettb.ssh.forward_x11 = true
 
-    sdnctltb.vm.provider "virtualbox" do |vb|
-      vb.name = "ubuntu-16.04-sdnctltb"
+    mininettb.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-mininettb"
       vb.memory = RAM
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
@@ -241,6 +229,28 @@ Vagrant.configure("2") do |config|
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
       vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
       vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
+    end
+  end
+
+  # --- VM just for arbitrary testing ---
+  config.vm.define "just_for_fun" do |just_for_fun|
+    just_for_fun.vm.box = BOX
+    just_for_fun.vm.hostname = "justforfun"
+
+    just_for_fun.vm.network "private_network", ip: "10.0.0.21",
+      nic_type: "82540EM"
+    just_for_fun.vm.network "private_network", ip: "10.0.0.22",
+      nic_type: "82540EM"
+    just_for_fun.vm.provision :shell, inline: $bootstrap
+    # just_for_fun.vm.provision :shell, inline: $setup_dev_kernel
+
+    just_for_fun.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-just-for-fun"
+      vb.memory = RAM
+      vb.cpus = CPUS
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
     end
   end
 

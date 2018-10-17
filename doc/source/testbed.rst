@@ -10,3 +10,6 @@ compute nodes are set up in the demo room.
 OpenDayLight SFC Testbed
 ------------------------
 
+Local SFC Testbed
+-----------------
+
