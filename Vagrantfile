@@ -84,8 +84,8 @@ SCRIPT
 
 $setup_x11_server= <<-SCRIPT
 sudo apt update
-sudo apt install xorg
-sudo apt install openbox
+sudo apt install -y xorg
+sudo apt install -y openbox
 SCRIPT
 
 ####################
@@ -232,20 +232,23 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM just for arbitrary testing ---
-  config.vm.define "just_for_fun" do |just_for_fun|
-    just_for_fun.vm.box = BOX
-    just_for_fun.vm.hostname = "justforfun"
+  # --- VM for simulation tasks ---
+  config.vm.define "sim" do |sim|
+    sim.vm.box = BOX
+    sim.vm.hostname = "sim"
 
-    just_for_fun.vm.network "private_network", ip: "10.0.0.21",
+    sim.vm.network "private_network", ip: "10.0.0.21",
       nic_type: "82540EM"
-    just_for_fun.vm.network "private_network", ip: "10.0.0.22",
+    sim.vm.network "private_network", ip: "10.0.0.22",
       nic_type: "82540EM"
-    just_for_fun.vm.provision :shell, inline: $bootstrap
-    # just_for_fun.vm.provision :shell, inline: $setup_dev_kernel
+    sim.vm.provision :shell, inline: $bootstrap
+    sim.vm.provision :shell, inline: $setup_x11_server
+    # Enable X11 forwarding
+    sim.ssh.forward_agent = true
+    sim.ssh.forward_x11 = true
 
-    just_for_fun.vm.provider "virtualbox" do |vb|
-      vb.name = "ubuntu-16.04-just-for-fun"
+    sim.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-sim"
       vb.memory = RAM
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]

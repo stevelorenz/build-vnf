@@ -192,6 +192,8 @@ perf/*.csv
 ----------------
 
 evaluation/one_way_delay/results/
+rsc/
+dataset/
 
 ----------
 -  DPDK  -
