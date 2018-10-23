@@ -11,6 +11,7 @@ Welcome to Build-VNF's documentation!
    :caption: Contents:
 
    ./tech
+   ./vbox
    ./testbed
 
 

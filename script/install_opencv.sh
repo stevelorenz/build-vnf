@@ -5,6 +5,9 @@
 # About: Install OpenCV on Ubuntu 16.04
 #
 
+OPENCV_VERSION="3.4.1"
+PIP_VERSION="9.0.3"
+
 sudo apt-get update
 
 echo "Install dependencies..."
@@ -32,7 +35,7 @@ sudo apt-get install -y libgphoto2-dev libeigen3-dev libhdf5-dev doxygen
 echo "Install Python libs..."
 sudo apt-get install -y python-dev python-pip python3-dev python3-pip
 
-sudo -H pip3 install --upgrade pip==9.0.3
+sudo -H pip3 install --upgrade pip=="$PIP_VERSION"
 
 # Use python3
 sudo -H pip3 install numpy scipy matplotlib scikit-image scikit-learn ipython
@@ -41,12 +44,12 @@ sudo -H pip3 install numpy scipy matplotlib scikit-image scikit-learn ipython
 cd ~ || exit
 git clone https://github.com/opencv/opencv.git
 cd opencv || exit
-git checkout -b 3.4.1
+git checkout -b "$OPENCV_VERSION"
 cd ~ || exit
 
 git clone https://github.com/opencv/opencv_contrib.git
 cd opencv_contrib
-git checkout -b 3.4.1
+git checkout -b "$OPENCV_VERSION"
 cd ~ || exit
 
 cd opencv || exit
@@ -68,3 +71,7 @@ sudo sh -c 'echo "/usr/local/lib" >> /etc/ld.so.conf.d/opencv.conf'
 sudo ldconfig
 
 sudo apt install -y ipython3
+
+echo "Congrats, OpenCV installation finished!"
+echo "Try to run some samples in the ~/opencv/samples/python to check the installation."
+echo "[WARN] Only Python3 packages are installed, run samples with python3."

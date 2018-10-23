@@ -23,6 +23,19 @@ scripts to develop VNFs with tools provided by IO Visor project. These codes are
 upgraded with latest features. Relative mature and stable VNFs are put into the [vnf\_release](./vnf\_release/) directory
 with source code and also usage guide. These sub-items will be maintained and improved with latest features.
 
+## Documentation ##
+
+[Sphinx](http://www.sphinx-doc.org/en/master/) is used to build the documentation. Install Sphinx before building the
+documentation source files in ./doc/.
+
+For Linux user, run following commands to build the HTML documentation:
+
+```bash
+cd ./doc/
+make html
+xdg-open ./doc/build/html/index.html
+```
+
 ## Packet IO Frameworks ##
 
 1. Data Plane Development Kit (DPDK)
