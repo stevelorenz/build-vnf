@@ -1,0 +1,17 @@
+#
+# About: Dockerfile for containerized DPDK
+#
+
+FROM ubuntu:16.04
+
+RUN apt-get update && apt-get install -y net-tools \
+    build-essential automake python-pip libcap-ng-dev gawk pciutils kmod \
+    linux-headers-$(uname -a | awk '{print $3}') \
+    git hugepages clang doxygen \
+    libnuma-dev libpcap-dev
+
+WORKDIR /app
+COPY ./build_dpdk_minimal.sh /app
+RUN /app/build_dpdk_minimal.sh stable
+
+CMD ["/usr/bin/bash"]

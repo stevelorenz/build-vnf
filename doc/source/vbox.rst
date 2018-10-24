@@ -33,6 +33,7 @@ The OpenCV source code is compiled in the last step which takes time. Only pytho
 After the successful compiling and installation, run the edge sample application for testing.
 
 .. code:: bash
+
     cd ~/opencv/samples/python
     python3 ./edge.py
 

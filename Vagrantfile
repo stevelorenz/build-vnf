@@ -277,4 +277,24 @@ Vagrant.configure("2") do |config|
     end
   end
 
+  config.vm.define "containertb" do |containertb|
+    containertb.vm.box = BOX
+    containertb.vm.hostname = "containertb"
+
+    containertb.vm.provision :shell, inline: $bootstrap_apt
+    containertb.vm.provision :shell, inline: $setup_x11_server_apt
+    # Enable X11 forwarding
+    containertb.ssh.forward_agent = true
+    containertb.ssh.forward_x11 = true
+
+    containertb.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-containertb"
+      vb.memory = RAM
+      vb.cpus = CPUS
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+  end
+
 end

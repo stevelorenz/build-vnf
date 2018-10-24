@@ -10,6 +10,8 @@ Welcome to Build-VNF's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   ./vnf
+   ./approach
    ./tech
    ./vbox
    ./testbed
