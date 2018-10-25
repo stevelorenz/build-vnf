@@ -1,7 +1,5 @@
 #! /bin/bash
 #
-# build_dpdk_minimal.sh
-#
 # About: Build DPDK inside docker container
 #
 

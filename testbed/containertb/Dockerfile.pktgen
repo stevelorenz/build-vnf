@@ -1,5 +1,5 @@
 #
-# About: Dockerfile for containerized DPDK
+# About: Dockerfile for build pktgen application
 #
 
 FROM ubuntu:16.04
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y net-tools \
     libnuma-dev libpcap-dev
 
 WORKDIR /app
-COPY ./build_dpdk_minimal.sh /app
-RUN /app/build_dpdk_minimal.sh stable
+COPY ./build_dpdk_base.sh /app
+RUN /app/build_dpdk_base.sh stable
 
 CMD ["/usr/bin/bash"]
