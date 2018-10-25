@@ -290,7 +290,7 @@ Vagrant.configure("2") do |config|
 
     containertb.vm.provider "virtualbox" do |vb|
       vb.name = "ubuntu-16.04-containertb"
-      vb.memory = RAM
+      vb.memory = 4096
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]

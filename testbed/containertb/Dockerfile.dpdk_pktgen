@@ -1,0 +1,16 @@
+#
+# About: Dockerfile for build pktgen application
+#
+
+FROM dpdk_base:v0.1
+
+ENV RTE_SDK=/root/dpdk
+ENV RTE_TARGET=x86_64-native-linuxapp-gcc
+
+WORKDIR /root
+RUN git clone http://dpdk.org/git/apps/pktgen-dpdk
+RUN apt-get install -y libpcap-dev liblua5.3-dev
+WORKDIR /root/pktgen-dpdk
+RUN make
+
+CMD ["/usr/bin/bash"]

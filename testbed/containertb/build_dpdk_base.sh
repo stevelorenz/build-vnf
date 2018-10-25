@@ -27,5 +27,7 @@ echo "# Compiling dpdk target from source."
 make
 
 cd $RTE_SDK
-make install T="RTE_TARGET"
 make -C examples RTE_SDK=$(pwd) RTE_TARGET=build o=$(pwd)/build/examples
+
+echo "# Link built binaries."
+ln -sf ${RTE_SDK}/build ${RTE_SDK}/${RTE_TARGET}
