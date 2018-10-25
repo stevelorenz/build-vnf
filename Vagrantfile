@@ -281,6 +281,7 @@ Vagrant.configure("2") do |config|
     containertb.vm.box = BOX
     containertb.vm.hostname = "containertb"
 
+    containertb.vm.network "private_network", ip: "10.0.0.30", nic_type: "82540EM"
     containertb.vm.provision :shell, inline: $bootstrap_apt
     containertb.vm.provision :shell, inline: $setup_x11_server_apt
     # Enable X11 forwarding

@@ -13,7 +13,7 @@ Welcome to Build-VNF's documentation!
    ./vnf
    ./approach
    ./tech
-   ./vbox
+   ./devenv
    ./testbed
 
 
