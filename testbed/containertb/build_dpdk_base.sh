@@ -11,11 +11,12 @@ export RTE_TARGET=x86_64-native-linuxapp-gcc
 
 # Config and build DPDK
 # get code from git repo
-git clone http://dpdk.org/git/dpdk ${RTE_SDK}
+git clone http://dpdk.org/git/dpdk "${RTE_SDK}"
 cd "${RTE_SDK}" || exit
 
-if [[ $1 = 'stable' ]]; then
-    export DPDK_VERSION=v18.02-rc4
+if [[ $1 == "stable" ]]; then
+    # MARK: To be used version MUST support single-file-segments flag in EAL
+    export DPDK_VERSION="v18.08"
     git checkout -b dev ${DPDK_VERSION}
     echo "# Use stable branch: $DPDK_VERSION"
 else
@@ -26,8 +27,8 @@ sed -ri 's,(PMD_PCAP=).*,\1y,' build/.config
 echo "# Compiling dpdk target from source."
 make
 
-cd $RTE_SDK
+cd "$RTE_SDK" || exit
 make -C examples RTE_SDK=$(pwd) RTE_TARGET=build o=$(pwd)/build/examples
 
 echo "# Link built binaries."
-ln -sf ${RTE_SDK}/build ${RTE_SDK}/${RTE_TARGET}
+ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
