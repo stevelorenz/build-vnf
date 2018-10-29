@@ -48,7 +48,7 @@ function add_traffic_flow() {
 }
 
 function run_testpmd_app() {
-    cd $WORKDIR || exit
+    cd "$WORKDIR" || exit
     echo "Run $TESTPMD_APP App"
     sudo docker container stop "$TESTPMD_APP"
     sudo docker container rm "$TESTPMD_APP"
@@ -66,13 +66,16 @@ function run_testpmd_app() {
 }
 
 function run_pktgen_app() {
+    cd "$WORKDIR" || exit
     echo "# Run $PKTGEN_APP App."
     sudo docker container stop "$PKTGEN_APP"
     sudo docker container rm "$PKTGEN_APP"
     sudo time docker run -dit --privileged \
         -v /sys/bus/pci/drivers:/sys/bus/pci/drivers -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev \
+        -v /usr/local/var/run/openvswitch:/var/run/openvswitch \
         -v /vagrant:/vagrant \
         --name "$PKTGEN_APP" "$PKTGEN_IMAGE" bash
+    sudo docker cp ./run_pktgen.sh "$PKTGEN_APP":/root/
 
     sudo docker attach "$PKTGEN_APP"
 
@@ -80,14 +83,23 @@ function run_pktgen_app() {
     sudo docker container rm "$PKTGEN_APP"
 }
 
-if [[ "$1" == "app" ]]; then
-    echo "Only run container apps."
+if [[ "$1" == "testpmd" ]]; then
+    echo "Run testpmd app."
     run_testpmd_app
-else
-    echo "Run full setups."
+elif [[ "$1" == "pktgen" ]]; then
+    echo "Run pktgen app."
+    run_pktgen_app
+elif [[ "$1" == "ovs" ]]; then
+    #statements
+    echo "Run OVS-DPDK setups."
     bootstrap
     bind_interface
     create_ovs_bridge
     add_traffic_flow
-    run_testpmd_app
+else
+    echo "$ bash ./run_virtio_user_chain.sh option"
+    echo "Option:"
+    echo "  testpmd: Run testpmd app"
+    echo "  pktgen: Run pktgen app"
+    echo "  ovs: Run OVS-DPDK setup"
 fi
