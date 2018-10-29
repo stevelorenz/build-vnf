@@ -298,4 +298,27 @@ Vagrant.configure("2") do |config|
     end
   end
 
+  # --- VM for trying or testing tools with the latest version ---
+  # For example, the latest version of OVS has support for NSH.
+  config.vm.define "trylatest" do |trylatest|
+    trylatest.vm.box = BOX
+    trylatest.vm.hostname = "trylatest"
+
+    trylatest.vm.network "private_network", ip: "10.0.0.31", nic_type: "82540EM"
+    trylatest.vm.provision :shell, inline: $bootstrap_apt
+    trylatest.vm.provision :shell, inline: $setup_x11_server_apt
+    # Enable X11 forwarding
+    trylatest.ssh.forward_agent = true
+    trylatest.ssh.forward_x11 = true
+
+    trylatest.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-trylatest"
+      vb.memory = RAM
+      vb.cpus = CPUS
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+  end
+
 end
