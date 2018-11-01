@@ -223,7 +223,8 @@ def plot_adv_comp_per_packet_delay(payload_size=1400):
     ax.legend(handles, labels, loc='upper left', ncol=2)
     ax.autoscale_view()
     ax.grid(ls='--')
-    save_fig(fig, "./adv_comp_eval_{}".format(payload_size))
+    save_fig(fig, "./adv_comp_eval_{}".format(payload_size), fmt="pdf")
+    save_fig(fig, "./adv_comp_eval_{}".format(payload_size), fmt="png")
 
 
 if __name__ == '__main__':

@@ -1,0 +1,50 @@
+# VNF Forwarding Graph Descriptor (VNFFGD)
+# Ref: https://github.com/openstack/tacker/blob/master/doc/source/contributor/vnffgd_template_description.rst
+
+description:
+  VNF forwarding graph descriptor example
+  The format used reffers to the OpenStack Tacker's VNFFGD template
+  The VNF descriptors are included in the VNFFGD to make it simple to be used for Mininet/Containernet
+  Just to make it simpler, the PyYAML package is used here to parse the description directly without Validation.
+
+topology_template:
+
+  # This part is used for multiple forwarding path
+  # Currently only single forwarding path is supported
+  node_templates:
+
+    cam1:
+      type: client
+      capibilities:
+        cpu_set: 0
+
+    server:
+      type: server
+      capibilities:
+        cpu_set: 0
+
+    dec1:
+      type: vdu
+      capibilities:
+        cpu_set: 1
+
+    # Describe the chain as well as the flow classifier
+    sfp1:
+      type: sfc.fp
+      description: Forward ICMP message
+      properties:
+        # Path ID, this should be used in future implementation of NSH to identify paths via SPI attribute
+        id: 1
+        policy:
+          type: ACL
+          criteria:
+            - name: forward_icmp
+              classifier:
+                destination_port_range: 0
+                ip_proto: 1
+                ip_src_prefix: 10.0.0.2/24
+                ip_dst_prefix: 10.10.0.5/24
+
+        # Service function path (SFP)
+        path:
+          - forwarder: dec1

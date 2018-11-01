@@ -3,8 +3,9 @@
 # About: Install the Open vSwitch
 #
 
-OVS_DEV_VERSION="2.10.1"
-OVS_DPDK_VERSION="2.9.2"
+OVS_DEV_VERSION="v2.10.1"
+OVS_DPDK_VERSION="v2.10.1"
+DPDK_VERSION="17.11.3"
 
 function bootstrap() {
     # Remove installed OVS
@@ -22,9 +23,9 @@ function install_ovs_dpdk() {
     bootstrap
     # Install DPDK
     cd $HOME || exit
-    wget http://fast.dpdk.org/rel/dpdk-17.11.3.tar.xz
-    tar xf dpdk-17.11.3.tar.xz
-    export DPDK_DIR=$HOME/dpdk-stable-17.11.3
+    wget http://fast.dpdk.org/rel/"dpdk-$DPDK_VERSION.tar.xz"
+    tar xf "dpdk-$DPDK_VERSION.tar.xz"
+    export DPDK_DIR=$HOME/"dpdk-stable-$DPDK_VERSION"
     echo "export DPDK_DIR=${DPDK_DIR}" >> ${HOME}/.profile
     cd $DPDK_DIR || exit
 
@@ -61,7 +62,10 @@ function install_ovs_dev() {
     sudo make modules_install
     sudo modprobe openvswitch
     export PATH=$PATH:/usr/local/share/openvswitch/scripts
-    sudo ovs-ctl start
+    sudo ovs-ctl start --system-id=random
+    echo "#! /bin/sh -e" | sudo tee /etc/rc.local
+    echo "bash /usr/local/share/openvswitch/scripts/ovs-ctl start --system-id=random" | sudo tee -a /etc/rc.local
+    echo "exit 0" | sudo tee -a /etc/rc.local
 
     echo "OVS $OVS_DEV_VERSION is installed."
 }

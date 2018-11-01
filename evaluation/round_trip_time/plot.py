@@ -309,6 +309,7 @@ def plot_cdf():
     ax.set_yticks(yticks)
 
     save_fig(fig, 'rtt_cdf_ipd_5ms', 'pdf')
+    save_fig(fig, 'rtt_cdf_ipd_5ms', 'png')
 
 
 if __name__ == '__main__':

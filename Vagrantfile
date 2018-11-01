@@ -13,9 +13,10 @@ CPUS = 2
 RAM = 2048
 
 # Use Ubuntu by default
-BOX = "bento/ubuntu-16.04"
-BOX_1404 = "bento/ubuntu-14.04"
-BOX_1404_316 = "novael_de/ubuntu-trusty64"
+UBUNTU_LTS = "bento/ubuntu-16.04"
+UBUNTU_LTS_LATEST = "bento/ubuntu-18.04"
+UBUNTU_1404 = "bento/ubuntu-14.04"
+UBUNTU_1404_316 = "novael_de/ubuntu-trusty64"
 
 ARCH_LATEST = "archlinux/archlinux"
 
@@ -115,7 +116,7 @@ Vagrant.configure("2") do |config|
 
   # --- VM for DPDK development ---
   config.vm.define "dpdk" do |dpdk|
-    dpdk.vm.box = BOX
+    dpdk.vm.box = UBUNTU_LTS
     dpdk.vm.hostname = "dpdk"
     # Create private networks, which allows host-only access to the machine using a specific IP.
     # This option is needed otherwise the Intel DPDK takes over the entire adapter
@@ -139,7 +140,7 @@ Vagrant.configure("2") do |config|
 
   # --- VM for BCC development ---
   config.vm.define "bcc" do |bcc|
-    bcc.vm.box = BOX
+    bcc.vm.box = UBUNTU_LTS
     bcc.vm.hostname = "bcc"
 
     # MARK: Virtio supports XDP with Kernel version after 4.10
@@ -161,7 +162,7 @@ Vagrant.configure("2") do |config|
 
   # --- VM for Click modular router development ---
   config.vm.define "click" do |click|
-    click.vm.box = BOX
+    click.vm.box = UBUNTU_LTS
     click.vm.hostname = "click"
 
     click.vm.network "private_network", ip: "10.0.0.17", mac:"0800278794f9",
@@ -182,7 +183,7 @@ Vagrant.configure("2") do |config|
 
   # --- VM for Linux Kernel development ---
   config.vm.define "kernel_latest" do |kernel_latest|
-    kernel_latest.vm.box = BOX
+    kernel_latest.vm.box = UBUNTU_LTS
     kernel_latest.vm.hostname = "kernellatest"
 
     kernel_latest.vm.network "private_network", ip: "10.0.0.19",
@@ -203,8 +204,9 @@ Vagrant.configure("2") do |config|
   end
 
   # --- VM for Network Softwarization (NetSoft) Emulator ---
+  # MARK: This VM is used for development, with Mininet and Ryu SDN controller installed
   config.vm.define "netsoftemu" do |netsoftemu|
-    netsoftemu.vm.box = BOX
+    netsoftemu.vm.box = UBUNTU_LTS
     netsoftemu.vm.hostname = "netsoftemu"
 
     netsoftemu.vm.network "private_network", ip: "10.0.0.23",
@@ -232,8 +234,9 @@ Vagrant.configure("2") do |config|
   end
 
   # --- VM for Traffic Generator ---
+  # MARK: To be tested: MoonGen, Trex
   config.vm.define "trafficgen" do |trafficgen|
-    trafficgen.vm.box = BOX
+    trafficgen.vm.box = UBUNTU_LTS
     trafficgen.vm.hostname = "trafficgen"
 
     trafficgen.vm.network "private_network", ip: "10.0.0.13", mac: "0800271e2db3"
@@ -252,56 +255,10 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM for simulation tasks ---
-  config.vm.define "sim" do |sim|
-    sim.vm.box = BOX
-    sim.vm.hostname = "sim"
-
-    sim.vm.network "private_network", ip: "10.0.0.21",
-      nic_type: "82540EM"
-    sim.vm.network "private_network", ip: "10.0.0.22",
-      nic_type: "82540EM"
-    sim.vm.provision :shell, inline: $bootstrap_apt
-    sim.vm.provision :shell, inline: $setup_x11_server_apt
-    # Enable X11 forwarding
-    sim.ssh.forward_agent = true
-    sim.ssh.forward_x11 = true
-
-    sim.vm.provider "virtualbox" do |vb|
-      vb.name = "ubuntu-16.04-sim"
-      vb.memory = RAM
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
-    end
-  end
-
-  config.vm.define "containertb" do |containertb|
-    containertb.vm.box = BOX
-    containertb.vm.hostname = "containertb"
-
-    containertb.vm.network "private_network", ip: "10.0.0.30", nic_type: "82540EM"
-    containertb.vm.provision :shell, inline: $bootstrap_apt
-    containertb.vm.provision :shell, inline: $setup_x11_server_apt
-    # Enable X11 forwarding
-    containertb.ssh.forward_agent = true
-    containertb.ssh.forward_x11 = true
-
-    containertb.vm.provider "virtualbox" do |vb|
-      vb.name = "ubuntu-16.04-containertb"
-      vb.memory = 4096
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
-    end
-  end
-
   # --- VM for trying or testing tools with the latest version ---
   # For example, the latest version of OVS has support for NSH.
   config.vm.define "trylatest" do |trylatest|
-    trylatest.vm.box = BOX
+    trylatest.vm.box = UBUNTU_LTS
     trylatest.vm.hostname = "trylatest"
 
     trylatest.vm.network "private_network", ip: "10.0.0.31", nic_type: "82540EM"
