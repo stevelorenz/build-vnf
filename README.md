@@ -17,11 +17,19 @@ Check out the [draft of our paper](./paper/paper_draft.pdf) to get more detailed
 
 ## Catalog ##
 
-Since this repo is research oriented, many PoCs or prototypes are also included. These sub-items are classified
-according to the technology used. For instance, the [io\_visor](./io\_visor) directory contains prototypes and helper
-scripts to develop VNFs with tools provided by IO Visor project. These codes are not guaranteed to be stable and also
-upgraded with latest features. Relative mature and stable VNFs are put into the [vnf\_release](./vnf\_release/) directory
-with source code and also usage guide. These sub-items will be maintained and improved with latest features.
+Since this repo is research oriented, many PoCs or prototypes are also included. These sub-items are classified in the
+[tech](./techs/) directory according to the technology used. For instance, the [io\_visor](./techs/io_visor/) directory
+contains prototypes and helper scripts to develop VNFs with tools provided by IO Visor project. These codes are not
+guaranteed to be stable and also upgraded with latest features. Relative mature and stable VNFs are put into the
+[vnf\_release](./vnf\_release/) directory with source code and also usage guide. These sub-items will be maintained and
+improved with latest features. The unstable VNFs under development are located in [vnf\_debug](./vnf\_debug/) directory.
+Detailed catalog information SHOULD be found in the documentation.
+
+## Getting Started with Mininet and an Example ##
+
+Currently, there is a simple example of building a Service Function Chain (SFC) with the famous
+[Mininet](http://mininet.org/) emulator and processing packets with raw socket and AF_PACKET in Python.
+Check the files [here](./vnf_debug/pedestrian_detection/emulation/) for details.
 
 ## Documentation ##
 
