@@ -4,14 +4,24 @@
 #
 
 """
-About: Network Service Header (RFC8300)
+About: Network Service Header (RFC8300) class used for SCL and VNF
+       implementation
+
+Ref  : https://github.com/torvalds/linux/blob/master/include/net/nsh.h
+       https://github.com/opendaylight/sfc/tree/master/sfc-py
+
+Email: xianglinks@gmail.com
 """
 
 from collections import namedtuple
 
 
+NSH_ETH_TYPE = int("0x894F", 16)
+
+
 class NSH(object):
     """
+
     Network Service Header Format:
 
      0                   1                   2                   3
