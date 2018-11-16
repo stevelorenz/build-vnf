@@ -38,7 +38,7 @@ sudo apt-get install -y python-dev python-pip python3-dev python3-pip
 sudo -H pip3 install --upgrade pip=="$PIP_VERSION"
 
 # Use python3
-sudo -H pip3 install numpy scipy matplotlib scikit-image scikit-learn ipython
+sudo -H pip3 install numpy scipy matplotlib scikit-image scikit-learn ipython imutils
 
 # Download and install OpenCV
 cd ~ || exit
