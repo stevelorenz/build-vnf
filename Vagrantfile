@@ -1,6 +1,6 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-# About: Vagrant file for the development environment
+# About: Vagrant file for the development and emulation environment
 #
 #        MARK: All evaluation measurements SHOULD be performed on our practical
 #        OpenStack cloud testbed.
@@ -14,9 +14,9 @@ RAM = 2048
 
 # Use Ubuntu by default
 UBUNTU_LTS = "bento/ubuntu-16.04"
+# MARK: Some tools like containernet can not be installed on the latest verision of Ubuntu with built in installation script
 UBUNTU_LTS_LATEST = "bento/ubuntu-18.04"
 UBUNTU_1404 = "bento/ubuntu-14.04"
-UBUNTU_1404_316 = "novael_de/ubuntu-trusty64"
 
 ARCH_LATEST = "archlinux/archlinux"
 
@@ -30,15 +30,17 @@ $bootstrap_apt= <<-SCRIPT
 sudo apt update
 sudo apt install -y git pkg-config gdb
 sudo apt install -y bash-completion htop dfc
-sudo apt install -y iperf iperf3
+sudo apt install -y iperf iperf3 tcpdump
 
 # Add termite infos
-wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
-tic -x /home/vagrant/termite.terminfo
+wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O ~/termite.terminfo
+tic -x ~/termite.terminfo
 
 # Get zuo's dotfiles
-git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
-cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
+git clone https://github.com/stevelorenz/dotfiles.git ~/dotfiles
+cp ~/dotfiles/tmux/tmux.conf ~/.tmux.conf
+cp -r ~/dotfiles/vim ~/.vim
+cp ~/dotfiles/vim/vimrc_tiny.vim ~/.vimrc
 SCRIPT
 
 $setup_devstack= <<-SCRIPT
@@ -92,17 +94,18 @@ sudo apt install -y xorg
 sudo apt install -y openbox
 SCRIPT
 
+# Setup a minimal emulation environment for network softwarization
 $setup_netsoft_apt= <<-SCRIPT
 echo "Install Mininet..."
-git clone git://github.com/mininet/mininet /home/vagrant/mininet
-cd /home/vagrant/mininet/
+git clone git://github.com/mininet/mininet ~/mininet
+cd ~/mininet/
 git checkout -b 2.2.2 2.2.2
 bash ./util/install.sh -nfv
 
 echo "Install Ryu SDN controller..."
 sudo apt install -y gcc python-dev libffi-dev libssl-dev libxml2-dev libxslt1-dev zlib1g-dev python-pip
-git clone git://github.com/osrg/ryu.git /home/vagrant/ryu
-cd /home/vagrant/ryu
+git clone git://github.com/osrg/ryu.git ~/ryu
+cd ~/ryu
 git checkout -b v4.29 v4.29
 pip install .
 SCRIPT
@@ -113,6 +116,28 @@ SCRIPT
 ####################
 
 Vagrant.configure("2") do |config|
+
+  # --- VM for Traffic Generator ---
+  # MARK: To be tested: MoonGen, Trex
+  config.vm.define "trafficgen" do |trafficgen|
+    trafficgen.vm.box = UBUNTU_LTS
+    trafficgen.vm.hostname = "trafficgen"
+
+    trafficgen.vm.network "private_network", ip: "10.0.0.13", mac: "0800271e2db3"
+    trafficgen.vm.network "private_network", ip: "10.0.0.14", mac: "080027e1f17d"
+    trafficgen.vm.provision :shell, inline: $bootstrap_apt
+
+    trafficgen.vm.provider "virtualbox" do |vb|
+      # Set easy to remember VM name
+      vb.name = "ubuntu-16.04-trafficgen"
+      vb.memory = RAM
+      vb.cpus = CPUS
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
+      vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
+    end
+  end
 
   # --- VM for DPDK development ---
   config.vm.define "dpdk" do |dpdk|
@@ -160,27 +185,6 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM for Click modular router development ---
-  config.vm.define "click" do |click|
-    click.vm.box = UBUNTU_LTS
-    click.vm.hostname = "click"
-
-    click.vm.network "private_network", ip: "10.0.0.17", mac:"0800278794f9",
-      nic_type: "82540EM"
-    click.vm.network "private_network", ip: "10.0.0.18", mac:"080027bae814",
-      nic_type: "82540EM"
-    click.vm.provision :shell, inline: $bootstrap_apt
-
-    click.vm.provider "virtualbox" do |vb|
-      vb.name = "ubuntu-16.04-click"
-      vb.memory = RAM
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
-    end
-  end
-
   # --- VM for Linux Kernel development ---
   config.vm.define "kernel_latest" do |kernel_latest|
     kernel_latest.vm.box = UBUNTU_LTS
@@ -217,9 +221,9 @@ Vagrant.configure("2") do |config|
     netsoftemu.vm.network :forwarded_port, guest: 8181, host: 18181
     netsoftemu.vm.provision :shell, inline: $bootstrap_apt
     netsoftemu.vm.provision :shell, inline: $setup_dev_net
-    netsoftemu.vm.provision :shell, inline: $setup_x11_server_apt
     netsoftemu.vm.provision :shell, inline: $setup_netsoft_apt
     # Enable X11 forwarding
+    netsoftemu.vm.provision :shell, inline: $setup_x11_server_apt
     netsoftemu.ssh.forward_agent = true
     netsoftemu.ssh.forward_x11 = true
 
@@ -233,25 +237,29 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # --- VM for Traffic Generator ---
-  # MARK: To be tested: MoonGen, Trex
-  config.vm.define "trafficgen" do |trafficgen|
-    trafficgen.vm.box = UBUNTU_LTS
-    trafficgen.vm.hostname = "trafficgen"
+  # --- VM for Container-based NetSoft Emulator ---
+  config.vm.define "netsoftemu4container" do |netsoftemu4container|
+    netsoftemu4container.vm.box = UBUNTU_LTS
+    netsoftemu4container.vm.hostname = "netsoftemu4container"
 
-    trafficgen.vm.network "private_network", ip: "10.0.0.13", mac: "0800271e2db3"
-    trafficgen.vm.network "private_network", ip: "10.0.0.14", mac: "080027e1f17d"
-    trafficgen.vm.provision :shell, inline: $bootstrap_apt
+    netsoftemu4container.vm.network "private_network", ip: "10.0.0.17", mac:"0800278794f9",
+      nic_type: "82540EM"
+    netsoftemu4container.vm.network "private_network", ip: "10.0.0.18", mac:"080027bae814",
+      nic_type: "82540EM"
+    netsoftemu4container.vm.network :forwarded_port, guest: 8888, host: 8888
+    netsoftemu4container.vm.provision :shell, inline: $bootstrap_apt
+    # Enable X11 forwarding
+    netsoftemu4container.vm.provision :shell, inline: $setup_x11_server_apt
+    netsoftemu4container.ssh.forward_agent = true
+    netsoftemu4container.ssh.forward_x11 = true
 
-    trafficgen.vm.provider "virtualbox" do |vb|
-      # Set easy to remember VM name
-      vb.name = "ubuntu-16.04-trafficgen"
+    netsoftemu4container.vm.provider "virtualbox" do |vb|
+      vb.name = "ubuntu-16.04-netsoftemu4container"
       vb.memory = RAM
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
-      vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
     end
   end
 

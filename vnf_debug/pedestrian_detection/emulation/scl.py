@@ -23,6 +23,8 @@ import sys
 import time
 from multiprocessing import Process, Queue, active_children
 
+import nsh
+
 BUFFER_SIZE = 2048
 IO_SLEEP = 0.001  # 1ms
 

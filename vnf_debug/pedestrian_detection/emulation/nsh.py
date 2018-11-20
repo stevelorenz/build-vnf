@@ -14,9 +14,31 @@ Email: xianglinks@gmail.com
 """
 
 from collections import namedtuple
-
+from ctypes import Structure
+from struct import pack
 
 NSH_ETH_TYPE = int("0x894F", 16)
+NSH_VERSION_1 = 0
+
+
+class BaseHeader(object):
+    """NSH base header
+
+    - O bit: This bit indicates an Operation, Adminitration and Maintainace
+      (OAM) packet.
+
+    """
+
+    def __init__(self, Obit, version=NSH_VERSION_1):
+        pass
+
+
+class ServicePathHeader(object):
+    """Service Path Header
+    """
+
+    def __init__(self):
+        pass
 
 
 class NSH(object):
@@ -40,5 +62,5 @@ class NSH(object):
     def __init__(self):
         pass
 
-    def serialize(self):
+    def pack(self):
         pass
