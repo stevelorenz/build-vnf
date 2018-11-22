@@ -18,19 +18,16 @@ Ref  : https://github.com/rbgirshick/py-faster-rcnn
 """
 
 import time
+from os import path
 
 import cv2 as cv
 
 import numpy as np
 
+# Pre-trained model from OpenCV extra
 MODEL_PATH = "../../model/edge_boxes/model.yml.gz"
 ORIG_PIC_PATH = "../../dataset/objects_2011_b/labeldata/pos/I1_2009_12_14_drive_0004_000101.png"
-# ORIG_PIC_PATH = "../../dataset/image/person_and_bike_006.bmp"
-
-
-def test_selective_search():
-    print("* Test selective search...")
-    pass
+# ORIG_PIC_PATH = "../../dataset/image/lena.jpg"
 
 
 def test_edgeboxes():
@@ -38,8 +35,10 @@ def test_edgeboxes():
     print("WARN: This needs opencv contrib modules")
 
     im = cv.imread(ORIG_PIC_PATH)
-    im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
+    # im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
     cv.imwrite("./test_pic.png", im)
+    print("The size of the model: {} MB".format(
+        path.getsize(MODEL_PATH) / (1024 ** 2)))
     edge_detector = cv.ximgproc.createStructuredEdgeDetection(MODEL_PATH)
     last = time.time()
     # Structured Forests generate edges and orientation map
@@ -47,17 +46,18 @@ def test_edgeboxes():
     print("Edges map before NMS: ")
     print(edges)
     orimap = edge_detector.computeOrientation(edges)
-    # MARK: the results are really sparse
+    # MARK: the results are really sparse ---> lower overhead to the bandwidth
     edges = edge_detector.edgesNms(edges, orimap)
     print("Edges map after NMS: ")
     print(edges)
     print("Orientation map:")
-    print(orimap)
-    print("Time duration for edge detection: {}".format(time.time() - last))
+    print(orimap)  # not sparse
+    print("Time duration for edge detection and NMS: {}".format(
+        time.time() - last))
 
     last = time.time()
     edge_boxes = cv.ximgproc.createEdgeBoxes()
-    edge_boxes.setMaxBoxes(50)
+    edge_boxes.setMaxBoxes(20)
     boxes = edge_boxes.getBoundingBoxes(edges, orimap)
     print("Time duration for createing edge boxes: {} seconds".format(
         time.time() - last))
@@ -66,10 +66,10 @@ def test_edgeboxes():
         x, y, w, h = box
         cv.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv.LINE_AA)
 
-    cv.imwrite("./test_pic_edges.png", edges)
+    edges_v = edges * 255.0
+    cv.imwrite("./test_pic_edges.png", edges_v)
     cv.imwrite("./test_pic_bouding_boxes.png", im)
 
 
 if __name__ == "__main__":
-    test_selective_search()
     test_edgeboxes()
