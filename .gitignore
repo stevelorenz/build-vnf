@@ -193,7 +193,14 @@ perf/*.csv
 
 evaluation/one_way_delay/results/
 rsc/
+
+----------------
+-  Large Data  -
+----------------
+
 dataset/
+model/
+app/distributed_rcnn/*.png
 
 ----------
 -  DPDK  -
