@@ -11,3 +11,6 @@ sudo docker pull "jjanzic/docker-python3-opencv:$TEST_CV_TAG"
 
 echo "# Build Tensorflow docker image"
 sudo docker pull tensorflow/tensorflow
+
+echo "# Build Pytorch docker image"
+sudo docker pull pytorch/pytorch

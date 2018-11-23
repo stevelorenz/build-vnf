@@ -201,6 +201,7 @@ rsc/
 dataset/
 model/
 app/distributed_rcnn/*.png
+app/distributed_rcnn/*.csv
 
 ----------
 -  DPDK  -
