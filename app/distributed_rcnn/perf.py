@@ -37,6 +37,7 @@ def main(monitor_time):
 
     print(
         "* Start {} container(s) for edge boxes detection".format(CONTAINER_NUM))
+    container_lst = list()
     container = client.containers.run(
         "jjanzic/docker-python3-opencv:contrib-opencv-3.4.2",
         cpuset_cpus="1",
@@ -50,8 +51,6 @@ def main(monitor_time):
         working_dir="/app/distributed_rcnn/",
         command=TEST_CMD
     )
-
-    ipdb.set_trace()
 
     # Monitor resource usage
     time.sleep(5)
