@@ -23,16 +23,22 @@ About: Region-Proposal Algorithm (RPA)
        communication between DPDK l2fwd and OpenCV RPA. Batch processing MAY be
        added to avoid too much communication and context switch overhead.
 
-Ref   : https://docs.micropython.org/en/latest/reference/speed_python.html#designing-for-speed
+Limitation :
+
+
+
+#designing-for-speed
+Ref   : https://docs.micropython.org/en/latest/reference/speed_python.html
 
 Email : xianglinks@gmail.com
 """
 
 import logging
 import multiprocessing
-import random
 import os
+import random
 import socket
+import struct
 import sys
 import time
 from pathlib import Path
@@ -40,31 +46,64 @@ from pathlib import Path
 import cv2 as cv
 import numpy as np
 
+# WARN: This is the logger for the main process, DO NOT use it in the child
+# processes
 logger = logging.getLogger(__name__)
-
-MODEL_PATH = "../../model/edge_boxes/model.yml.gz"
-TEST_IMAGE_DIR = "../../dataset/pedestrian_car/"
-IMAGE_NUM = 100
 
 
 class RPA_EB(object):
 
     """RPA using Edge Boxes for bounding boxes detection and image compression
 
+    - Metadata:
+        Matadata are proposals extracted from the frame.
+
+        - Format (TBD):
+        1. [x, y, w, h] dtype=uint8, 4bytes: Axises of frame after compression.
+        2. [x, y, w, h] * num_of_bboxes dtype=uint8, 4*num_of_bboxes bytes:
+        Detected bounding boxes.
+
     MARK: The code is written with the consideration of low latency and memory
     usage, namely avoid too much object creation and copying in Python.
     """
 
-    def __init__(self, model_path, shape=(1267, 387, 3),
-                 buf_size=300 * 1024, max_boxes_num=1000, test=False):
+    def __init__(self, model_path, shape, buf_size,
+                 max_boxes_num=1,
+                 keep_order=False):
+        """__init__
 
-        self._test = test
+        :param model_path (str):
+        :param shape (tuple):
+        :param buf_size (int):
+        """
+
+        if keep_order:
+            raise RuntimeError("Keep order is NOT implemented.")
+
+        self._keep_order = keep_order
         self._shape = shape
+        self._frame_size = shape[0] * shape[1] * shape[2] * 4
         self._last = None
+        self._esti_proc_lat = 0.0001
+        self._frame_batch = 1
+        self._max_boxes_num = max_boxes_num
 
-        # Frame buffer
-        self._buf = bytearray(buf_size)
+        self._test = False  # MARK: to be removed, use a dummy io module
+        self._verbose = False
+        self._visualize = False
+
+        self._multi_process = True
+        self._log_total_proc_lat = False
+        self._log_per_frame_lat = False
+        self._output_to_file = False
+
+        # Frame and metadata buffer
+        # TODO: Use the same buffer for metadata and frame data
+        element_size = 4  # Currently assume int32
+        self._metadata_size = 4 * element_size * (max_boxes_num + 1)
+        self._metadata_buf = bytearray(self._metadata_size)
         self._buf_size = buf_size
+        self._buf = bytearray(self._buf_size)
         self._data_len = 0
 
         # Detectors
@@ -73,58 +112,137 @@ class RPA_EB(object):
         self._edge_boxes = cv.ximgproc.createEdgeBoxes()
         self._edge_boxes.setMaxBoxes(max_boxes_num)
 
-    def _proc_frame(self):
-        """Processing the frame with a newly forked process"""
-        frame = np.frombuffer(self._buf, np.uint8)
-        # frame.reshape(self._shape)
+    def _merge_bboxes(self, boxes, frame, method="max_edge"):
+        """Merge bounding boxes
 
-        # Wait until the last exists
-        if self._last:
-            try:
-                # ISSUE: waitpid() only wait for the child processes to terminate
-                # Here requires a child process waiting for another child process.
-                os.waitpid(self._last, 0)
-            except ChildProcessError as e:
-                # The last process has already existed
-                print(e)
-                pass
+        Method:
+            - max_edge: Simplest method
+        """
+        metadata_arr = np.frombuffer(self._metadata_buf, dtype=np.int32)
+        if method == "max_edge":
+            # TODO: To be optimized, working code...
+            metadata_arr[0] = boxes[:, 0].min()
+            metadata_arr[1] = boxes[:, 1].min()
+            metadata_arr[2] = (boxes[:, 0] + boxes[:, 2]
+                               ).max() - metadata_arr[0]
+            metadata_arr[3] = (boxes[:, 1] + boxes[:, 3]
+                               ).max() - metadata_arr[1]
+
+            if self._output_to_file:
+                cv.rectangle(frame, (metadata_arr[0], metadata_arr[1]),
+                             (metadata_arr[0] + metadata_arr[2],
+                              metadata_arr[1] + metadata_arr[3]),
+                             (0, 0, 255), 2, cv.LINE_AA)
         else:
-            logger.debug("This is the first forked process")
+            raise RuntimeError("Unknown BBox merge method!")
+
+        if self._verbose:
+            print(metadata_arr)
+            # TODO: Calculate the compression ratio = Uncompressed / Compressed
+
+    def _proc_frame(self, frame_size):
+        """Processing the frame with a newly forked process"""
+        frame = np.frombuffer(self._buf, count=frame_size, dtype=np.uint8)
+        frame = cv.imdecode(frame, cv.IMREAD_UNCHANGED)
+        frame.reshape(self._shape)
+        if self._shape[-1] == 1:
+            frame = cv.cvtColor(frame, cv.COLOR_GRAY2RGB)
+        elif self._shape[-1] == 3:
+            frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+        # Get bounding boxes
+        edges = self._edge_detector.detectEdges(
+            np.float32(frame) * (1.0 / 255.0))
+        orimap = self._edge_detector.computeOrientation(edges)
+        edges = self._edge_detector.edgesNms(edges, orimap)
+        boxes = self._edge_boxes.getBoundingBoxes(edges, orimap)
+
+        if self._output_to_file:
+            frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
+            cv.imwrite("./{}_a.jpg".format(self._img_ctr), frame)
+
+        # Compress the image based on the bounding boxes
+        self._merge_bboxes(boxes, frame)
+
+        if self._output_to_file:
+            for box in boxes:
+                x, y, w, h = box
+                cv.rectangle(frame, (x, y), (x+w, y+h),
+                             (0, 255, 0), 1, cv.LINE_AA)
+            cv.imwrite("./{}_b.jpg".format(self._img_ctr), frame)
+            self._img_ctr += 1
+
+        if self._keep_order:
+            # Wait until the last process exists
+            if self._last:
+                # try:
+                #     # ISSUE: waitpid() only wait for the child processes to terminate
+                #     # Here requires a child process waiting for another child process.
+                #     os.waitpid(self._last, 0)
+                # except ChildProcessError as e:
+                #     # The last process has already existed
+                #     print(e)
+                #     pass
+                pass
 
         # Output frames
-        os._exit(0)
+        if self._multi_process:
+            os._exit(0)
 
-    def _run_test(self):
+    def _run_test(self, frame_num):
         """Run test with images stored in the local path"""
         print("Run in test mode. Image data is read from {}".format(TEST_IMAGE_DIR))
-        image_lst = list(map(str, list(Path(TEST_IMAGE_DIR).glob("*.png"))))
-        children = list()
-        for p in image_lst[:5]:
+        image_lst = list(map(str, list(Path(TEST_IMAGE_DIR).glob("*.jpg"))))
+        image_lst.sort()
+        for p in image_lst[:frame_num]:
             with open(p, "rb") as data_in:
-                ret = data_in.readinto(self._buf)
-            # last = pid
-            pid = os.fork()
-            if pid < 0:
-                raise RuntimeError("Can not fork new processes!")
-            if pid == 0:
-                # child processes
-                self._proc_frame()
-                # wait last
+                frame_size = data_in.readinto(self._buf)
+
+            if self._multi_process:
+                while True:
+                    try:
+                        pid = os.fork()
+                    except OSError:
+                        # Can not allocate more memory
+                        time.sleep(self._esti_proc_lat)
+                        continue
+                    else:
+                        break
+
+                if pid < 0:
+                    raise RuntimeError("Can not fork new processes!")
+                if pid == 0:
+                    # child processes
+                    self._proc_frame(frame_size)
+                else:
+                    logger.debug("Fork a new child with pid: %d", pid)
+                    self._last = pid
+                    continue
             else:
-                self._last = pid
-                children.append(pid)
-                continue
+                self._proc_frame(frame_size)
 
         # Avoid zombie processes
-        for pid in children:
-            os.waitpid(pid, 0)
+        if self._multi_process:
+            logger.debug("The main process waits until all children terminate.")
+            for _ in range(frame_num):
+                os.waitpid(0, 0)
 
     def _run_usock(self):
+        """Mark"""
         pass
 
-    def run(self):
-        if self._test:
-            self._run_test()
+    def run(self, frame_batch=3, multi_process=True, log_total_proc_lat=False,
+            test=False, frame_num=0, output_to_file=False, verbose=False):
+
+        self._frame_batch = frame_batch
+        self._multi_process = multi_process
+        self._log_total_proc_lat = log_total_proc_lat
+        self._output_to_file = output_to_file
+        self._verbose = verbose
+
+        if test:
+            self._img_ctr = 0
+            self._test = test
+            self._run_test(frame_num)
         else:
             pass
 
@@ -133,21 +251,69 @@ class RPA_EB(object):
 #  Perf Codes  #
 ################
 
+MODEL_PATH = "../../model/edge_boxes/model.yml.gz"
+TEST_IMAGE_DIR = "../../dataset/pedestrian_walking/"
+SHAPE = (432, 320, 3)
+BUF_SIZE = 50000
+FRAME_NUM = 30
+MAX_BOXES_NUM = 5
+
+
+def set_logger_debug():
+    fmt_str = '%(asctime)s %(levelname)-6s %(processName)s %(message)s'
+    logging.basicConfig(level=logging.DEBUG,
+                        handlers=[logging.StreamHandler()],
+                        format=fmt_str)
+
+
+def just_debug():
+    import ipdb
+    rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE, max_boxes_num=MAX_BOXES_NUM)
+    rpa_eb.run(test=True, multi_process=False, frame_num=100,
+               output_to_file=True, verbose=True)
+
 
 def perf_mem():
     """Perf the memory usage of the Python program with memory_profiler"""
     from memory_profiler import profile
+    set_logger_debug()
 
     @profile
-    def test_run():
-        rpa_eb = RPA_EB(MODEL_PATH, test=True)
-        rpa_eb.run()
+    def test_multi_proc():
+        rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
+        rpa_eb.run(test=True)
 
-    test_run()
+    @profile
+    def test_single_proc():
+        rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
+        rpa_eb.run(test=True, multi_process=False)
+
+    print("* Run with single process")
+    test_single_proc()
+    print("* Run with multiple processes")
+    test_multi_proc()
 
 
 def perf_latency():
-    pass
+    """Perf the processing latency"""
+    # set_logger_debug()
+    print("* Run with single process")
+    rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
+    st = time.time()
+    rpa_eb.run(test=True, multi_process=False, frame_num=FRAME_NUM)
+    dur = time.time() - st
+    print("** Latency per frame of single process:{}".format(
+        dur / FRAME_NUM
+    ))
+
+    print("* Run with multiple process")
+    rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
+    st = time.time()
+    rpa_eb.run(test=True, multi_process=True, frame_num=FRAME_NUM)
+    dur = time.time() - st
+    print("** Latency of multiple processes:{}".format(
+        dur / FRAME_NUM
+    ))
 
 
 ################
@@ -155,99 +321,99 @@ def perf_latency():
 ################
 # MARK: Just for learning, to be removed latter
 # Pre-trained model from OpenCV extra
-MODEL_PATH = "../../model/edge_boxes/model.yml.gz"
-ORIG_PIC_PATH = "../../dataset/objects_2011_b/labeldata/pos/I1_2009_12_14_drive_0004_000101.png"
+# MODEL_PATH = "../../model/edge_boxes/model.yml.gz"
+# ORIG_PIC_PATH = "../../dataset/objects_2011_b/labeldata/pos/I1_2009_12_14_drive_0004_000101.png"
 # Image data for pedestrian and cars
-TEST_IMAGE_DIR = "../../dataset/pedestrian_car/"
-IMAGE_NUM = 100
-MAX_BOXES_NUM = 17
-RESULT_FILE_NAME = "rpa_proc_time"
-
-
-def test_edgeboxes():
-    print("* Test edge boxes...")
-    print("WARN: This needs opencv contrib modules")
-    print("** Load pre-trained model for edge boxes")
-    print("The size of the model: {} MB".format(
-        os.path.getsize(MODEL_PATH) / (1024 ** 2)))
-    edge_detector = cv.ximgproc.createStructuredEdgeDetection(MODEL_PATH)
-    edge_boxes = cv.ximgproc.createEdgeBoxes()
-    edge_boxes.setMaxBoxes(MAX_BOXES_NUM)
-
-    image_lst = list(map(str, list(Path(TEST_IMAGE_DIR).glob("*.png"))))
-    proc_time_lst = list()
-    print("** Run edge boxes on {} images in {}".format(IMAGE_NUM,
-                                                        TEST_IMAGE_DIR))
-    st = time.time()
-    for i in range(IMAGE_NUM):
-        im = cv.imread(image_lst[i])
-        im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
-        last = time.time()
-        # Structured Forests generate edges and orientation map
-        edges = edge_detector.detectEdges(np.float32(im) * (1.0 / 255.0))
-        orimap = edge_detector.computeOrientation(edges)
-        # MARK: the results are really sparse ---> lower overhead to the bandwidth
-        edges = edge_detector.edgesNms(edges, orimap)
-        # print("Edges map after NMS: ")
-        # print(edges)
-        # print("Orientation map:")
-        # print(orimap)  # not sparse
-        dur_edge = time.time() - last
-        # print("Time duration for edge detection and NMS: {}".format(dur_edge))
-
-        last = time.time()
-        boxes = edge_boxes.getBoundingBoxes(edges, orimap)
-        dur_boxes = time.time() - last
-        # print("Time duration for creating edge boxes: {} seconds".format(dur_boxes))
-
-        proc_time_lst.append([dur_edge, dur_boxes])
-
-        # Output the last image to have some visualization
-        if i == IMAGE_NUM - 1:
-            total_dur = time.time() - st
-            print("# The total processing delay for {} images is {} seconds".format(
-                IMAGE_NUM, total_dur))
-            cv.imwrite("./test_pic.png", im)
-            for box in boxes:
-                x, y, w, h = box
-                cv.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv.LINE_AA)
-            # TODO: Compress the image for transfer based on proposed edge boxes
-            edges_v = edges * 255.0
-            cv.imwrite("./test_pic_edges.png", edges_v)
-            cv.imwrite("./test_pic_bouding_boxes.png", im)
-
-    # Save results in CSV
-    arr = np.array(proc_time_lst)
-    np.savetxt(RESULT_FILE_NAME + "_{}".format(IMAGE_NUM) +
-               ".csv", arr, fmt="%.18e", delimiter=",")
-
-
-def edge_boxes_loop(fps=1):
-    """Run edge boxes detection in a infinite loop, this is used for
-    computational resource monitoring
-
-    :param fps: Frames per second
-    """
-    edge_detector = cv.ximgproc.createStructuredEdgeDetection(MODEL_PATH)
-    edge_boxes = cv.ximgproc.createEdgeBoxes()
-    edge_boxes.setMaxBoxes(MAX_BOXES_NUM)
-    image_lst = list(map(str, list(Path(TEST_IMAGE_DIR).glob("*.png"))))
-
-    i = 0
-    while True:
-        st = time.time()
-        im = cv.imread(image_lst[i])
-        im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
-        edges = edge_detector.detectEdges(np.float32(im) * (1.0 / 255.0))
-        orimap = edge_detector.computeOrientation(edges)
-        edges = edge_detector.edgesNms(edges, orimap)
-        edge_boxes.getBoundingBoxes(edges, orimap)
-        slp_t = (1.0 / fps) - (time.time() - st)
-        time.sleep(slp_t)
-        # TODO: Compress the image for transfer based on proposed edge boxes
-        i += 1
-        if i == IMAGE_NUM - 1:
-            i = 0
+# TEST_IMAGE_DIR = "../../dataset/pedestrian_car/"
+# IMAGE_NUM = 100
+# MAX_BOXES_NUM = 17
+# RESULT_FILE_NAME = "rpa_proc_time"
+#
+#
+# def test_edgeboxes():
+#    print("* Test edge boxes...")
+#    print("WARN: This needs opencv contrib modules")
+#    print("** Load pre-trained model for edge boxes")
+#    print("The size of the model: {} MB".format(
+#        os.path.getsize(MODEL_PATH) / (1024 ** 2)))
+#    edge_detector = cv.ximgproc.createStructuredEdgeDetection(MODEL_PATH)
+#    edge_boxes = cv.ximgproc.createEdgeBoxes()
+#    edge_boxes.setMaxBoxes(MAX_BOXES_NUM)
+#
+#    image_lst = list(map(str, list(Path(TEST_IMAGE_DIR).glob("*.png"))))
+#    proc_time_lst = list()
+#    print("** Run edge boxes on {} images in {}".format(IMAGE_NUM,
+#                                                        TEST_IMAGE_DIR))
+#    st = time.time()
+#    for i in range(IMAGE_NUM):
+#        im = cv.imread(image_lst[i])
+#        im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
+#        last = time.time()
+#        # Structured Forests generate edges and orientation map
+#        edges = edge_detector.detectEdges(np.float32(im) * (1.0 / 255.0))
+#        orimap = edge_detector.computeOrientation(edges)
+#        # MARK: the results are really sparse ---> lower overhead to the bandwidth
+#        edges = edge_detector.edgesNms(edges, orimap)
+#        # print("Edges map after NMS: ")
+#        # print(edges)
+#        # print("Orientation map:")
+#        # print(orimap)  # not sparse
+#        dur_edge = time.time() - last
+#        # print("Time duration for edge detection and NMS: {}".format(dur_edge))
+#
+#        last = time.time()
+#        boxes = edge_boxes.getBoundingBoxes(edges, orimap)
+#        dur_boxes = time.time() - last
+#        # print("Time duration for creating edge boxes: {} seconds".format(dur_boxes))
+#
+#        proc_time_lst.append([dur_edge, dur_boxes])
+#
+#        # Output the last image to have some visualization
+#        if i == IMAGE_NUM - 1:
+#            total_dur = time.time() - st
+#            print("# The total processing delay for {} images is {} seconds".format(
+#                IMAGE_NUM, total_dur))
+#            cv.imwrite("./test_pic.png", im)
+#            for box in boxes:
+#                x, y, w, h = box
+#                cv.rectangle(im, (x, y), (x+w, y+h), (0, 255, 0), 1, cv.LINE_AA)
+#            # TODO: Compress the image for transfer based on proposed edge boxes
+#            edges_v = edges * 255.0
+#            cv.imwrite("./test_pic_edges.png", edges_v)
+#            cv.imwrite("./test_pic_bouding_boxes.png", im)
+#
+#    # Save results in CSV
+#    arr = np.array(proc_time_lst)
+#    np.savetxt(RESULT_FILE_NAME + "_{}".format(IMAGE_NUM) +
+#               ".csv", arr, fmt="%.18e", delimiter=",")
+#
+#
+# def edge_boxes_loop(fps=1):
+#    """Run edge boxes detection in a infinite loop, this is used for
+#    computational resource monitoring
+#
+#    :param fps: Frames per second
+#    """
+#    edge_detector = cv.ximgproc.createStructuredEdgeDetection(MODEL_PATH)
+#    edge_boxes = cv.ximgproc.createEdgeBoxes()
+#    edge_boxes.setMaxBoxes(MAX_BOXES_NUM)
+#    image_lst = list(map(str, list(Path(TEST_IMAGE_DIR).glob("*.png"))))
+#
+#    i = 0
+#    while True:
+#        st = time.time()
+#        im = cv.imread(image_lst[i])
+#        im = cv.cvtColor(im, cv.COLOR_BGR2RGB)
+#        edges = edge_detector.detectEdges(np.float32(im) * (1.0 / 255.0))
+#        orimap = edge_detector.computeOrientation(edges)
+#        edges = edge_detector.edgesNms(edges, orimap)
+#        edge_boxes.getBoundingBoxes(edges, orimap)
+#        slp_t = (1.0 / fps) - (time.time() - st)
+#        time.sleep(slp_t)
+#        # TODO: Compress the image for transfer based on proposed edge boxes
+#        i += 1
+#        if i == IMAGE_NUM - 1:
+#            i = 0
 
 
 if __name__ == "__main__":
@@ -257,3 +423,9 @@ if __name__ == "__main__":
         if sys.argv[1] == '-m':
             print("Run in memory perf mode")
             perf_mem()
+        elif sys.argv[1] == '-l':
+            print("Run in latency perf mode")
+            perf_latency()
+        elif sys.argv[1] == '-d':
+            print("Run in debug mode")
+            just_debug()
