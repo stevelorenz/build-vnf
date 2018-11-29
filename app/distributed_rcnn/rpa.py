@@ -112,6 +112,14 @@ class RPA_EB(object):
         self._edge_boxes = cv.ximgproc.createEdgeBoxes()
         self._edge_boxes.setMaxBoxes(max_boxes_num)
 
+    def _check_prop(self):
+        """Check properties to avoid conflicts"""
+        if self._output_to_file and self._multi_process:
+            raise RuntimeError(
+                "Multiprocessing mode do not support writing to file!")
+        if self._multi_process and self._verbose:
+            raise RuntimeError("Multiprocessing mode do not support verbose!")
+
     def _merge_bboxes(self, boxes, frame, method="max_edge"):
         """Merge bounding boxes
 
@@ -232,12 +240,13 @@ class RPA_EB(object):
 
     def run(self, frame_batch=3, multi_process=True, log_total_proc_lat=False,
             test=False, frame_num=0, output_to_file=False, verbose=False):
-
         self._frame_batch = frame_batch
         self._multi_process = multi_process
         self._log_total_proc_lat = log_total_proc_lat
         self._output_to_file = output_to_file
         self._verbose = verbose
+
+        self._check_prop()
 
         if test:
             self._img_ctr = 0
@@ -255,11 +264,12 @@ MODEL_PATH = "../../model/edge_boxes/model.yml.gz"
 TEST_IMAGE_DIR = "../../dataset/pedestrian_walking/"
 SHAPE = (432, 320, 3)
 BUF_SIZE = 50000
-FRAME_NUM = 30
+FRAME_NUM = 17
 MAX_BOXES_NUM = 5
 
 
 def set_logger_debug():
+
     fmt_str = '%(asctime)s %(levelname)-6s %(processName)s %(message)s'
     logging.basicConfig(level=logging.DEBUG,
                         handlers=[logging.StreamHandler()],
@@ -267,31 +277,30 @@ def set_logger_debug():
 
 
 def just_debug():
+    """Just make it work"""
     import ipdb
     rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE, max_boxes_num=MAX_BOXES_NUM)
     rpa_eb.run(test=True, multi_process=False, frame_num=100,
                output_to_file=True, verbose=True)
 
 
-def perf_mem():
+# Try to make it work better...
+
+def perf_memory():
     """Perf the memory usage of the Python program with memory_profiler"""
     from memory_profiler import profile
     set_logger_debug()
 
-    @profile
-    def test_multi_proc():
-        rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
-        rpa_eb.run(test=True)
+    rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
 
-    @profile
+    # Add decorators for potentially memory eating methods
+    rpa_eb._run_test = profile(rpa_eb._run_test)
+    rpa_eb._proc_frame = profile(rpa_eb._proc_frame)
+
     def test_single_proc():
-        rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
-        rpa_eb.run(test=True, multi_process=False)
+        rpa_eb.run(test=True, multi_process=False, frame_num=1)
 
-    print("* Run with single process")
     test_single_proc()
-    print("* Run with multiple processes")
-    test_multi_proc()
 
 
 def perf_latency():
@@ -322,7 +331,7 @@ if __name__ == "__main__":
     else:
         if sys.argv[1] == '-m':
             print("Run in memory perf mode")
-            perf_mem()
+            perf_memory()
         elif sys.argv[1] == '-l':
             print("Run in latency perf mode")
             perf_latency()
