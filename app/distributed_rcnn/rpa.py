@@ -82,11 +82,10 @@ class RPA_EB(object):
 
         self._keep_order = keep_order
         self._shape = shape
-        self._frame_size = shape[0] * shape[1] * shape[2] * 4
         self._last = None
         self._esti_proc_lat = 0.0001
         self._frame_batch = 1
-        self._max_boxes_num = max_boxes_num
+        self._max_boxes_num = max_boxes_num  # Maybe make it adaptive latter
 
         self._test = False  # MARK: to be removed, use a dummy io module
         self._verbose = False
@@ -99,18 +98,20 @@ class RPA_EB(object):
 
         # Frame and metadata buffer
         # TODO: Use the same buffer for metadata and frame data
-        element_size = 4  # Currently assume int32
-        self._metadata_size = 4 * element_size * (max_boxes_num + 1)
+        # OpenCV default uses int32 for edgeboxes
+        self._metadata_size = 4 * 4 * (max_boxes_num + 1)
         self._metadata_buf = bytearray(self._metadata_size)
         self._buf_size = buf_size
         self._buf = bytearray(self._buf_size)
-        self._data_len = 0
+
+        self._encoded_buf = bytearray(10)
+        self._decoded_buf = np.zeros((1, 1, 1))
 
         # Detectors
         self._edge_detector = cv.ximgproc.createStructuredEdgeDetection(
             model_path)
         self._edge_boxes = cv.ximgproc.createEdgeBoxes()
-        self._edge_boxes.setMaxBoxes(max_boxes_num)
+        self._edge_boxes.setMaxBoxes(self._max_boxes_num)
 
     def _check_prop(self):
         """Check properties to avoid conflicts"""
@@ -135,14 +136,16 @@ class RPA_EB(object):
                                ).max() - metadata_arr[0]
             metadata_arr[3] = (boxes[:, 1] + boxes[:, 3]
                                ).max() - metadata_arr[1]
-
-            if self._output_to_file:
-                cv.rectangle(frame, (metadata_arr[0], metadata_arr[1]),
-                             (metadata_arr[0] + metadata_arr[2],
-                              metadata_arr[1] + metadata_arr[3]),
-                             (0, 0, 255), 2, cv.LINE_AA)
+        elif method == "nms":
+            pass
         else:
             raise RuntimeError("Unknown BBox merge method!")
+
+        if self._output_to_file:
+            cv.rectangle(frame, (metadata_arr[0], metadata_arr[1]),
+                         (metadata_arr[0] + metadata_arr[2],
+                             metadata_arr[1] + metadata_arr[3]),
+                         (0, 0, 255), 2, cv.LINE_AA)
 
         if self._verbose:
             print(metadata_arr)
@@ -152,7 +155,7 @@ class RPA_EB(object):
         """Processing the frame with a newly forked process"""
         frame = np.frombuffer(self._buf, count=frame_size, dtype=np.uint8)
         frame = cv.imdecode(frame, cv.IMREAD_UNCHANGED)
-        frame.reshape(self._shape)
+        frame.resize(self._shape)
         if self._shape[-1] == 1:
             frame = cv.cvtColor(frame, cv.COLOR_GRAY2RGB)
         elif self._shape[-1] == 3:
@@ -286,9 +289,10 @@ def just_debug():
 
 # Try to make it work better...
 
-def perf_memory():
-    """Perf the memory usage of the Python program with memory_profiler"""
+def profile_memory():
+    """Profile the memory usage of the Python program with memory_profiler"""
     from memory_profiler import profile
+    from memory_profiler import memory_usage
     set_logger_debug()
 
     rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
@@ -296,20 +300,25 @@ def perf_memory():
     # Add decorators for potentially memory eating methods
     rpa_eb._run_test = profile(rpa_eb._run_test)
     rpa_eb._proc_frame = profile(rpa_eb._proc_frame)
+    rpa_eb._merge_bboxes = profile(rpa_eb._merge_bboxes)
 
     def test_single_proc():
         rpa_eb.run(test=True, multi_process=False, frame_num=1)
 
     test_single_proc()
+    print("Total memory usage: {} MiB".format(memory_usage()[0]))
 
 
-def perf_latency():
-    """Perf the processing latency"""
-    # set_logger_debug()
+def profile_latency():
+    import cProfile
+    cp = cProfile.Profile()
+
     print("* Run with single process")
     rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
     st = time.time()
+    cp.enable()
     rpa_eb.run(test=True, multi_process=False, frame_num=FRAME_NUM)
+    cp.disable()
     dur = time.time() - st
     print("** Latency per frame of single process:{}".format(
         dur / FRAME_NUM
@@ -324,17 +333,19 @@ def perf_latency():
         dur / FRAME_NUM
     ))
 
+    cp.print_stats(sort="time")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Error, specify the option!")
     else:
         if sys.argv[1] == '-m':
-            print("Run in memory perf mode")
-            perf_memory()
+            print("Run in memory profiling mode")
+            profile_memory()
         elif sys.argv[1] == '-l':
-            print("Run in latency perf mode")
-            perf_latency()
+            print("Run in latency profiling mode")
+            profile_latency()
         elif sys.argv[1] == '-d':
-            print("Run in debug mode")
+            print("Run in debugging mode")
             just_debug()
