@@ -165,7 +165,7 @@ Vagrant.configure("2") do |config|
 
   # --- VM for BCC development ---
   config.vm.define "bcc" do |bcc|
-    bcc.vm.box = UBUNTU_LTS
+    bcc.vm.box = UBUNTU_LTS_LATEST
     bcc.vm.hostname = "bcc"
 
     # MARK: Virtio supports XDP with Kernel version after 4.10
