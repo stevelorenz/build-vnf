@@ -4,7 +4,7 @@
 # Assume the darknet source is already compiled and located in \root\darknet
 #
 
-DEBUG=0
+DEBUG=1
 
 VPATH=./
 EXEC=yolo_v2_pp.out
@@ -14,7 +14,8 @@ SRC=yolo_v2_pp.c
 CC=gcc
 CFLAGS=-Wall -I/root/darknet/include
 CFLAGS+=-I$(RTE_SDK)/$(RTE_TARGET)/include
-LDFLAGS= -L/root/darknet/ -ldarknet
+LDFLAGS =
+LDFLAGS+= -L/root/darknet/ -ldarknet
 LDFLAGS+= -L${RTE_SDK}/${RTE_TARGET}/lib -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lpthread -lm -lnuma -ldl
 
 OPTS=-Ofast
