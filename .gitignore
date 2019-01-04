@@ -203,6 +203,9 @@ model/
 app/distributed_rcnn/*.png
 app/distributed_rcnn/*.jpg
 app/distributed_rcnn/*.csv
+app/yolo/*.jpg
+app/yolo/*.png
+app/yolo/*.csv
 
 ----------
 -  DPDK  -
