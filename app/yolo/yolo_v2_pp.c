@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <rte_bus.h>
 #include <rte_common.h>
@@ -28,6 +29,8 @@
 #include <rte_per_lcore.h>
 
 #include <darknet.h>
+
+#define MAX_FILENAME_SIZE 50
 
 /*****************
  *  Linked List  *
@@ -73,14 +76,19 @@ void ll_cleanup()
         }
 }
 
-void save_delay_csv(int img_idx, double* arr, int n, char* path)
+void save_delay_csv(
+    int img_idx, int* type_arr, double* delay_arr, int n, char* path)
 {
         size_t i;
         FILE* fd;
 
         fd = fopen(path, "a+");
+        if (fd == NULL) {
+                perror("Can not open the CSV file!");
+        }
         for (i = 0; i < n; ++i) {
-                fprintf(fd, "%d,%lu,%f\n", img_idx, i, arr[i]);
+                fprintf(fd, "%d,%lu,%d,%f\n", img_idx, i, type_arr[i],
+                    delay_arr[i]);
         }
         fclose(fd);
 }
@@ -88,34 +96,49 @@ void save_delay_csv(int img_idx, double* arr, int n, char* path)
 /**
  * @brief Test YOLO v2
  */
-void perf_delay_layerwise(int save_output)
+void perf_delay_layerwise(
+    char* model, int image_st, unsigned int image_num, unsigned int save_output)
 {
         uint64_t last_tsc;
         double delay; // Delay in milliseconds
         size_t i;
         size_t img_idx;
+        char* datacfg;
+        char* cfgfile;
+        char* weightfile;
+        char input_file[MAX_FILENAME_SIZE];
+        char output_file[MAX_FILENAME_SIZE];
 
-        /*MARK: For YOLO Tiny model*/
-        char* datacfg = "/root/darknet/cfg/voc.data";
-        char* cfgfile = "/root/darknet/cfg/yolov2-tiny-voc.cfg";
-        char* weightfile = "/root/darknet/yolov2-tiny-voc.weights";
+        float nms = 0.45;
 
-        /*char* datacfg = "/root/darknet/cfg/coco.data";*/
-        /*char* cfgfile = "/root/darknet/cfg/yolov2.cfg";*/
-        /*char* weightfile = "/root/darknet/yolov2.weights";*/
+        if (strcmp(model, "yolov2-tiny") == 0) {
+                datacfg = "/root/darknet/cfg/voc.data";
+                cfgfile = "/root/darknet/cfg/yolov2-tiny-voc.cfg";
+                weightfile = "/root/darknet/yolov2-tiny-voc.weights";
+        } else if (strcmp(model, "yolov2") == 0) {
+                datacfg = "/root/darknet/cfg/coco.data";
+                cfgfile = "/root/darknet/cfg/yolov2.cfg";
+                weightfile = "/root/darknet/yolov2.weights";
+        } else {
+                fprintf(stderr, "Unknown model name.\n");
+                exit(1);
+        }
 
         list* options = read_data_cfg(datacfg);
         char* name_list = option_find_str(options, "names", "data/names.list");
         char** names = get_labels(name_list);
         image** alphabet = load_alphabet();
 
-        last_tsc = rte_get_tsc_cycles();
         network* net = load_network(cfgfile, weightfile, 0);
+        last_tsc = rte_get_tsc_cycles();
         delay = (1.0 / rte_get_timer_hz()) * 1000.0
             * (rte_get_tsc_cycles() - last_tsc);
         ll_insert_delay("load_network", delay);
 
-        FILE* net_info = fopen("./net_info.log", "w+");
+        snprintf(
+            output_file, MAX_FILENAME_SIZE, "%s_%s.csv", "net_info", model);
+        FILE* net_info = fopen(output_file, "w+");
+
         for (i = 0; i < net->n; ++i) {
                 layer l = net->layers[i];
                 fprintf(net_info, "%lu, %u,%d,%d\n", i, l.type, l.inputs,
@@ -126,21 +149,13 @@ void perf_delay_layerwise(int save_output)
         set_batch_network(net, 1);
         srand(time(0));
 
-        char buff[256];
-        char* input = buff;
-        char* output = buff;
-
-        float nms = 0.45;
         double layer_delay_arr[net->n];
-        uint16_t image_num = 116;
-        uint16_t image_st = 19;
-        /*char* output_fn = NULL;*/
-
-        for (img_idx = image_st; img_idx < image_num; ++img_idx) {
+        int layer_type_arr[net->n];
+        for (img_idx = image_st; img_idx < image_st + image_num; ++img_idx) {
                 printf("Current image index: %lu\n", img_idx);
-                sprintf(
-                    input, "../../dataset/pedestrian_walking/%lu.jpg", img_idx);
-                image im = load_image_color(input, 0, 0);
+                sprintf(input_file, "../../dataset/pedestrian_walking/%lu.jpg",
+                    img_idx);
+                image im = load_image_color(input_file, 0, 0);
                 image sized = letterbox_image(im, net->w, net->h);
 
                 layer l = net->layers[net->n - 1];
@@ -164,10 +179,13 @@ void perf_delay_layerwise(int save_output)
                         delay = (1.0 / rte_get_timer_hz()) * 1000.0
                             * (rte_get_tsc_cycles() - last_tsc);
                         layer_delay_arr[i] = delay;
+                        layer_type_arr[i] = l.type;
                         net_cur.input = l.output;
                 }
-                save_delay_csv(
-                    img_idx, layer_delay_arr, net->n, "./per_layer_delay.csv");
+                snprintf(output_file, MAX_FILENAME_SIZE, "%s_%s.csv",
+                    "per_layer_delay", model);
+                save_delay_csv(img_idx, layer_type_arr, layer_delay_arr, net->n,
+                    output_file);
                 *net = orig;
 
                 if (unlikely(save_output == 1)) {
@@ -178,13 +196,19 @@ void perf_delay_layerwise(int save_output)
                         draw_detections(
                             im, dets, nboxes, 0.5, names, alphabet, l.classes);
                         free_detections(dets, nboxes);
-                        sprintf(output, "%lu", img_idx);
-                        save_image(im, output);
+                        snprintf(output_file, MAX_FILENAME_SIZE, "%lu_%s",
+                            img_idx, model);
+                        save_image(im, output_file);
                 }
         }
 
         ll_print_delay();
 }
+
+/**
+ * @brief Test YOLO v2 preprocessing delay
+ */
+void perf_yolov2_pp() {}
 
 /**
  * @brief main
@@ -194,11 +218,42 @@ void perf_delay_layerwise(int save_output)
 int main(int argc, char* argv[])
 {
         int ret;
+        int opt;
+        int test_mode = 0;
+        int image_st = 0;
+        int image_num = 0;
+        int save_output = 0;
+
         printf("Test YOLO v2 !\n");
         ret = rte_eal_init(argc, argv);
         if (ret < 0) {
                 rte_exit(EXIT_FAILURE, "Invalid EAL arguments.\n");
         }
+        /*Parse additional args*/
+        while ((opt = getopt(argc, argv, "os:m:n:")) != -1) {
+                switch (opt) {
+                case 'm':
+                        test_mode = atoi(optarg);
+                        break;
+                case 'o':
+                        printf("Save output images into current directory.\n");
+                        save_output = 1;
+                        break;
+                case 's':
+                        image_st = atoi(optarg);
+                        break;
+                case 'n':
+                        image_num = atoi(optarg);
+                        break;
+                default:
+                        break;
+                }
+        }
+        if (image_num == 0) {
+                fprintf(stderr, "Invalid image number!\n");
+        }
+        printf(
+            "The image start index:%d, image number:%d\n", image_st, image_num);
 
         uint64_t freq;
         freq = rte_get_tsc_hz();
@@ -206,10 +261,17 @@ int main(int argc, char* argv[])
 
         fclose(stderr);
         stderr = fopen("./stderr_log.log", "a+");
-        perf_delay_layerwise(1);
+
+        if (test_mode == 0) {
+                printf("Run layerwise delay evaluation of yolov2 and "
+                       "yolov2-tiny.\n");
+                perf_delay_layerwise(
+                    "yolov2", image_st, image_num, save_output);
+                perf_delay_layerwise(
+                    "yolov2-tiny", image_st, image_num, save_output);
+        }
 
         ll_cleanup();
-
         printf("Program exits.\n");
         return 0;
 }

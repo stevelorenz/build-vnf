@@ -123,8 +123,10 @@ Vagrant.configure("2") do |config|
     trafficgen.vm.box = UBUNTU_LTS
     trafficgen.vm.hostname = "trafficgen"
 
-    trafficgen.vm.network "private_network", ip: "10.0.0.13", mac: "0800271e2db3"
-    trafficgen.vm.network "private_network", ip: "10.0.0.14", mac: "080027e1f17d"
+    trafficgen.vm.network "private_network", ip: "10.0.0.13", mac: "0800271e2db3",
+      nic_type: "82540EM"
+    trafficgen.vm.network "private_network", ip: "10.0.0.14", mac: "080027e1f17d",
+      nic_type: "82540EM"
     trafficgen.vm.provision :shell, inline: $bootstrap_apt
 
     trafficgen.vm.provider "virtualbox" do |vb|
@@ -134,8 +136,9 @@ Vagrant.configure("2") do |config|
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
-      vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
+
+      # vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
+      # vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
     end
   end
 

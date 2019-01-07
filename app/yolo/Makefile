@@ -4,7 +4,8 @@
 # Assume the darknet source is already compiled and located in \root\darknet
 #
 
-DEBUG=1
+# Use make DBUG=1 to enable debug mode
+DEBUG=0
 
 VPATH=./
 EXEC=yolo_v2_pp.out
@@ -18,9 +19,9 @@ LDFLAGS =
 LDFLAGS+= -L/root/darknet/ -ldarknet
 LDFLAGS+= -L${RTE_SDK}/${RTE_TARGET}/lib -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lpthread -lm -lnuma -ldl
 
-OPTS=-Ofast
+OPTS=-O3
 ifeq ($(DEBUG), 1)
-	OPTS=-O0 -g
+	OPTS=-O0 -g -DDBUG
 endif
 
 CFLAGS+=$(OPTS)
