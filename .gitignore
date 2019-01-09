@@ -206,6 +206,7 @@ app/distributed_rcnn/*.csv
 app/yolo/*.jpg
 app/yolo/*.png
 app/yolo/*.csv
+app/yolo/*.bin
 
 ----------
 -  DPDK  -

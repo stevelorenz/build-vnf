@@ -94,10 +94,16 @@ void save_delay_csv(
 }
 
 /**
- * @brief Test YOLO v2
+ * @brief Test YOLO v2 model
+ *
+ * @param model
+ * @param image_st
+ * @param image_num
+ * @param save_output
+ * @param layer1_io_file:
  */
-void perf_delay_layerwise(
-    char* model, int image_st, unsigned int image_num, unsigned int save_output)
+void perf_delay_layerwise(char* model, int image_st, unsigned int image_num,
+    unsigned int save_output, unsigned int layer1_io_file)
 {
         uint64_t last_tsc;
         double delay; // Delay in milliseconds
@@ -159,7 +165,6 @@ void perf_delay_layerwise(
                 image sized = letterbox_image(im, net->w, net->h);
 
                 layer l = net->layers[net->n - 1];
-
                 float* X = sized.data;
                 last_tsc = rte_get_tsc_cycles();
 
@@ -169,19 +174,42 @@ void perf_delay_layerwise(
                 net->train = 0;
                 net->delta = 0;
 
+                if (layer1_io_file) {
+                        printf("[TEST] The IO data of the first layer is "
+                               "stored in files.\n");
+                }
+
                 /* MARK: Iterate over layers in the network */
                 network net_cur = *net;
+                FILE* io_fd = NULL;
+
                 for (i = 0; i < net_cur.n; ++i) {
                         net_cur.index = i;
                         layer l = net_cur.layers[i];
                         last_tsc = rte_get_tsc_cycles();
                         l.forward(l, net_cur);
+                        if (i == 1 && layer1_io_file == 1) {
+                                snprintf(output_file, MAX_FILENAME_SIZE,
+                                    "layer1_%s_input.bin", model);
+                                io_fd = fopen(output_file, "w+");
+                                fwrite(net_cur.input, 1, l.inputs, io_fd);
+                                fclose(io_fd);
+                        }
                         delay = (1.0 / rte_get_timer_hz()) * 1000.0
                             * (rte_get_tsc_cycles() - last_tsc);
                         layer_delay_arr[i] = delay;
                         layer_type_arr[i] = l.type;
                         net_cur.input = l.output;
+
+                        if (i == 1 && layer1_io_file == 1) {
+                                snprintf(output_file, MAX_FILENAME_SIZE,
+                                    "layer1_%s_output.bin", model);
+                                io_fd = fopen(output_file, "w+");
+                                fwrite(l.output, 1, l.outputs, io_fd);
+                                fclose(io_fd);
+                        }
                 }
+
                 snprintf(output_file, MAX_FILENAME_SIZE, "%s_%s.csv",
                     "per_layer_delay", model);
                 save_delay_csv(img_idx, layer_type_arr, layer_delay_arr, net->n,
@@ -207,13 +235,60 @@ void perf_delay_layerwise(
 
 /**
  * @brief Test YOLO v2 preprocessing delay
+ * Only run layers including conv1, pool1, conv2 and pool2
  */
-void perf_yolov2_pp() {}
+void perf_yolov2_pp(
+    int image_st, unsigned int image_num, unsigned int save_output)
+{
+        uint64_t last_tsc;
+        size_t img_idx = 0;
+        double delay;
+        char* cfgfile = "/app/yolo/cfg/yolov2_pp.cfg";
+        char* weightfile = "/root/darknet/yolov2.weights";
+        char input_file[MAX_FILENAME_SIZE];
+        char output_file[MAX_FILENAME_SIZE];
+        double delay_arr[200];
+        size_t delay_idx = 0;
+
+        network* net = load_network(cfgfile, weightfile, 0);
+
+        set_batch_network(net, 1);
+        srand(time(0));
+
+        for (img_idx = image_st; img_idx < image_st + image_num; ++img_idx) {
+                snprintf(input_file, MAX_FILENAME_SIZE,
+                    "../../dataset/pedestrian_walking/%lu.jpg", img_idx);
+                image im = load_image_color(input_file, 0, 0);
+
+                last_tsc = rte_get_tsc_cycles();
+                image sized = letterbox_image(im, net->w, net->h);
+                network_predict(net, sized.data);
+                delay = (1.0 / rte_get_timer_hz()) * 1000.0
+                    * (rte_get_tsc_cycles() - last_tsc);
+                delay_arr[delay_idx] = delay;
+                delay_idx += 1;
+                if (save_output == 1) {
+                        layer l = net->layers[net->n - 1];
+                        snprintf(output_file, MAX_FILENAME_SIZE,
+                            "./%lu_output.bin", img_idx);
+                        FILE* fd = fopen(output_file, "a+");
+                        fwrite(l.output, 1, l.outputs, fd);
+                        fclose(fd);
+                }
+        }
+        snprintf(output_file, MAX_FILENAME_SIZE, "./%d_yolo_v2_pp_delay.csv",
+            getpid());
+        FILE* fd = fopen(output_file, "w+");
+        for (delay_idx = 0; delay_idx < image_num; ++delay_idx) {
+                fprintf(fd, "%f\n", delay_arr[delay_idx]);
+        }
+        fclose(fd);
+}
 
 /**
  * @brief main
- *        DPDK libraries is used HERE for CPU cycles counting and runtime
- *        monitoring, not used for packet IO.
+ *        DPDK libraries is used HERE for CPU cycles counting and
+ * runtime monitoring, not used for packet IO.
  */
 int main(int argc, char* argv[])
 {
@@ -236,7 +311,8 @@ int main(int argc, char* argv[])
                         test_mode = atoi(optarg);
                         break;
                 case 'o':
-                        printf("Save output images into current directory.\n");
+                        printf("Save output images into current "
+                               "directory.\n");
                         save_output = 1;
                         break;
                 case 's':
@@ -266,9 +342,13 @@ int main(int argc, char* argv[])
                 printf("Run layerwise delay evaluation of yolov2 and "
                        "yolov2-tiny.\n");
                 perf_delay_layerwise(
-                    "yolov2", image_st, image_num, save_output);
+                    "yolov2", image_st, image_num, save_output, 0);
                 perf_delay_layerwise(
-                    "yolov2-tiny", image_st, image_num, save_output);
+                    "yolov2-tiny", image_st, image_num, save_output, 0);
+        }
+        if (test_mode == 1) {
+                printf("Run YOLO pre-processing test.\n");
+                perf_yolov2_pp(image_st, image_num, save_output);
         }
 
         ll_cleanup();
