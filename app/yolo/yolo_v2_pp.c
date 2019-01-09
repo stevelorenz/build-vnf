@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -233,13 +234,30 @@ void perf_delay_layerwise(char* model, int image_st, unsigned int image_num,
         ll_print_delay();
 }
 
+__attribute__((always_inline)) void infer_frame(
+    size_t img_idx, image* frame, network* net, unsigned int save_output)
+{
+        char output_file[MAX_FILENAME_SIZE];
+        image sized = letterbox_image(*frame, net->w, net->h);
+        network_predict(net, sized.data);
+        if (save_output == 1) {
+                layer l = net->layers[net->n - 1];
+                snprintf(output_file, MAX_FILENAME_SIZE, "./%lu_output.bin",
+                    img_idx);
+                FILE* fd = fopen(output_file, "a+");
+                fwrite(l.output, 1, l.outputs, fd);
+                fclose(fd);
+        }
+}
+
 /**
  * @brief Test YOLO v2 preprocessing delay
  * Only run layers including conv1, pool1, conv2 and pool2
  */
-void perf_yolov2_pp(
-    int image_st, unsigned int image_num, unsigned int save_output)
+void perf_yolov2_pp(int image_st, unsigned int image_num,
+    unsigned int save_output, unsigned int keep_run, char* csv_prefix)
 {
+        uint64_t begin_tsc;
         uint64_t last_tsc;
         size_t img_idx = 0;
         double delay;
@@ -255,33 +273,34 @@ void perf_yolov2_pp(
         set_batch_network(net, 1);
         srand(time(0));
 
+        begin_tsc = rte_get_tsc_cycles();
         for (img_idx = image_st; img_idx < image_st + image_num; ++img_idx) {
                 snprintf(input_file, MAX_FILENAME_SIZE,
                     "../../dataset/pedestrian_walking/%lu.jpg", img_idx);
                 image im = load_image_color(input_file, 0, 0);
 
                 last_tsc = rte_get_tsc_cycles();
-                image sized = letterbox_image(im, net->w, net->h);
-                network_predict(net, sized.data);
+                infer_frame(img_idx, &im, net, save_output);
                 delay = (1.0 / rte_get_timer_hz()) * 1000.0
                     * (rte_get_tsc_cycles() - last_tsc);
                 delay_arr[delay_idx] = delay;
                 delay_idx += 1;
-                if (save_output == 1) {
-                        layer l = net->layers[net->n - 1];
-                        snprintf(output_file, MAX_FILENAME_SIZE,
-                            "./%lu_output.bin", img_idx);
-                        FILE* fd = fopen(output_file, "a+");
-                        fwrite(l.output, 1, l.outputs, fd);
-                        fclose(fd);
+
+                if (keep_run == 1 && img_idx == (image_st + image_num - 1)) {
+                        img_idx = image_st;
                 }
         }
-        snprintf(output_file, MAX_FILENAME_SIZE, "./%d_yolo_v2_pp_delay.csv",
-            getpid());
+
+        delay = (1.0 / rte_get_timer_hz()) * 1000.0
+            * (rte_get_tsc_cycles() - begin_tsc);
+
+        snprintf(output_file, MAX_FILENAME_SIZE, "./%s_%d_yolo_v2_pp_delay.csv",
+            csv_prefix, getpid());
         FILE* fd = fopen(output_file, "w+");
         for (delay_idx = 0; delay_idx < image_num; ++delay_idx) {
                 fprintf(fd, "%f\n", delay_arr[delay_idx]);
         }
+        fprintf(fd, "total:%f\n", delay);
         fclose(fd);
 }
 
@@ -298,6 +317,8 @@ int main(int argc, char* argv[])
         int image_st = 0;
         int image_num = 0;
         int save_output = 0;
+        int keep_run = 0;
+        char csv_prefix[10] = "";
 
         printf("Test YOLO v2 !\n");
         ret = rte_eal_init(argc, argv);
@@ -305,7 +326,7 @@ int main(int argc, char* argv[])
                 rte_exit(EXIT_FAILURE, "Invalid EAL arguments.\n");
         }
         /*Parse additional args*/
-        while ((opt = getopt(argc, argv, "os:m:n:")) != -1) {
+        while ((opt = getopt(argc, argv, "kos:m:n:p:")) != -1) {
                 switch (opt) {
                 case 'm':
                         test_mode = atoi(optarg);
@@ -315,11 +336,18 @@ int main(int argc, char* argv[])
                                "directory.\n");
                         save_output = 1;
                         break;
+                case 'k':
+                        printf("Keep running. Loop over given input images.\n");
+                        keep_run = 1;
+                        break;
                 case 's':
                         image_st = atoi(optarg);
                         break;
                 case 'n':
                         image_num = atoi(optarg);
+                        break;
+                case 'p':
+                        strncpy(csv_prefix, optarg, 10);
                         break;
                 default:
                         break;
@@ -348,7 +376,8 @@ int main(int argc, char* argv[])
         }
         if (test_mode == 1) {
                 printf("Run YOLO pre-processing test.\n");
-                perf_yolov2_pp(image_st, image_num, save_output);
+                perf_yolov2_pp(
+                    image_st, image_num, save_output, keep_run, csv_prefix);
         }
 
         ll_cleanup();

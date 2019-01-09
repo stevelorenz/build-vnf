@@ -5,19 +5,34 @@
 
 import csv
 import time
+import sys
 
 import docker
 
 """
-About: Evaluate the scalability of the pre-processing VNF
+About: Evaluate the YOLOv2 pre-processing. E.g. Scalability and parallel compute
+Email: xianglinks@gmail.com
 """
 
-IMAGE_ST = 0
-IMAGE_NUM = 50
 
-TEST_CMD = "./yolo_v2_pp.out -- -m 1 -s 0 -n %d" % (IMAGE_NUM)
-MONITOR_TIME = 2 * IMAGE_NUM  # seconds
-CONTAINER_NUM = 1  # TODO: Use two containers, with CPU set 1, 2
+# MONITOR_TIME = 2 * IMAGE_NUM  # seconds
+# CONTAINER_NUM = 1  # TODO: Use two containers, with CPU set 1, 2
+
+
+VOLUMES = {
+    "/vagrant/dataset": {"bind": "/dataset", "mode": "rw"},
+    "/vagrant/model": {"bind": "/model", "mode": "rw"},
+    "/vagrant/app": {"bind": "/app", "mode": "rw"}
+}
+for v in ["/sys/bus/pci/drivers", "/sys/kernel/mm/hugepages",
+          "/sys/devices/system/node", "/dev"]:
+    VOLUMES[v] = {"bind": v, "mode": "rw"}
+
+# Depends on the available cores (physical cores when Hyperthreading is disabled)
+# MARK:
+MAX_COTAINER_NUM = 2
+IMAGE_ST = 0
+IMAGE_NUM = 5
 
 
 def calculate_cpu_percent(d):
@@ -33,7 +48,36 @@ def calculate_cpu_percent(d):
     return cpu_percent
 
 
-def main(monitor_time):
+def mon_delay():
+    """Monitor the processing delay"""
+    client = docker.from_env()
+    print("[MON] Monitor the processing delay")
+    for i in range(MAX_COTAINER_NUM):
+        print("Run %d container" % (i+1))
+        for j in range(i+1):
+            cmd = "./yolo_v2_pp.out -- -m 1 -s %d -n %d -p %s_%s" % (
+                IMAGE_ST, IMAGE_NUM, i, j)
+            c = client.containers.run(
+                "darknet",
+                privileged=True,
+                cpuset_cpus=str(j),
+                mem_limit="1024m",  # TODO: Reduce memory limit
+                volumes=VOLUMES,
+                detach=True,
+                working_dir="/app/yolo/",
+                command=cmd
+            )
+        # Wait for all running containers to exist
+        while True:
+            if client.containers.list():
+                time.sleep(3)
+            else:
+                break
+        print("# All running container terminated")
+
+
+def mon_resource(monitor_time):
+    """TODO"""
     client = docker.from_env()
 
     print(
@@ -50,7 +94,7 @@ def main(monitor_time):
     container = client.containers.run(
         "darknet",
         privileged=True,
-        cpuset_cpus="1",
+        cpuset_cpus="0",
         mem_limit="1024G",
         volumes=volumes,
         detach=True,
@@ -87,4 +131,4 @@ def main(monitor_time):
 
 
 if __name__ == "__main__":
-    main(MONITOR_TIME)
+    mon_delay()

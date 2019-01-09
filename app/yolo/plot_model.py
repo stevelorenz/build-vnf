@@ -155,8 +155,8 @@ def plot_shared_x():
     for m in MODELS:
         fig, ax_arr = plt.subplots(2, sharex=True)
 
-        ax_arr[0].set_ylabel("Output Size (Bytes)")
-        ax_arr[1].set_ylabel("Inference Latency (ms)")
+        ax_arr[0].set_ylabel("Output Size (Bytes)", fontsize=5)
+        ax_arr[1].set_ylabel("Inference Latency (ms)", fontsize=5)
 
         x, x_labels, out_s = plot_io_sizes(m, just_return=True)
         ax_arr[0].bar(x, out_s, BAR_WIDTH, color='blue', lw=0.6,
@@ -168,10 +168,11 @@ def plot_shared_x():
 
         ax_arr[1].set_xticks(x)
         ax_arr[1].set_xticklabels(x_labels, rotation="vertical")
+        fig.align_ylabels(ax_arr)
         tex.save_fig(fig, "./combined_%s" % m, fmt="png")
 
 
-for m in MODELS:
-    plot_io_sizes(m)
-    plot_layer_delay(m)
+# for m in MODELS:
+    # plot_io_sizes(m)
+    # plot_layer_delay(m)
 plot_shared_x()
