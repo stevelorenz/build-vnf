@@ -267,6 +267,7 @@ void perf_yolov2_pp(int image_st, unsigned int image_num,
         char output_file[MAX_FILENAME_SIZE];
         double delay_arr[200];
         size_t delay_idx = 0;
+        int pid = 0;
 
         network* net = load_network(cfgfile, weightfile, 0);
 
@@ -291,17 +292,19 @@ void perf_yolov2_pp(int image_st, unsigned int image_num,
                 }
         }
 
-        delay = (1.0 / rte_get_timer_hz()) * 1000.0
-            * (rte_get_tsc_cycles() - begin_tsc);
+        if (keep_run == 0) {
+                delay = (1.0 / rte_get_timer_hz()) * 1000.0
+                    * (rte_get_tsc_cycles() - begin_tsc);
 
-        snprintf(output_file, MAX_FILENAME_SIZE, "./%s_%d_yolo_v2_pp_delay.csv",
-            csv_prefix, getpid());
-        FILE* fd = fopen(output_file, "w+");
-        for (delay_idx = 0; delay_idx < image_num; ++delay_idx) {
-                fprintf(fd, "%f\n", delay_arr[delay_idx]);
+                snprintf(output_file, MAX_FILENAME_SIZE,
+                    "./%s_%d_yolo_v2_pp_delay.csv", csv_prefix, getpid());
+                FILE* fd = fopen(output_file, "w+");
+                for (delay_idx = 0; delay_idx < image_num; ++delay_idx) {
+                        fprintf(fd, "%f\n", delay_arr[delay_idx]);
+                }
+                fprintf(fd, "total:%f\n", delay);
+                fclose(fd);
         }
-        fprintf(fd, "total:%f\n", delay);
-        fclose(fd);
 }
 
 /**
