@@ -296,8 +296,10 @@ void perf_yolov2_pp(int image_st, unsigned int image_num,
                 delay = (1.0 / rte_get_timer_hz()) * 1000.0
                     * (rte_get_tsc_cycles() - begin_tsc);
 
+                /*snprintf(output_file, MAX_FILENAME_SIZE,*/
+                /*"./%s_%d_yolo_v2_pp_delay.csv", csv_prefix, getpid());*/
                 snprintf(output_file, MAX_FILENAME_SIZE,
-                    "./%s_%d_yolo_v2_pp_delay.csv", csv_prefix, getpid());
+                    "./%s_yolo_v2_pp_delay.csv", csv_prefix);
                 FILE* fd = fopen(output_file, "w+");
                 for (delay_idx = 0; delay_idx < image_num; ++delay_idx) {
                         fprintf(fd, "%f\n", delay_arr[delay_idx]);
