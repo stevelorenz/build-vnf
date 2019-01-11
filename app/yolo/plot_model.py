@@ -152,6 +152,7 @@ def plot_shared_x():
             'hatch.linewidth': 0.5
         }
     )
+    cmap = plt.get_cmap("tab10")
     for m in MODELS:
         fig, ax_arr = plt.subplots(2, sharex=True)
 
@@ -159,12 +160,20 @@ def plot_shared_x():
         ax_arr[1].set_ylabel("Inference Latency (ms)", fontsize=5)
 
         x, x_labels, out_s = plot_io_sizes(m, just_return=True)
-        ax_arr[0].bar(x, out_s, BAR_WIDTH, color='blue', lw=0.6,
-                      alpha=0.8, edgecolor='black', label="Output Size")
+        ax_arr[0].bar(x, out_s, BAR_WIDTH, color=cmap(0), lw=0.6, hatch="xxx",
+                      alpha=0.8, edgecolor='black')
+        ax_arr[0].axhline(y=(604 * 604 * 3), ls="--", color="green",
+                          label="Image Size")
         x, delay_avg, delay_err = plot_layer_delay(m, just_return=True)
-        ax_arr[1].bar(x, delay_avg, BAR_WIDTH, color='blue', lw=0.6,
-                      yerr=delay_err, ecolor='red', error_kw={"elinewidth": 1},
-                      alpha=0.8, edgecolor='black', label="Latency")
+        ax_arr[1].bar(x, delay_avg, BAR_WIDTH, color=cmap(1), lw=0.6, bottom=0,
+                      hatch="+++", yerr=delay_err, ecolor='red',
+                      error_kw={"elinewidth": 1}, alpha=0.8, edgecolor='black')
+        ax_arr[1].axhline(y=1000, ls="--", color="green")
+        for ax in ax_arr:
+            ax.set_ylim(0)
+        handles, labels = ax_arr[0].get_legend_handles_labels()
+        ax_arr[0].legend(handles, labels, loc='best')
+        ax_arr[0].autoscale_view()
 
         ax_arr[1].set_xticks(x)
         ax_arr[1].set_xticklabels(x_labels, rotation="vertical")
@@ -172,7 +181,50 @@ def plot_shared_x():
         tex.save_fig(fig, "./combined_%s" % m, fmt="png")
 
 
+def plot_scal():
+    import tex
+    tex.setup(
+        width=1, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17,
+        params={
+            'hatch.linewidth': 0.5
+        }
+    )
+    IMAGE_NUM = 25
+    max_cotainer_num = 3
+    num_run = 2
+
+    per_frame_delay_arr = list()
+    for i in range(max_cotainer_num):
+        tmp_arr_1 = list()
+        for r in range(num_run):
+            tmp_arr_2 = list()
+            for j in range(i+1):
+                with open("./%d_%d_%d_yolo_v2_pp_delay.csv" % (i+1, j+1, r+1), "r") as f:
+                    total = f.readlines()[-1].strip().split(":")[1]
+                    tmp_arr_2.append(float(total))
+            tmp_arr_1.append(max(tmp_arr_2) / ((i+1) * IMAGE_NUM))
+        per_frame_delay_arr.append(tmp_arr_1[:])
+    print(per_frame_delay_arr)
+
+    fig, ax = plt.subplots()
+    x = range(max_cotainer_num)
+    x_labels = [a+1 for a in x]
+    y = [np.average(a) for a in per_frame_delay_arr]
+    yerr = [np.std(a) for a in per_frame_delay_arr]
+
+    ax.bar(x, y, 0.3, color='blue', lw=0.6, yerr=yerr, ecolor='red',
+           error_kw={"elinewidth": 1}, alpha=0.8, edgecolor='black')
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_labels)
+    ax.set_ylabel("Average Inference Delay (ms)")
+    ax.set_xlabel("Number of containers")
+    tex.save_fig(fig, "./scal_yolov2_pp", fmt="png")
+    plt.close(fig)
+
+
 # for m in MODELS:
     # plot_io_sizes(m)
     # plot_layer_delay(m)
-plot_shared_x()
+# plot_shared_x()
+plot_scal()

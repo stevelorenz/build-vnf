@@ -15,10 +15,6 @@ Email: xianglinks@gmail.com
 """
 
 
-# MONITOR_TIME = 2 * IMAGE_NUM  # seconds
-# CONTAINER_NUM = 1  # TODO: Use two containers, with CPU set 1, 2
-
-
 VOLUMES = {
     "/vagrant/dataset": {"bind": "/dataset", "mode": "rw"},
     "/vagrant/model": {"bind": "/model", "mode": "rw"},
@@ -29,7 +25,8 @@ for v in ["/sys/bus/pci/drivers", "/sys/kernel/mm/hugepages",
     VOLUMES[v] = {"bind": v, "mode": "rw"}
 
 IMAGE_ST = 0
-IMAGE_NUM = 5
+IMAGE_NUM = 2
+MAX_CONTAINER_NUM = 3
 
 
 def calculate_cpu_percent(d):
@@ -69,73 +66,89 @@ def mon_yolov2_pp(profile=0):
         # Depends on the available cores (physical cores when Hyperthreading is disabled)
         max_cotainer_num = 1
         test_mode = 0
+        cpu_set = "0"
+        num_run = 1
     elif profile == 1:
-        max_cotainer_num = 2
+        # MARK: increase this number until the pre-processing can not be
+        max_cotainer_num = MAX_CONTAINER_NUM
         test_mode = 1
+        cpu_set = "0,1"
+        num_run = 2
     elif profile == 2:
         max_cotainer_num = 1
         test_mode = 1
         cmd_suffix = "-k"
+        cpu_set = "0"
+        num_run = 1
 
     client = docker.from_env()
     if profile == 0 or profile == 1:
         print("[MON] Monitor the processing delay")
+
     for i in range(max_cotainer_num):
-        started = list()
-        print("Run %d container" % (i+1))
-        for j in range(i+1):
-            cmd = "./yolo_v2_pp.out -- -m %d -s %d -n %d -p %s_%s " % (
-                test_mode, IMAGE_ST, IMAGE_NUM, i, j)
-            cmd = cmd + cmd_suffix
-            c = client.containers.run(
-                "darknet",
-                privileged=True,
-                cpuset_cpus=str(j),
-                mem_limit="1024m",  # TODO: Reduce memory limit
-                volumes=VOLUMES,
-                detach=True,
-                working_dir="/app/yolo/",
-                command=cmd
-            )
-            started.append(c)
+        for r in range(num_run):
+            print("Run %d container" % (i+1))
+            print("Current test round: %d" % (r+1))
+            started = list()
+            for j in range(i+1):
+                cmd = "./yolo_v2_pp.out -- -m %d -s %d -n %d -p %s_%s_%s " % (
+                    test_mode, IMAGE_ST, IMAGE_NUM, (i+1), (j+1), (r+1))
+                cmd = cmd + cmd_suffix
+                if profile == 1 and i == 1:
+                    cpu_set = str(j)
+                    # print(cpu_set)
+                c = client.containers.run(
+                    "darknet",
+                    privileged=True,
+                    cpuset_cpus=cpu_set,
+                    mem_limit="1024m",  # TODO: Reduce memory limit
+                    volumes=VOLUMES,
+                    detach=True,
+                    working_dir="/app/yolo/",
+                    command=cmd
+                )
+                started.append(c)
 
-        if profile == 2:
-            print("Start resource monitoring")
-            usg_lst = list()
-            for i in range(30):
-                try:
-                    st = time.time()
-                    stats = started[0].stats(decode=True, stream=False)
-                    mem_stats = stats["memory_stats"]
-                    mem_usg = mem_stats["usage"] / (1024 ** 2)
-                    cpu_usg = calculate_cpu_percent(stats)
-                    usg_lst.append((cpu_usg, mem_usg))
-                    dur = time.time() - st
-                    time.sleep(max((1.0-dur), 0))
-                except KeyError:
-                    print("KeyError detected, container may ALREADY exit.")
+                if profile == 2:
+                    print("Start resource monitoring")
+                    usg_lst = list()
+                    for i in range(30):
+                        try:
+                            st = time.time()
+                            stats = started[0].stats(decode=True, stream=False)
+                            mem_stats = stats["memory_stats"]
+                            mem_usg = mem_stats["usage"] / (1024 ** 2)
+                            cpu_usg = calculate_cpu_percent(stats)
+                            usg_lst.append((cpu_usg, mem_usg))
+                            dur = time.time() - st
+                            time.sleep(max((1.0-dur), 0))
+                        except KeyError:
+                            print("KeyError detected, container may ALREADY exit.")
 
-            print("* Store monitoring results in CSV file")
-            with open("./resource_usage.csv", "w+") as csvfile:
-                writer = csv.writer(csvfile, delimiter=' ',
-                                    quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                for cpu, mem in usg_lst:
-                    writer.writerow([cpu, mem])
+                    print("* Store monitoring results in CSV file")
+                    with open("./resource_usage.csv", "w+") as csvfile:
+                        writer = csv.writer(csvfile, delimiter=' ',
+                                            quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                        for cpu, mem in usg_lst:
+                            writer.writerow([cpu, mem])
+                    for c in started:
+                        c.stop()
+
+            # Wait for all running containers to exist
+            while True:
+                if client.containers.list():
+                    time.sleep(3)
+                else:
+                    break
+            print("# All running container terminated")
             for c in started:
-                c.stop()
+                c.remove()
 
-        # Wait for all running containers to exist
-        while True:
-            if client.containers.list():
-                time.sleep(3)
-            else:
-                break
-        print("# All running container terminated")
-        for c in started:
-            c.remove()
+        time.sleep(5)
 
 
 if __name__ == "__main__":
     compile_yolov2_pp()
-    for p in range(3):
-        mon_yolov2_pp(p)
+    # for p in range(3):
+    # mon_yolov2_pp(p)
+    mon_yolov2_pp(1)
