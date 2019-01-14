@@ -13,5 +13,5 @@ elif [[ $1 == "-dn" ]]; then
     echo "Run darknet container"
     sudo docker run --rm --privileged \
         -v /sys/bus/pci/drivers:/sys/bus/pci/drivers -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev \
-        -v /vagrant/dataset:/dataset -v/vagrant/model:/model -v /vagrant/app:/app -w /app/yolo -it darknet bash
-fi
+        -v /vagrant/dataset:/dataset -v /vagrant/app:/app -w /app/yolo -it darknet bash
+        fi

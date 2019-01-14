@@ -3,30 +3,35 @@
 # vim:fenc=utf-8
 #
 
+import argparse
 import csv
-import time
 import sys
+import time
 
 import docker
 
 """
 About: Evaluate the YOLOv2 pre-processing. E.g. Scalability and parallel compute
+
+Required Configurations:
+    1. Allocate hugepage to run DPDK, check ../../script/setup_hugepage.sh
+
 Email: xianglinks@gmail.com
 """
 
 
 VOLUMES = {
     "/vagrant/dataset": {"bind": "/dataset", "mode": "rw"},
-    "/vagrant/model": {"bind": "/model", "mode": "rw"},
     "/vagrant/app": {"bind": "/app", "mode": "rw"}
 }
+# Required for runnning DPDK inside container
 for v in ["/sys/bus/pci/drivers", "/sys/kernel/mm/hugepages",
           "/sys/devices/system/node", "/dev"]:
     VOLUMES[v] = {"bind": v, "mode": "rw"}
 
 IMAGE_ST = 0
-IMAGE_NUM = 2
-MAX_CONTAINER_NUM = 3
+IMAGE_NUM = 5
+MAX_CONTAINER_NUM = 1
 
 
 def calculate_cpu_percent(d):
@@ -59,9 +64,33 @@ def compile_yolov2_pp():
         c.remove()
 
 
+def prof_yolov2_pp():
+    client = docker.from_env()
+    c = client.containers.run(
+        "darknet",
+        privileged=True,
+        cpuset_cpus="0",
+        mem_limit="1024m",
+        volumes=VOLUMES,
+        detach=True,
+        working_dir="/app/yolo/",
+        command="./yolo_v2_pp.out -- -m 1 -s 0 -n 10 -k"
+    )
+    run = True
+    try:
+        while run:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Detect keyboard interrupt, stop and remove the container.")
+        run = False
+    finally:
+        c.stop()
+        c.remove()
+
+
 def mon_yolov2_pp(profile=0):
-    print("[MON] Current profile %d" % profile)
     cmd_suffix = ""
+    print("[MON] Current profile %d" % profile)
     if profile == 0:
         # Depends on the available cores (physical cores when Hyperthreading is disabled)
         max_cotainer_num = 1
@@ -73,13 +102,16 @@ def mon_yolov2_pp(profile=0):
         max_cotainer_num = MAX_CONTAINER_NUM
         test_mode = 1
         cpu_set = "0,1"
-        num_run = 2
+        num_run = 1
+        cmd_suffix = "-c ./cfg/yolov2_f4.cfg"
     elif profile == 2:
         max_cotainer_num = 1
         test_mode = 1
         cmd_suffix = "-k"
         cpu_set = "0"
         num_run = 1
+
+    # TODO:  <14-01-19, zuo> Add a profile to measure the batching effects #
 
     client = docker.from_env()
     if profile == 0 or profile == 1:
@@ -147,8 +179,35 @@ def mon_yolov2_pp(profile=0):
         time.sleep(5)
 
 
+def print_help():
+    usage = """
+Usage: sudo python3 ./eval_scal.py OPTION
+
+- OPTION:
+    -p : Run profiling (only used for development).
+    0: Run evaluation measurements for per-layer latency of YOLOv2 and
+    YOLOv2-tiny.
+    1: Run evaluation measurements for YOLOv2 pre-processing
+    """
+    print(usage)
+
+
 if __name__ == "__main__":
-    compile_yolov2_pp()
-    # for p in range(3):
-    # mon_yolov2_pp(p)
-    mon_yolov2_pp(1)
+
+    if len(sys.argv) < 2:
+        print("Missing options!")
+        print_help()
+    else:
+        if sys.argv[1] == "-p":
+            print("* Profiling the YOLOv2 pre-processing...")
+            compile_yolov2_pp()
+            prof_yolov2_pp()
+        else:
+            profile = int(sys.argv[1])
+            if profile >= 2:
+                print("Invalid evaluation profile!")
+                print_help()
+                sys.exit(1)
+            print("* Running evaluation measurements with profile %d..." %
+                  profile)
+            mon_yolov2_pp(profile)
