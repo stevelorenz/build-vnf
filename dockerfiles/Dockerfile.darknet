@@ -60,4 +60,8 @@ RUN \
     make && \
     ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
 
+# Install Valgrind for debugging and profilling
+RUN \
+    apt-get install -y valgrind
+
 CMD ["bash"]

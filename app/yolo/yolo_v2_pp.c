@@ -1,5 +1,4 @@
 /*
- * yolo_v2_pp.c
  *
  * About: Test preprocessing possibilities for YOLO v2 object detection model
  *
@@ -29,9 +28,12 @@
 #include <rte_pci_dev_feature_defs.h>
 #include <rte_per_lcore.h>
 
+#include <linux/limits.h>
+
 #include <darknet.h>
 
 #define MAX_FILENAME_SIZE 50
+#define MAX_FRAME_NUM 200
 
 /*****************
  *  Linked List  *
@@ -252,40 +254,53 @@ __attribute__((always_inline)) void infer_frame(
 
 /**
  * @brief Test YOLO v2 preprocessing delay
- * Only run layers including conv1, pool1, conv2 and pool2
+ *
+ * @mark: This function is profiled with Valgrind Memcheck and Massif for memory
+ *        management. The goal is to reduce the memory usage.
  */
-void perf_yolov2_pp(int image_st, unsigned int image_num,
-    unsigned int save_output, unsigned int keep_run, char* csv_prefix)
+void perf_yolov2_pp(char* cfgfile, int image_st, unsigned int image_num,
+    unsigned int save_output, unsigned int keep_run, char* csv_prefix,
+    unsigned int dpdk_enabled)
 {
-        uint64_t begin_tsc;
-        uint64_t last_tsc;
+        uint64_t begin_tsc = 0;
+        uint64_t last_tsc = 0;
         size_t img_idx = 0;
-        double delay;
-        char* cfgfile = "/app/yolo/cfg/yolov2_pp.cfg";
+        double delay = 0.0;
         char* weightfile = "/root/darknet/yolov2.weights";
         char input_file[MAX_FILENAME_SIZE];
         char output_file[MAX_FILENAME_SIZE];
-        double delay_arr[200];
+        double delay_arr[MAX_FRAME_NUM] = { 0 };
         size_t delay_idx = 0;
-        int pid = 0;
+        FILE* fd = NULL;
 
-        network* net = load_network(cfgfile, weightfile, 0);
+        // ISSUE: Eating hundreds of MB when loading layers (even only conv and
+        // maxpooling layers).
+        printf("To be loaded cfg file: %s\n", cfgfile);
+        network* net = parse_network_cfg(cfgfile);
+        load_weights(net, weightfile);
 
         set_batch_network(net, 1);
         srand(time(0));
 
-        begin_tsc = rte_get_tsc_cycles();
+        if (dpdk_enabled == 1) {
+                begin_tsc = rte_get_tsc_cycles();
+        }
+
         for (img_idx = image_st; img_idx < image_st + image_num; ++img_idx) {
                 snprintf(input_file, MAX_FILENAME_SIZE,
                     "../../dataset/pedestrian_walking/%lu.jpg", img_idx);
                 image im = load_image_color(input_file, 0, 0);
 
-                last_tsc = rte_get_tsc_cycles();
-                infer_frame(img_idx, &im, net, save_output);
-                delay = (1.0 / rte_get_timer_hz()) * 1000.0
-                    * (rte_get_tsc_cycles() - last_tsc);
-                delay_arr[delay_idx] = delay;
-                delay_idx += 1;
+                if (likely(dpdk_enabled == 1)) {
+                        last_tsc = rte_get_tsc_cycles();
+                        infer_frame(img_idx, &im, net, save_output);
+                        delay = (1.0 / rte_get_timer_hz()) * 1000.0
+                            * (rte_get_tsc_cycles() - last_tsc);
+                        delay_arr[delay_idx] = delay;
+                        delay_idx += 1;
+                } else {
+                        infer_frame(img_idx, &im, net, save_output);
+                }
 
                 if (keep_run == 1 && img_idx == (image_st + image_num - 1)) {
                         img_idx = image_st;
@@ -297,15 +312,30 @@ void perf_yolov2_pp(int image_st, unsigned int image_num,
                     * (rte_get_tsc_cycles() - begin_tsc);
 
                 /*snprintf(output_file, MAX_FILENAME_SIZE,*/
-                /*"./%s_%d_yolo_v2_pp_delay.csv", csv_prefix, getpid());*/
+                /*"./%s_%d_yolo_v2_f4_delay.csv", csv_prefix, getpid());*/
                 snprintf(output_file, MAX_FILENAME_SIZE,
-                    "./%s_yolo_v2_pp_delay.csv", csv_prefix);
-                FILE* fd = fopen(output_file, "w+");
+                    "./%s_yolo_v2_f4_delay.csv", csv_prefix);
+                fd = fopen(output_file, "w+");
+                if (fd == NULL) {
+                        perror("Can not open CSV file to store processing "
+                               "delay.\n");
+                        exit(1);
+                }
                 for (delay_idx = 0; delay_idx < image_num; ++delay_idx) {
                         fprintf(fd, "%f\n", delay_arr[delay_idx]);
                 }
                 fprintf(fd, "total:%f\n", delay);
                 fclose(fd);
+        }
+}
+
+void perf_yolov2_per_layer_mem_usage(char* cfgfile, unsigned int keep_run)
+{
+        network* net = parse_network_cfg(cfgfile);
+        if (keep_run == 1) {
+                while (1) {
+                        sleep(3);
+                }
         }
 }
 
@@ -321,17 +351,26 @@ int main(int argc, char* argv[])
         int test_mode = 0;
         int image_st = 0;
         int image_num = 0;
-        int save_output = 0;
-        int keep_run = 0;
         char csv_prefix[10] = "";
+        char cfgfile[PATH_MAX] = "./cfg/yolov2_f4.cfg";
+
+        unsigned int dpdk_enabled = 0;
+        unsigned int save_output = 0;
+        unsigned int keep_run = 0;
 
         printf("Test YOLO v2 !\n");
+
+#ifdef DPDK
+        dpdk_enabled = 1;
+        printf("DPDK is enabled.\n");
         ret = rte_eal_init(argc, argv);
         if (ret < 0) {
                 rte_exit(EXIT_FAILURE, "Invalid EAL arguments.\n");
         }
+#endif
+
         /*Parse additional args*/
-        while ((opt = getopt(argc, argv, "kos:m:n:p:")) != -1) {
+        while ((opt = getopt(argc, argv, "kos:m:n:p:c:")) != -1) {
                 switch (opt) {
                 case 'm':
                         test_mode = atoi(optarg);
@@ -354,6 +393,9 @@ int main(int argc, char* argv[])
                 case 'p':
                         strncpy(csv_prefix, optarg, 10);
                         break;
+                case 'c':
+                        strncpy(cfgfile, optarg, PATH_MAX);
+                        break;
                 default:
                         break;
                 }
@@ -364,25 +406,35 @@ int main(int argc, char* argv[])
         printf(
             "The image start index:%d, image number:%d\n", image_st, image_num);
 
-        uint64_t freq;
-        freq = rte_get_tsc_hz();
-        printf("The frequency of RDTSC counter is %lu \n", freq);
+        if (dpdk_enabled == 1) {
+                uint64_t freq;
+                freq = rte_get_tsc_hz();
+                printf("The frequency of RDTSC counter is %lu \n", freq);
+        }
 
         fclose(stderr);
         stderr = fopen("./stderr_log.log", "a+");
 
         if (test_mode == 0) {
+#ifndef DPDK
+                fprintf(stderr, "DPDK must be enabled for test_mode 0!\n");
+                exit(1);
+#endif
                 printf("Run layerwise delay evaluation of yolov2 and "
                        "yolov2-tiny.\n");
                 perf_delay_layerwise(
                     "yolov2", image_st, image_num, save_output, 0);
                 perf_delay_layerwise(
                     "yolov2-tiny", image_st, image_num, save_output, 0);
-        }
-        if (test_mode == 1) {
+        } else if (test_mode == 1) {
                 printf("Run YOLO pre-processing test.\n");
-                perf_yolov2_pp(
-                    image_st, image_num, save_output, keep_run, csv_prefix);
+                perf_yolov2_pp(cfgfile, image_st, image_num, save_output,
+                    keep_run, csv_prefix, dpdk_enabled);
+        } else if (test_mode == 2) {
+                printf("Run memory usage test.\n");
+                perf_yolov2_per_layer_mem_usage(cfgfile, keep_run);
+        } else {
+                fprintf(stderr, "Invalid test mode!\n");
         }
 
         ll_cleanup();

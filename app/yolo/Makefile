@@ -6,6 +6,7 @@
 
 # Use make DBUG=1 to enable debug mode
 DEBUG=0
+DPDK=1
 
 VPATH=./
 EXEC=yolo_v2_pp.out
@@ -21,7 +22,11 @@ LDFLAGS+= -L${RTE_SDK}/${RTE_TARGET}/lib -Wl,--whole-archive -ldpdk -Wl,--no-who
 
 OPTS=-O3
 ifeq ($(DEBUG), 1)
-	OPTS=-O0 -g -DDBUG
+	OPTS=-O2 -g -DDBUG
+endif
+
+ifeq ($(DPDK), 1)
+	OPTS+=-DDPDK
 endif
 
 CFLAGS+=$(OPTS)

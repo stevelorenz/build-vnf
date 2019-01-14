@@ -3,6 +3,7 @@
 
 import matplotlib.pyplot as plt
 import re
+import os
 import sys
 import copy
 import numpy as np
@@ -14,6 +15,13 @@ About: Plot model infos and delay results
 
 Email: xianglinks@gmail.com
 """
+
+CSV_FILE_DIR = os.path.join(os.environ["HOME"], "csv_db/build-vnf/yolo")
+
+# profile 1
+MAX_COTAINER_NUM = 2
+NUM_RUN = 10
+IMAGE_NUM = 100
 
 NUM_LAYER_MAP = {
     0: "conv",
@@ -189,17 +197,16 @@ def plot_scal():
             'hatch.linewidth': 0.5
         }
     )
-    IMAGE_NUM = 25
-    max_cotainer_num = 3
-    num_run = 2
 
     per_frame_delay_arr = list()
-    for i in range(max_cotainer_num):
+    for i in range(MAX_COTAINER_NUM):
         tmp_arr_1 = list()
-        for r in range(num_run):
+        for r in range(NUM_RUN):
             tmp_arr_2 = list()
             for j in range(i+1):
-                with open("./%d_%d_%d_yolo_v2_pp_delay.csv" % (i+1, j+1, r+1), "r") as f:
+                csv_path = os.path.join(
+                    CSV_FILE_DIR, "%d_%d_%d_yolo_v2_pp_delay.csv" % (i+1, j+1, r+1))
+                with open(csv_path, "r") as f:
                     total = f.readlines()[-1].strip().split(":")[1]
                     tmp_arr_2.append(float(total))
             tmp_arr_1.append(max(tmp_arr_2) / ((i+1) * IMAGE_NUM))
@@ -207,7 +214,7 @@ def plot_scal():
     print(per_frame_delay_arr)
 
     fig, ax = plt.subplots()
-    x = range(max_cotainer_num)
+    x = range(MAX_COTAINER_NUM)
     x_labels = [a+1 for a in x]
     y = [np.average(a) for a in per_frame_delay_arr]
     yerr = [np.std(a) for a in per_frame_delay_arr]
@@ -224,7 +231,7 @@ def plot_scal():
 
 
 # for m in MODELS:
-    # plot_io_sizes(m)
-    # plot_layer_delay(m)
+# plot_io_sizes(m)
+# plot_layer_delay(m)
 # plot_shared_x()
 plot_scal()
