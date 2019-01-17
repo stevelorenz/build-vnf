@@ -208,6 +208,7 @@ app/yolo/*.png
 app/yolo/*.csv
 app/yolo/*.bin
 app/yolo/massif.*
+app/yolo/*.pdf
 
 ----------
 -  DPDK  -

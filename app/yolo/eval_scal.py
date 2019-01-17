@@ -64,6 +64,22 @@ def compile_yolov2_pp():
         c.remove()
 
 
+def debug_yolov2_pp():
+    client = docker.from_env()
+    c = client.containers.run(
+        "darknet",
+        privileged=True,
+        cpuset_cpus="0",
+        mem_limit="1024m",
+        volumes=VOLUMES,
+        detach=False,
+        working_dir="/app/yolo/",
+        command="./yolo_v2_pp.out -- -m 1 -s 29 -n 1 -c ./cfg/yolov2_f8.cfg -o"
+    )
+    for c in client.containers.list(all=True):
+        c.remove()
+
+
 def prof_yolov2_pp():
     client = docker.from_env()
     c = client.containers.run(
@@ -202,6 +218,10 @@ if __name__ == "__main__":
             print("* Profiling the YOLOv2 pre-processing...")
             compile_yolov2_pp()
             prof_yolov2_pp()
+        elif sys.argv[1] == "-d":
+            print("* Debug YOLOv2 pre-processing")
+            compile_yolov2_pp()
+            debug_yolov2_pp()
         else:
             profile = int(sys.argv[1])
             if profile >= 2:
@@ -210,4 +230,5 @@ if __name__ == "__main__":
                 sys.exit(1)
             print("* Running evaluation measurements with profile %d..." %
                   profile)
+            compile_yolov2_pp()
             mon_yolov2_pp(profile)
