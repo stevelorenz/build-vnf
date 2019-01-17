@@ -208,7 +208,8 @@ void perf_delay_layerwise(char* model, int image_st, unsigned int image_num,
                                 snprintf(output_file, MAX_FILENAME_SIZE,
                                     "layer1_%s_output.bin", model);
                                 io_fd = fopen(output_file, "w+");
-                                fwrite(l.output, 1, l.outputs, io_fd);
+                                fwrite(
+                                    l.output, sizeof(float), l.outputs, io_fd);
                                 fclose(io_fd);
                         }
                 }
@@ -240,14 +241,17 @@ __attribute__((always_inline)) void infer_frame(
     size_t img_idx, image* frame, network* net, unsigned int save_output)
 {
         char output_file[MAX_FILENAME_SIZE];
+
         image sized = letterbox_image(*frame, net->w, net->h);
         network_predict(net, sized.data);
         if (save_output == 1) {
                 layer l = net->layers[net->n - 1];
                 snprintf(output_file, MAX_FILENAME_SIZE, "./%lu_output.bin",
                     img_idx);
-                FILE* fd = fopen(output_file, "a+");
-                fwrite(l.output, 1, l.outputs, fd);
+                FILE* fd = fopen(output_file, "w+");
+                /* MARK: In darknet layer struct, the type of pointer of image
+                 * struct is float */
+                fwrite(l.output, sizeof(float), l.outputs, fd);
                 fclose(fd);
         }
 }
@@ -329,14 +333,97 @@ void perf_yolov2_pp(char* cfgfile, int image_st, unsigned int image_num,
         }
 }
 
-void perf_yolov2_per_layer_mem_usage(char* cfgfile, unsigned int keep_run)
+void save_tmp_output(float* arr, uint16_t len)
 {
-        network* net = parse_network_cfg(cfgfile);
-        if (keep_run == 1) {
-                while (1) {
-                        sleep(3);
+        FILE* fd = NULL;
+        uint16_t i = 0;
+
+        fd = fopen("./tmp_output.csv", "w+");
+        for (i = 0; i < len; ++i) {
+                fprintf(fd, "%f, ", arr[i]);
+                if (i != 0 && i % 76 == 0) {
+                        fprintf(fd, "\n");
                 }
         }
+        fclose(fd);
+}
+
+/**
+ * @brief test_layer_output
+ * @issue: Use many duplicated codes of perf_delay_layerwise...
+ *         Remove this after I figure out how stb image and darknet layer struct
+ *         stores image information...
+ */
+void test_layer_output()
+{
+        uint8_t img_idx = 29;
+        uint8_t cut_idx = 7;
+
+        char* weightfile = "/root/darknet/yolov2.weights";
+        char input_file[MAX_FILENAME_SIZE];
+        char output_file[MAX_FILENAME_SIZE];
+        FILE* fd = NULL;
+        size_t i = 0;
+        int nboxes = 0;
+        list* options = read_data_cfg("/root/darknet/cfg/coco.data");
+        char* name_list = option_find_str(options, "names", "data/names.list");
+        char** names = get_labels(name_list);
+        image** alphabet = load_alphabet();
+        float tmp_output[76 * 76 * 128] = { 0.0 };
+        size_t ret = 0;
+
+        network* net = parse_network_cfg("/root/darknet/cfg/yolov2.cfg");
+        load_weights(net, weightfile);
+
+        set_batch_network(net, 1);
+
+        sprintf(input_file, "../../dataset/pedestrian_walking/%u.jpg", img_idx);
+        image im = load_image_color(input_file, 0, 0);
+        image sized = letterbox_image(im, net->w, net->h);
+
+        layer l = net->layers[net->n - 1];
+        float* X = sized.data;
+        network orig = *net;
+        net->input = X;
+        net->truth = 0;
+        net->train = 0;
+        net->delta = 0;
+
+        network net_cur = *net;
+        snprintf(input_file, MAX_FILENAME_SIZE, "./%u_output.bin", img_idx);
+        fd = fopen(input_file, "r");
+        if (fd == NULL) {
+                perror("Can not open the output file of the preprocessing.\n");
+                exit(1);
+        }
+        for (i = 0; i < net_cur.n; ++i) {
+                net_cur.index = i;
+                layer l = net_cur.layers[i];
+                l.forward(l, net_cur);
+                if (i == cut_idx) {
+                        /*net_cur.input = (float*)(fd);*/
+                        ret = fread(tmp_output, sizeof(float), l.outputs, fd);
+                        if (ret == l.outputs) {
+                                save_tmp_output(tmp_output, l.outputs);
+                                net_cur.input = tmp_output;
+                        } else {
+                                perror("Fail to read output file of the "
+                                       "preprocessing\n");
+                        }
+                } else {
+                        net_cur.input = l.output;
+                }
+        }
+        fclose(fd);
+        *net = orig;
+
+        detection* dets
+            = get_network_boxes(net, im.w, im.h, 0.5, 0.5, 0, 1, &nboxes);
+        do_nms_sort(dets, nboxes, l.classes, 0.45);
+        draw_detections(im, dets, nboxes, 0.5, names, alphabet, l.classes);
+        free_detections(dets, nboxes);
+        snprintf(output_file, MAX_FILENAME_SIZE, "%u", img_idx);
+        save_image(im, output_file);
 }
 
 /**
@@ -350,7 +437,7 @@ int main(int argc, char* argv[])
         int opt;
         int test_mode = 0;
         int image_st = 0;
-        int image_num = 0;
+        int image_num = 1;
         char csv_prefix[10] = "";
         char cfgfile[PATH_MAX] = "./cfg/yolov2_f4.cfg";
 
@@ -370,7 +457,7 @@ int main(int argc, char* argv[])
 #endif
 
         /*Parse additional args*/
-        while ((opt = getopt(argc, argv, "kos:m:n:p:c:")) != -1) {
+        while ((opt = getopt(argc, argv, "akos:m:n:p:c:")) != -1) {
                 switch (opt) {
                 case 'm':
                         test_mode = atoi(optarg);
@@ -431,8 +518,9 @@ int main(int argc, char* argv[])
                 perf_yolov2_pp(cfgfile, image_st, image_num, save_output,
                     keep_run, csv_prefix, dpdk_enabled);
         } else if (test_mode == 2) {
-                printf("Run memory usage test.\n");
-                perf_yolov2_per_layer_mem_usage(cfgfile, keep_run);
+                printf("Test if the output of the pre-processing works with "
+                       "the rest of the network\n");
+                test_layer_output();
         } else {
                 fprintf(stderr, "Invalid test mode!\n");
         }

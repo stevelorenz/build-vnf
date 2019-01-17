@@ -17,6 +17,7 @@ Email: xianglinks@gmail.com
 """
 
 CSV_FILE_DIR = os.path.join(os.environ["HOME"], "csv_db/build-vnf/yolo")
+RAW_IMAGE_SIZE = 608 * 608 * 3
 
 # profile 1
 MAX_COTAINER_NUM = 2
@@ -151,6 +152,16 @@ def plot_layer_delay(m, just_return=False):
         plt.close(fig)
 
 
+def label_out_bars(rects, ax):
+    for rect in rects:
+        height = rect.get_height()
+        out_val_rel = float(height) / RAW_IMAGE_SIZE
+        if out_val_rel < 1:
+            ax.text(rect.get_x() + rect.get_width()/2., height + 1,
+                    '%.2f' % (float(height) / (RAW_IMAGE_SIZE)),
+                    ha='center', va='bottom', fontsize=2.5)
+
+
 def plot_shared_x():
     """Maybe look nicer"""
     import tex
@@ -168,9 +179,10 @@ def plot_shared_x():
         ax_arr[1].set_ylabel("Inference Latency (ms)", fontsize=5)
 
         x, x_labels, out_s = plot_io_sizes(m, just_return=True)
-        ax_arr[0].bar(x, out_s, BAR_WIDTH, color=cmap(0), lw=0.6, hatch="xxx",
-                      alpha=0.8, edgecolor='black')
-        ax_arr[0].axhline(y=(604 * 604 * 3), ls="--", color="green",
+        out_bars = ax_arr[0].bar(x, out_s, BAR_WIDTH, color=cmap(0), lw=0.6, hatch="xxx",
+                                 alpha=0.8, edgecolor='black')
+        label_out_bars(out_bars, ax_arr[0])
+        ax_arr[0].axhline(y=(RAW_IMAGE_SIZE), ls="--", color="green",
                           label="Image Size")
         x, delay_avg, delay_err = plot_layer_delay(m, just_return=True)
         ax_arr[1].bar(x, delay_avg, BAR_WIDTH, color=cmap(1), lw=0.6, bottom=0,
@@ -233,5 +245,5 @@ def plot_scal():
 # for m in MODELS:
 # plot_io_sizes(m)
 # plot_layer_delay(m)
-# plot_shared_x()
+plot_shared_x()
 plot_scal()

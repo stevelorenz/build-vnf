@@ -22,7 +22,7 @@ LDFLAGS+= -L${RTE_SDK}/${RTE_TARGET}/lib -Wl,--whole-archive -ldpdk -Wl,--no-who
 
 OPTS=-O3
 ifeq ($(DEBUG), 1)
-	OPTS=-O2 -g -DDBUG
+	OPTS=-O0 -g -DDBUG
 endif
 
 ifeq ($(DPDK), 1)
