@@ -21,7 +21,8 @@ RAW_IMAGE_SIZE = 608 * 608 * 3
 
 # profile 1
 MAX_COTAINER_NUM = 2
-NUM_RUN = 10
+# NUM_RUN = 10
+NUM_RUN = 1
 IMAGE_NUM = 100
 
 NUM_LAYER_MAP = {
@@ -188,7 +189,7 @@ def plot_shared_x():
         ax_arr[1].bar(x, delay_avg, BAR_WIDTH, color=cmap(1), lw=0.6, bottom=0,
                       hatch="+++", yerr=delay_err, ecolor='red',
                       error_kw={"elinewidth": 1}, alpha=0.8, edgecolor='black')
-        ax_arr[1].axhline(y=1000, ls="--", color="green")
+        ax_arr[1].axhline(y=500, ls="--", color="green")
         for ax in ax_arr:
             ax.set_ylim(0)
         handles, labels = ax_arr[0].get_legend_handles_labels()
@@ -242,8 +243,5 @@ def plot_scal():
     plt.close(fig)
 
 
-# for m in MODELS:
-# plot_io_sizes(m)
-# plot_layer_delay(m)
 plot_shared_x()
 plot_scal()

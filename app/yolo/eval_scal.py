@@ -6,6 +6,7 @@
 import argparse
 import csv
 import sys
+import os
 import time
 
 import docker
@@ -29,9 +30,9 @@ for v in ["/sys/bus/pci/drivers", "/sys/kernel/mm/hugepages",
           "/sys/devices/system/node", "/dev"]:
     VOLUMES[v] = {"bind": v, "mode": "rw"}
 
-IMAGE_ST = 0
+IMAGE_ST = 25
 IMAGE_NUM = 5
-MAX_CONTAINER_NUM = 1
+MAX_CONTAINER_NUM = 2
 
 
 def calculate_cpu_percent(d):
@@ -45,6 +46,9 @@ def calculate_cpu_percent(d):
         float(d["precpu_stats"]["system_cpu_usage"])
     if system_delta > 0.0:
         cpu_percent = cpu_delta / system_delta * 100.0 * cpu_count
+
+    if cpu_percent > 100:
+        cpu_percent = 100
 
     return cpu_percent
 
@@ -119,15 +123,13 @@ def mon_yolov2_pp(profile=0):
         test_mode = 1
         cpu_set = "0,1"
         num_run = 1
-        cmd_suffix = "-c ./cfg/yolov2_f4.cfg"
+        cmd_suffix = "-c ./cfg/yolov2_f8.cfg"
     elif profile == 2:
         max_cotainer_num = 1
         test_mode = 1
         cmd_suffix = "-k"
         cpu_set = "0"
         num_run = 1
-
-    # TODO:  <14-01-19, zuo> Add a profile to measure the batching effects #
 
     client = docker.from_env()
     if profile == 0 or profile == 1:

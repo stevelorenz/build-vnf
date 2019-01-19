@@ -63,6 +63,10 @@ def main():
     # matrix for sampling (compressed sensing)
     get_feature_map(fm_arr, 1)
 
+    # TODO: Try different compress methods
+
+    raw_data.tofile("./29_output_compd.bin")
+
 
 if __name__ == '__main__':
     main()

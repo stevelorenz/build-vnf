@@ -14,10 +14,11 @@ import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-sys.path.append('./scripts/')
-import tex
 from matplotlib.pyplot import cm
 from scipy import stats
+
+sys.path.append('./scripts/')
+import tex
 
 
 FIG_FMT = 'pdf'
@@ -89,14 +90,16 @@ def plot_bw():
                   'hatch.linewidth': 0.5
               }
               )
-    PAYLOAD_SIZE = [256, 512, 1024, 1400]
+    # PAYLOAD_SIZE = [256, 512, 1024, 1400]
+    PAYLOAD_SIZE = [256, 256+64, 256+64*2, 512, 512+128, 512 + 2*128, 512+3*128,
+                    1024, 1024+256, 1024+256*2, 1024+256*3, 1400]
     cmap = cm.get_cmap('tab10')
     csv_names = [
         'udp_bw_dpdk_fwd_kni_2core.csv',
         'udp_bw_xdp_dpdk_fwd.csv'
     ]
 
-    N = 4
+    N = len(PAYLOAD_SIZE)
     ind = np.arange(N)    # the x locations for the groups
     width = 0.25         # the width of the bars
     fig, ax = plt.subplots()
@@ -128,7 +131,7 @@ def plot_bw():
     ax.set_ylabel('Bandwidth (Mbits/sec)')
 
     ax.set_xticks(ind)
-    ax.set_xticklabels(('256', '512', '1024', '1400'))
+    ax.set_xticklabels(list(map(str, PAYLOAD_SIZE)), fontsize=6)
     ax.set_xlabel('Payload Size (Bytes)')
 
     handles, labels = ax.get_legend_handles_labels()

@@ -2,8 +2,9 @@
  *
  * About: Test preprocessing possibilities for YOLO v2 object detection model
  *
- * MARK : Codes is ONLY used for testing the functionality, so without
- * performance and code optimization.
+ * MARK : This code is used to evaluate the performance of using YOLO as a
+ * virtualized application, there is not packet handling included. The
+ * corresponded VNF should be placed in ../../vnf_debug/
  *
  * Email: xianglinks@gmail.com
  *
@@ -35,49 +36,30 @@
 #define MAX_FILENAME_SIZE 50
 #define MAX_FRAME_NUM 200
 
+/* TODO:  <19-01-19, Zuo> Check the common value for these threshold in papers
+ */
+#define DETECT_THRESH 0.25
+#define DETECT_HIER_THRESH 0.5
+
 /*****************
- *  Linked List  *
+ *  Workarounds  *
  *****************/
 
-struct delay_entry {
-        char* label;
-        double delay;
-        struct delay_entry* next;
-};
+typedef struct node {
+        void* val;
+        struct node* next;
+        struct node* prev;
+} node;
 
-struct delay_entry* head = NULL;
-struct delay_entry* current = NULL;
+typedef struct list {
+        int size;
+        node* front;
+        node* back;
+} list;
 
-void ll_insert_delay(char* label, double delay)
-{
-        struct delay_entry* link
-            = (struct delay_entry*)malloc(sizeof(struct delay_entry));
-        link->label = strdup(label);
-        link->delay = delay;
-        link->next = head;
-        head = link;
-}
-
-void ll_print_delay()
-{
-        struct delay_entry* p = head;
-        printf("Print all stored delays: \n");
-        while (p != NULL) {
-                printf("%s => %f ms,", p->label, p->delay);
-                p = p->next;
-        }
-        printf("\n");
-}
-
-void ll_cleanup()
-{
-        printf("Cleanup delay list.\n");
-        struct delay_entry* p = head;
-        while (p != NULL) {
-                free(p);
-                p = p->next;
-        }
-}
+/***********
+ *  Utils  *
+ ***********/
 
 void save_delay_csv(
     int img_idx, int* type_arr, double* delay_arr, int n, char* path)
@@ -96,14 +78,42 @@ void save_delay_csv(
         fclose(fd);
 }
 
+__attribute__((inline)) void forward_network_delay(network* net,
+    network_state state, double* layer_delay_arr, int* layer_type_arr)
+{
+        uint64_t last_tsc;
+        double delay;
+
+        state.workspace = net->workspace;
+        int i = 0;
+        int j = 0;
+        for (i = 0; i < net->n; ++i) {
+                last_tsc = rte_get_tsc_cycles();
+                state.index = i;
+                layer l = net->layers[i];
+                // BUG: scal_cpu causes segmentation fault
+                // if (l.delta) {
+                //        scal_cpu(l.outputs * l.batch, 0, l.delta, 1);
+                //}
+                l.forward(l, state);
+                delay = (1.0 / rte_get_timer_hz()) * 1000.0
+                    * (rte_get_tsc_cycles() - last_tsc);
+                layer_delay_arr[i] = delay;
+                layer_type_arr[i] = l.type;
+
+                state.input = l.output;
+        }
+}
+
+/********************
+ *  Test Functions  *
+ ********************/
+
 /**
- * @brief Test YOLO v2 model
- *
- * @param model
- * @param image_st
- * @param image_num
- * @param save_output
- * @param layer1_io_file:
+ * @brief Compare different YOLO models
+ * Performance parameter:
+ *      - Output size of each layer
+ *      - Inference delay of each layer
  */
 void perf_delay_layerwise(char* model, int image_st, unsigned int image_num,
     unsigned int save_output, unsigned int layer1_io_file)
@@ -138,11 +148,9 @@ void perf_delay_layerwise(char* model, int image_st, unsigned int image_num,
         char** names = get_labels(name_list);
         image** alphabet = load_alphabet();
 
-        network* net = load_network(cfgfile, weightfile, 0);
-        last_tsc = rte_get_tsc_cycles();
-        delay = (1.0 / rte_get_timer_hz()) * 1000.0
-            * (rte_get_tsc_cycles() - last_tsc);
-        ll_insert_delay("load_network", delay);
+        network* net = load_network_custom(cfgfile, weightfile, 1, 1);
+        fuse_conv_batchnorm(*net);
+        calculate_binary_weights(*net);
 
         snprintf(
             output_file, MAX_FILENAME_SIZE, "%s_%s.csv", "net_info", model);
@@ -155,86 +163,57 @@ void perf_delay_layerwise(char* model, int image_st, unsigned int image_num,
         }
         fclose(net_info);
 
-        set_batch_network(net, 1);
-        srand(time(0));
-
         double layer_delay_arr[net->n];
         int layer_type_arr[net->n];
+
         for (img_idx = image_st; img_idx < image_st + image_num; ++img_idx) {
                 printf("Current image index: %lu\n", img_idx);
                 sprintf(input_file, "../../dataset/pedestrian_walking/%lu.jpg",
                     img_idx);
                 image im = load_image_color(input_file, 0, 0);
-                image sized = letterbox_image(im, net->w, net->h);
+                /*image sized = letterbox_image(im, net->w, net->h);*/
+                image sized = resize_image(im, net->w, net->h);
 
                 layer l = net->layers[net->n - 1];
                 float* X = sized.data;
                 last_tsc = rte_get_tsc_cycles();
 
-                network orig = *net;
-                net->input = X;
-                net->truth = 0;
-                net->train = 0;
-                net->delta = 0;
+                network_state state;
+                state.net = *net;
+                state.index = 0;
+                state.input = X;
+                state.train = 0;
+                state.truth = 0;
+                state.delta = 0;
 
-                if (layer1_io_file) {
-                        printf("[TEST] The IO data of the first layer is "
-                               "stored in files.\n");
-                }
-
-                /* MARK: Iterate over layers in the network */
-                network net_cur = *net;
-                FILE* io_fd = NULL;
-
-                for (i = 0; i < net_cur.n; ++i) {
-                        net_cur.index = i;
-                        layer l = net_cur.layers[i];
-                        last_tsc = rte_get_tsc_cycles();
-                        l.forward(l, net_cur);
-                        if (i == 1 && layer1_io_file == 1) {
-                                snprintf(output_file, MAX_FILENAME_SIZE,
-                                    "layer1_%s_input.bin", model);
-                                io_fd = fopen(output_file, "w+");
-                                fwrite(net_cur.input, 1, l.inputs, io_fd);
-                                fclose(io_fd);
-                        }
-                        delay = (1.0 / rte_get_timer_hz()) * 1000.0
-                            * (rte_get_tsc_cycles() - last_tsc);
-                        layer_delay_arr[i] = delay;
-                        layer_type_arr[i] = l.type;
-                        net_cur.input = l.output;
-
-                        if (i == 1 && layer1_io_file == 1) {
-                                snprintf(output_file, MAX_FILENAME_SIZE,
-                                    "layer1_%s_output.bin", model);
-                                io_fd = fopen(output_file, "w+");
-                                fwrite(
-                                    l.output, sizeof(float), l.outputs, io_fd);
-                                fclose(io_fd);
-                        }
-                }
+                forward_network_delay(
+                    net, state, layer_delay_arr, layer_type_arr);
 
                 snprintf(output_file, MAX_FILENAME_SIZE, "%s_%s.csv",
                     "per_layer_delay", model);
                 save_delay_csv(img_idx, layer_type_arr, layer_delay_arr, net->n,
                     output_file);
-                *net = orig;
+
+                delay = (1.0 / rte_get_timer_hz()) * 1000.0
+                    * (rte_get_tsc_cycles() - last_tsc);
+                printf("Predicted in %lf milli-seconds.\n", delay);
 
                 if (unlikely(save_output == 1)) {
                         int nboxes = 0;
-                        detection* dets = get_network_boxes(
-                            net, im.w, im.h, 0.5, 0.5, 0, 1, &nboxes);
+                        detection* dets
+                            = get_network_boxes(net, im.w, im.h, DETECT_THRESH,
+                                DETECT_HIER_THRESH, 0, 1, &nboxes, 0);
                         do_nms_sort(dets, nboxes, l.classes, nms);
-                        draw_detections(
-                            im, dets, nboxes, 0.5, names, alphabet, l.classes);
-                        free_detections(dets, nboxes);
+                        draw_detections_v3(im, dets, nboxes, DETECT_THRESH,
+                            names, alphabet, l.classes, 1);
                         snprintf(output_file, MAX_FILENAME_SIZE, "%lu_%s",
                             img_idx, model);
                         save_image(im, output_file);
+                        free_detections(dets, nboxes);
                 }
+                free_image(im);
+                free_image(sized);
         }
-
-        ll_print_delay();
 }
 
 __attribute__((always_inline)) void infer_frame(
@@ -242,8 +221,10 @@ __attribute__((always_inline)) void infer_frame(
 {
         char output_file[MAX_FILENAME_SIZE];
 
-        image sized = letterbox_image(*frame, net->w, net->h);
-        network_predict(net, sized.data);
+        /*image sized = letterbox_image(*frame, net->w, net->h);*/
+        image sized = resize_image(*frame, net->w, net->h);
+
+        network_predict(*net, sized.data);
         if (save_output == 1) {
                 layer l = net->layers[net->n - 1];
                 snprintf(output_file, MAX_FILENAME_SIZE, "./%lu_output.bin",
@@ -258,9 +239,12 @@ __attribute__((always_inline)) void infer_frame(
 
 /**
  * @brief Test YOLO v2 preprocessing delay
+ *        The preprocessing is to perform the first X conv and pooling layers
  *
  * @mark: This function is profiled with Valgrind Memcheck and Massif for memory
  *        management. The goal is to reduce the memory usage.
+ *
+ * @todo: Only use accelerated darknet after sufficient stability tests
  */
 void perf_yolov2_pp(char* cfgfile, int image_st, unsigned int image_num,
     unsigned int save_output, unsigned int keep_run, char* csv_prefix,
@@ -280,11 +264,11 @@ void perf_yolov2_pp(char* cfgfile, int image_st, unsigned int image_num,
         // ISSUE: Eating hundreds of MB when loading layers (even only conv and
         // maxpooling layers).
         printf("To be loaded cfg file: %s\n", cfgfile);
-        network* net = parse_network_cfg(cfgfile);
-        load_weights(net, weightfile);
 
-        set_batch_network(net, 1);
-        srand(time(0));
+        network* net = load_network_custom(cfgfile, weightfile, 1, 1);
+        fuse_conv_batchnorm(*net);
+        calculate_binary_weights(*net);
+        srand(22222222);
 
         if (dpdk_enabled == 1) {
                 begin_tsc = rte_get_tsc_cycles();
@@ -315,10 +299,8 @@ void perf_yolov2_pp(char* cfgfile, int image_st, unsigned int image_num,
                 delay = (1.0 / rte_get_timer_hz()) * 1000.0
                     * (rte_get_tsc_cycles() - begin_tsc);
 
-                /*snprintf(output_file, MAX_FILENAME_SIZE,*/
-                /*"./%s_%d_yolo_v2_f4_delay.csv", csv_prefix, getpid());*/
                 snprintf(output_file, MAX_FILENAME_SIZE,
-                    "./%s_yolo_v2_f4_delay.csv", csv_prefix);
+                    "./%s_yolo_v2_pp_delay.csv", csv_prefix);
                 fd = fopen(output_file, "w+");
                 if (fd == NULL) {
                         perror("Can not open CSV file to store processing "
@@ -346,84 +328,6 @@ void save_tmp_output(float* arr, uint16_t len)
                 }
         }
         fclose(fd);
-}
-
-/**
- * @brief test_layer_output
- * @issue: Use many duplicated codes of perf_delay_layerwise...
- *         Remove this after I figure out how stb image and darknet layer struct
- *         stores image information...
- */
-void test_layer_output()
-{
-        uint8_t img_idx = 29;
-        uint8_t cut_idx = 7;
-
-        char* weightfile = "/root/darknet/yolov2.weights";
-        char input_file[MAX_FILENAME_SIZE];
-        char output_file[MAX_FILENAME_SIZE];
-        FILE* fd = NULL;
-        size_t i = 0;
-        int nboxes = 0;
-        list* options = read_data_cfg("/root/darknet/cfg/coco.data");
-        char* name_list = option_find_str(options, "names", "data/names.list");
-        char** names = get_labels(name_list);
-        image** alphabet = load_alphabet();
-        float tmp_output[76 * 76 * 128] = { 0.0 };
-        size_t ret = 0;
-
-        network* net = parse_network_cfg("/root/darknet/cfg/yolov2.cfg");
-        load_weights(net, weightfile);
-
-        set_batch_network(net, 1);
-
-        sprintf(input_file, "../../dataset/pedestrian_walking/%u.jpg", img_idx);
-        image im = load_image_color(input_file, 0, 0);
-        image sized = letterbox_image(im, net->w, net->h);
-
-        layer l = net->layers[net->n - 1];
-        float* X = sized.data;
-        network orig = *net;
-        net->input = X;
-        net->truth = 0;
-        net->train = 0;
-        net->delta = 0;
-
-        network net_cur = *net;
-        snprintf(input_file, MAX_FILENAME_SIZE, "./%u_output.bin", img_idx);
-        fd = fopen(input_file, "r");
-        if (fd == NULL) {
-                perror("Can not open the output file of the preprocessing.\n");
-                exit(1);
-        }
-        for (i = 0; i < net_cur.n; ++i) {
-                net_cur.index = i;
-                layer l = net_cur.layers[i];
-                l.forward(l, net_cur);
-                if (i == cut_idx) {
-                        /*net_cur.input = (float*)(fd);*/
-                        ret = fread(tmp_output, sizeof(float), l.outputs, fd);
-                        if (ret == l.outputs) {
-                                save_tmp_output(tmp_output, l.outputs);
-                                net_cur.input = tmp_output;
-                        } else {
-                                perror("Fail to read output file of the "
-                                       "preprocessing\n");
-                        }
-                } else {
-                        net_cur.input = l.output;
-                }
-        }
-        fclose(fd);
-        *net = orig;
-
-        detection* dets
-            = get_network_boxes(net, im.w, im.h, 0.5, 0.5, 0, 1, &nboxes);
-        do_nms_sort(dets, nboxes, l.classes, 0.45);
-        draw_detections(im, dets, nboxes, 0.5, names, alphabet, l.classes);
-        free_detections(dets, nboxes);
-        snprintf(output_file, MAX_FILENAME_SIZE, "%u", img_idx);
-        save_image(im, output_file);
 }
 
 /**
@@ -517,15 +421,10 @@ int main(int argc, char* argv[])
                 printf("Run YOLO pre-processing test.\n");
                 perf_yolov2_pp(cfgfile, image_st, image_num, save_output,
                     keep_run, csv_prefix, dpdk_enabled);
-        } else if (test_mode == 2) {
-                printf("Test if the output of the pre-processing works with "
-                       "the rest of the network\n");
-                test_layer_output();
         } else {
                 fprintf(stderr, "Invalid test mode!\n");
         }
 
-        ll_cleanup();
         printf("Program exits.\n");
         return 0;
 }

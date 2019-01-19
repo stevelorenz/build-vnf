@@ -1,6 +1,8 @@
 #
 # Dockerfile for DarkNet (NN in C)
-# For CPU ONLY (without CUDA related stuffs)
+#
+# - For CPU ONLY (without CUDA related stuffs)
+# - Use the fork of AlexyAB for AVX acceleration
 #
 
 FROM ubuntu:16.04
@@ -23,9 +25,16 @@ RUN \
     wget
 
 RUN \
-    git clone https://github.com/pjreddie/darknet && \
+    #git clone https://github.com/pjreddie/darknet && \
+    git clone https://github.com/AlexeyAB/darknet && \
     cd darknet && \
-    make
+    # Build darknet library
+    sed -i '0,/LIBSO=0/s//LIBSO=1/' Makefile && \
+    # Enable AVX acceleration
+    sed -i '0,/AVX=0/s//AVX=1/' Makefile && \
+    # Enable multi-CPU acceleration
+    # sed -i '0,/OPENMP=0/s//OPENMP=1/' Makefile \
+    make -j 2
 
 RUN \
     cp /root/darknet/libdarknet.so /usr/lib
@@ -60,8 +69,8 @@ RUN \
     make && \
     ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
 
-# Install Valgrind for debugging and profilling
+# Install GDB and Valgrind for debugging and profilling
 RUN \
-    apt-get install -y valgrind
+    apt-get install -y valgrind gdb
 
 CMD ["bash"]

@@ -11,7 +11,7 @@ prompt-toolkit==2.0.7
 psutil==5.4.8
 ptyprocess==0.6.0
 Pygments==2.2.0
-PyYAML==3.13
+pyyaml>=4.2b1
 six==1.11.0
 traitlets==4.3.2
 wcwidth==0.1.7

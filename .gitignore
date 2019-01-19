@@ -209,6 +209,7 @@ app/yolo/*.csv
 app/yolo/*.bin
 app/yolo/massif.*
 app/yolo/*.pdf
+app/yolo/*.weights
 
 ----------
 -  DPDK  -
