@@ -27,7 +27,7 @@ STYLE_MAP = {
     'Direct Forwarding': {'color': 0, 'ls': '-.'},
     # "Centralized 1 vCPU": {'color': 1, 'ls': ':'},
     "Centralized": {'color': 4, 'ls': 'dashed'},
-    "Chain-based": {'color': 2, 'ls': 'solid'},
+    "CALVIN": {'color': 2, 'ls': 'solid'},
 }
 
 CMAP = cm.get_cmap('tab10')
@@ -106,7 +106,7 @@ def plot_bw():
 
     labels = [
         "Centralized",
-        "Chain-based"
+        "CALVIN"
 
     ]
     markers = ['o', 'x', '^']

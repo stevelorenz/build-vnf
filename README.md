@@ -13,8 +13,6 @@ processing ability and delay performance of the tool should also be considered.
 
 Such VNFs can be latter e.g. integrated into NFV platforms or frameworks.
 
-Check out the [draft of our paper](./paper/paper_draft.pdf) to get more detailed information.
-
 ## Catalog ##
 
 Since this repo is research oriented, many PoCs or prototypes are also included. These sub-items are classified in the

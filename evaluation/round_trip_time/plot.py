@@ -28,7 +28,7 @@ STYLE_MAP = {
     'Direct Forwarding': {'color': 1, 'ls': '-.'},
     # "Centralized 1 vCPU": {'color': 1, 'ls': ':'},
     "Centralized": {'color': 4, 'ls': 'dashed'},
-    "Chain-based": {'color': 2, 'ls': 'solid'},
+    "CALVIN": {'color': 2, 'ls': 'solid'},
 }
 
 STYLE_MAP_ADV = {
@@ -258,7 +258,7 @@ def plot_cdf():
         'Direct Forwarding',
         # "Centralized 1 vCPU",
         "Centralized",
-        "Chain-based"
+        "CALVIN"
     ]
     for i, csv_name in enumerate(csv_files):
         csv_path = os.path.join('./results/rtt/', csv_name)

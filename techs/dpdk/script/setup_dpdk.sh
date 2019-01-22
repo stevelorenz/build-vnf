@@ -55,7 +55,7 @@ fi
 make config T=${RTE_TARGET}
 sed -ri 's,(PMD_PCAP=).*,\1y,' build/.config
 echo "# Compiling dpdk target from source."
-make
+make -j 2
 
 # Install and load kernel modules
 echo "# Loading kernel modules."

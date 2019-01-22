@@ -14,7 +14,7 @@ RAM = 2048
 
 # Use Ubuntu by default
 UBUNTU_LTS = "bento/ubuntu-16.04"
-# MARK: Some tools like containernet can not be installed on the latest verision of Ubuntu with built in installation script
+# MARK: Some tools like containernet can not be installed on the latest version of Ubuntu with built in installation script
 UBUNTU_LTS_LATEST = "bento/ubuntu-18.04"
 UBUNTU_1404 = "bento/ubuntu-14.04"
 
@@ -23,6 +23,11 @@ ARCH_LATEST = "archlinux/archlinux"
 #######################
 #  Provision Scripts  #
 #######################
+
+# MARK: By default, the provision script runs with privileged user (use sudo
+# for all commands) If the provision script requires to switch back to vagrant
+# user, the practical solution is to set privileged to false and use sudo for
+# root privileges.
 
 # Common bootstrap
 $bootstrap_apt= <<-SCRIPT
@@ -149,11 +154,18 @@ Vagrant.configure("2") do |config|
     # Create private networks, which allows host-only access to the machine using a specific IP.
     # This option is needed otherwise the Intel DPDK takes over the entire adapter
     # 10.0.0.11 is always used for receiving packets ---> Use fix MAC address
-    dpdk.vm.network "private_network", ip: "10.0.0.11", mac: "080027baf4c6"
-    dpdk.vm.network "private_network", ip: "10.0.0.12", mac: "0800273c9768"
-    dpdk.vm.network "private_network", ip: "10.0.0.33", mac: "0800273c99c4"
-    dpdk.vm.provision :shell, inline: $bootstrap_apt
-    dpdk.vm.provision :shell, inline: $setup_dev_net
+    dpdk.vm.network "private_network", ip: "10.0.0.11", mac: "080027baf4c6",
+      nic_type: "82540EM"
+    dpdk.vm.network "private_network", ip: "10.0.0.12", mac: "0800273c9768",
+      nic_type: "82540EM"
+    dpdk.vm.network "private_network", ip: "10.0.0.33", mac: "0800273c99c4",
+      nic_type: "82540EM"
+    dpdk.vm.provision :shell, inline: $bootstrap_apt, privileged: false
+    dpdk.vm.provision :shell, inline: $setup_dev_net, privileged: true
+    dpdk.vm.provision :shell, inline: $setup_x11_server_apt
+    # Enable X11 forwarding
+    dpdk.ssh.forward_agent = true
+    dpdk.ssh.forward_x11 = true
 
     # VirtualBox-specific configuration
     dpdk.vm.provider "virtualbox" do |vb|
