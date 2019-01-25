@@ -9,10 +9,11 @@ RUN apt-get update && apt-get install -y \
     sudo \
     git \
     python3-pip \
-    wget
+    wget \
+    unzip
 
 RUN pip3 install --upgrade setuptools && \
-    pip3 install Cython numpy
+    pip3 install Cython numpy==1.15
 
 RUN useradd -m docker && echo "docker:docker" | chpasswd && adduser docker sudo
 
@@ -36,5 +37,12 @@ RUN cd /app/yolov2 && mkdir model
 RUN cp built_graph/* /app/yolov2/model
 
 WORKDIR /app/yolov2
+RUN git clone https://github.com/philferriere/cocoapi.git && \
+    wget http://images.cocodataset.org/zips/val2017.zip && \
+    wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip && \
+    mkdir ./cocoapi/images && \
+    unzip ./val2017.zip -d ./cocoapi/images/ && \
+    unzip ./annotations_trainval2017.zip -d ./cocoapi/
+RUN cd cocoapi/PythonAPI && python3 setup.py build_ext --inplace
 
 CMD /bin/bash
