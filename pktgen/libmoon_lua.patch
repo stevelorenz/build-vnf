@@ -1,0 +1,11 @@
+--- libmoon/lua/driver/igb.lua	2019-01-28 10:06:28.972646744 +0100
++++ libmoon/lua/driver/igb_mod.lua	2019-01-28 10:12:34.875901082 +0100
+@@ -60,7 +60,7 @@
+ 	-- enable timestamping UDP packets as well
+ 	local val = dpdkc.read_reg32(self.id, TSYNCRXCTL)
+ 	val = bit.band(val, bit.bnot(TSYNCRXCTL_TYPE_MASK))
+-	val = bit.bor(val, bit.lshift(2, TSYNCRXCTL_TYPE_OFFS))
++	val = bit.bor(val, bit.lshift(4, TSYNCRXCTL_TYPE_OFFS))
+ 	dpdkc.write_reg32(self.id, TSYNCRXCTL, val)
+ end
+ 
