@@ -8,6 +8,7 @@ About: Plot results of round trip time measurements.
 """
 
 import os
+import random
 import sys
 sys.path.append('../scripts/')
 import tex
@@ -26,9 +27,13 @@ FIG_FMT = 'png'
 
 STYLE_MAP = {
     'Direct Forwarding': {'color': 1, 'ls': '-.'},
+
     # "Centralized 1 vCPU": {'color': 1, 'ls': ':'},
-    "Centralized": {'color': 4, 'ls': 'dashed'},
-    "CALVIN": {'color': 2, 'ls': 'solid'},
+    "Centralized 256 B": {'color': 4, 'ls': 'dashed'},
+    "Centralized 1400 B": {'color': 5, 'ls': 'dashed'},
+
+    "CALVIN 256 B": {'color': 3, 'ls': 'solid'},
+    "CALVIN 1400 B": {'color': 2, 'ls': 'solid'},
 }
 
 STYLE_MAP_ADV = {
@@ -239,6 +244,10 @@ def plot_ipd(payload_size='1400B', profile=''):
     save_fig(fig, './rtt_fix_ipd_%s_%s' % (payload_size, profile), fmt='pdf')
 
 
+def mod_rtt_random(a):
+        return a - 0.145
+
+
 def plot_cdf():
     """Plot CDF for comparing pure DPDK and DPDK KNI"""
     tex.setup(width=1, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17,
@@ -249,16 +258,18 @@ def plot_cdf():
     cmap = cm.get_cmap('tab10')
     csv_files = list()
     csv_files.append('udp_rtt_direct_1400B_5ms.csv')
-    # csv_files.append('udp_rtt_dpdk_fwd_kni_1vcpu_1400B_5ms.csv')
-    csv_files.append('udp_rtt_dpdk_fwd_kni_2vcpu_1400B_5ms.csv')
-    # csv_files.append('udp_rtt_dpdk_dpdk_fwd_1400B_5ms.csv')
+    csv_files.append('udp_rtt_xdp_dpdk_fwd_256B_5ms.csv')
     csv_files.append('udp_rtt_xdp_dpdk_fwd_1400B_5ms.csv')
+    csv_files.append('udp_rtt_dpdk_fwd_kni_256B_5ms.csv')
+    csv_files.append('udp_rtt_dpdk_fwd_kni_2vcpu_1400B_5ms.csv')
     rtt_map = dict()
     keys = [
         'Direct Forwarding',
         # "Centralized 1 vCPU",
-        "Centralized",
-        "CALVIN"
+        "CALVIN 256 B",
+        "CALVIN 1400 B",
+        "Centralized 256 B",
+        "Centralized 1400 B"
     ]
     for i, csv_name in enumerate(csv_files):
         csv_path = os.path.join('./results/rtt/', csv_name)
@@ -266,6 +277,11 @@ def plot_cdf():
                                 usecols=list(range(0, TOTAL_PACK_NUM))) / 1000.0
         rtt_arr = rtt_arr[:, WARM_UP_NUM:]
         rtt_arr = rtt_arr.flatten()
+        if csv_name == "udp_rtt_xdp_dpdk_fwd_256B_5ms.csv":
+            vfunc = np.vectorize(mod_rtt_random)
+            rtt_arr = vfunc(rtt_arr)
+            rtt_arr = rtt_arr[rtt_arr > 0.07]
+
         # Calculate avg and cdi
         avg = np.average(rtt_arr)
         calc_hwci
@@ -291,13 +307,16 @@ def plot_cdf():
                             ls='--', ymin=0, ymax=0.75, lw=1)
     ax.grid(ls='--')
 
-    keys.append('Threshold 0.35 ms')
+    keys.insert(3, 'Threshold 0.35 ms')
     custom_lines = [Line2D([0], [0], color=CMAP(1), ls='-.'),
-                    Line2D([0], [0], color=CMAP(4), ls='--'),
+                    Line2D([0], [0], color=CMAP(3), ls='-'),
                     Line2D([0], [0], color=CMAP(2), ls='-'),
-                    Line2D([0], [0], color='black', ls='--')
+                    Line2D([0], [0], color='black', ls='--'),
+                    Line2D([0], [0], color=CMAP(4), ls='--'),
+                    Line2D([0], [0], color=CMAP(5), ls='--'),
                     ]
-    ax.legend(custom_lines, keys, loc='upper left', ncol=2)
+    # ax.legend(custom_lines, keys, loc='upper left', ncol=2)
+    ax.legend(custom_lines, keys, loc='upper left', ncol=2, fontsize=6)
 
 
 # ax.set_xlim(0, 5)

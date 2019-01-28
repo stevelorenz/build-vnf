@@ -1,0 +1,126 @@
+#
+# About  : Sample template for sfc-ostack configuration file
+#          Used for static creation of SFC(s)
+#
+# Format : YAML
+#
+# Mark   :
+#
+# 1. Cloud authentication use Keystone V3 API.
+#
+# 2. For flow_classifier parameters, check the official API ref:
+#    https://docs.openstack.org/networking-sfc/latest/contributor/api.html
+#
+
+---
+
+# Logging configs
+log:
+  level: INFO
+
+# Cloud configs
+cloud:
+  # Authentication parameters
+  auth:
+    auth_url: http://192.168.0.1/identity/v3
+    project_name: admin
+    # Domain names are needed for API v3
+    project_domain_name: default
+    username: admin
+    user_domain_name: default
+    password: stack
+
+# SFC manager configs
+SFC_manager:
+  typ: static
+  mgr_ip: 192.168.0.1
+  mgr_port: 6666
+
+# SFC configs
+# TODO: Support multiple SFC sections, currently only one SFC section is parsed
+SFC:
+  # Chain parameters
+  function_chain:
+    name: udp_forwarding_dst_9999
+    description: A simple forwarding chain for flows with destination UDP port 9999
+    # Placement algorithm. Can be nsd, fo, nsdro
+    # nsd: Nova scheduler default, fo: Fill one, nsdro: NSD Reordered
+    placement_algo: nsd
+    availability_zone: nova
+    # A ordered list of available hypervisors for allocating SFC
+    # The hypervisors are listed according to the allocating priority
+    available_hypervisors:
+      - comnets-ostack-1
+      - comnets-ostack-2
+      - comnets-ostack-3
+    # Hostname of the hypervisor on which the chain destination is allocated
+    destination_hypervisor: comnets-ostack-1
+
+  # Neutron network for SF(Service Function) servers
+  # All SF servers are launched on the same neutron subnet
+  network:
+    pubnet_name: public
+    net_name: net1
+    subnet_name: subnet1
+    # MARK: Security group is not supported in networking-sfc extension
+
+  # Flow classifier rules
+  # Rules for flow(s) that will be routed into the SFC
+  flow_classifier:
+    name: udp_dst_9999
+    description: UDP traffic with destination port 9999
+    # L2 ethertype. Can be IPv4 or IPv6 only.
+    ethertype: IPv4
+    protocol: UDP
+    source_port_range_min: 0
+    source_port_range_max: 65535
+    destination_port_range_min: 9999
+    destination_port_range_max: 9999
+    # Source IPv4 or IPv6 prefix, as CIDR
+    source_ip_prefix: 10.0.0.3/32
+    destination_ip_prefix: 10.0.0.10/32
+    # Name of the source and destination neutron port
+    logical_source_port: src_pt
+    logical_destination_port: dst_pt
+
+  # Server chain defines a ordered list of SF servers
+  # Used for static SFC creation
+  server_chain:
+    # Name of the SF server
+    sf1:
+      # Sequence number(position) in the server chain
+      seq_num: 1
+      image: ubuntu-cloud
+      flavor: m.test
+      # BASH script that is executed after booting of the instance
+      # Currently this is used for configuring and starting SF program(s)
+      init_script: ./init_sf.sh
+      # SSH parameters
+      ssh:
+        user_name: ubuntu
+        # Name of the public key
+        pub_key_name: test
+        # Path of private key file(pem file)
+        pvt_key_file: ./test.pem
+
+    sf2:
+      seq_num: 2
+      image: ubuntu-cloud
+      flavor: m.test
+      init_script: ./init_sf.sh
+      ssh:
+        user_name: ubuntu
+        pub_key_name: test
+        pvt_key_file: ./test.pem
+
+  # Used for dev tests
+  sample_server:
+    image: ubuntu-cloud
+    flavor: m.test
+    init_script: ./init_sf.sh
+    ssh:
+      user_name: ubuntu
+      pub_key_name: test
+      pvt_key_file: ./test.pem
+
+...

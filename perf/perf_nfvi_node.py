@@ -9,6 +9,7 @@ About: Perf the PHYSICAL NFVI node running Linux kernel (eBPF and perf_events
        Results are stored in CSV files
 
 Tools:
+    - Linux perf subsystem
     - eBPF with bcc frontend
 """
 
@@ -44,6 +45,16 @@ def perf_llcstats(duration, pid_list):
         writer = csv.writer(f)
         for i in cache_info:
             writer.writerow(i)
+
+
+def run_perf_event():
+    """run_perf_event"""
+    pass
+
+
+def parse_cache(duration, pid_list):
+    """"""
+    pass
 
 
 def main():

@@ -170,6 +170,7 @@ def eval_yolov2_pp(profile=0):
               different scheduling algorithms""")
         # TODO: Extend the simulation to more scheduling
         run_pf_1(2, [0, 1], "round_robin", 1)
+        run_pf_1(2, [0, 1], "let_kernel_do_it", 1)
         time.sleep(5)
 
     elif profile == 2:

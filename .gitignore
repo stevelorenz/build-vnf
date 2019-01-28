@@ -191,8 +191,12 @@ perf/*.csv
 -  Evaluation  -
 ----------------
 
+/evaluation/*.png
+/evaluation/*.pdf
 evaluation/one_way_delay/results/
 rsc/
+/evaluation/round_trip_time/*.png
+/evaluation/round_trip_time/*.pdf
 
 ----------------
 -  Large Data  -
