@@ -37,6 +37,7 @@ function configure(parser)
 	parser:option("-s --seconds", "Stop after n seconds")
 	parser:flag("-a --arp", "Use ARP.")
 	parser:flag("--csv", "Output in CSV format")
+	parser:flag("--ts", "Use hardware timestamping")
 	return parser:parse()
 end
 
@@ -73,7 +74,8 @@ function master(args)
 	if args.rate then
 		txQueue:setRate(args.rate / args.threads)
 	end
-	mg.startTask("latencyTest", txQueue, rxQueue, DST_MAC)
+
+	mg.startTask("latencyTest", txQueue, rxQueue, DST_MAC, args.ts)
 
 	if args.seconds then
 		mg.setRuntime(tonumber(args.seconds))
@@ -82,7 +84,7 @@ function master(args)
 	mg.waitForTasks()
 end
 
-function latencyTest(txQueue, rxQueue, dstMac)
+function latencyTest(txQueue, rxQueue, dstMac, useTimestamp)
 	-- memory pool with default values for all packets, this is our archetype
 	local mempool = memory.createMemPool(function(buf)
 		buf:getUdpPtpPacket():fill{
@@ -101,65 +103,78 @@ function latencyTest(txQueue, rxQueue, dstMac)
 	local rxBufs = memory.bufArray()
 
 	local seq = 1
-	txQueue:enableTimestamps()
-	rxQueue:enableTimestamps()
-
-	local hist = hist:new()
+	if useTimestamp then
+		txQueue:enableTimestamps()
+		rxQueue:enableTimestamps()
+	end
 
 	while mg.running() do -- check if Ctrl+c was pressed
+		local numPkts = 0
 		-- this actually allocates some buffers from the mempool the array is associated with
 		-- this has to be repeated for each send because sending is asynchronous, we cannot reuse the old buffers here
 		bufs:alloc(PKT_LEN)
+		if useTimestamp then
 			bufs[1]:enableTimestamps()
-			local pkt = bufs[1]:getUdpPtpPacket()
-			local expectedSeq = seq
-			pkt.udp:setSrcPort(SRC_PORT_BASE)
-			pkt.ptp:setSequenceID(expectedSeq)
-			seq = (seq + 1) % 2^16
+		end
+		local pkt = bufs[1]:getUdpPtpPacket()
+		local expectedSeq = seq
+		pkt.udp:setSrcPort(SRC_PORT_BASE)
+		pkt.ptp:setSequenceID(expectedSeq)
+		seq = (seq + 1) % 2^16
 		bufs:offloadUdpChecksums()
 		-- send out all packets and frees old bufs that have been sent
 		local t1 = mg.getTime() --t1
-	--	print("expectedSeq", bufs[1]:getUdpPtpPacket().ptp:getSequenceID())
 		txQueue:send(bufs)
-		local t2 = txQueue:getTimestamp(500) --t2
-	
-		local numPkts = 0
-		if t2 then
+		if useTimestamp then
+			local t2 = txQueue:getTimestamp(500) --t2
+			if t2 then
+				local timer = timer:new(0.001)
+				while timer:running() do
+					local rx = rxQueue:tryRecv(rxBufs, 100)
+					t4 = mg.getTime() --t4
+					numPkts = numPkts + rx
+					local timestampedPkt = rxQueue.dev:hasRxTimestamp()
+	--				print("timestampedPkt", timestampedPkt)
+					if not timestampedPkt then
+						-- NIC didn't save a timestamp yet, just throw away the packets
+						rxBufs:freeAll()
+					else
+						for i = 1, rx do
+							local buf = rxBufs[i]
+							local seq = buf:getUdpPtpPacket().ptp:getSequenceID()
+							--	print("seq", seq)
+							if seq == expectedSeq then
+								t3 = rxQueue:getTimestamp() --t3
+								print("t3 - t2", (t3-t2)/10^6, "ms")
+								print("t4-t3+t2-t1", (t4-t1)*10^3-(t3-t2)/10^6, "ms")
+								print("---------------------")
+							end
+						end -- end of for	
+						rxBufs:freeAll()
+					end
+				end -- end of while
+			end -- end of if t2
+		else
 			local timer = timer:new(0.001)
 			while timer:running() do
 				local rx = rxQueue:tryRecv(rxBufs, 100)
 				t4 = mg.getTime() --t4
 				numPkts = numPkts + rx
-				local timestampedPkt = rxQueue.dev:hasRxTimestamp()
-	--			print("timestampedPkt", timestampedPkt)
-				if not timestampedPkt then
-				-- NIC didn't save a timestamp yet, just throw away the packets
-					rxBufs:freeAll()
-				else
-					for i = 1, rx do
-						local buf = rxBufs[i]
-						local seq = buf:getUdpPtpPacket().ptp:getSequenceID()
+				for i = 1, rx do
+					local buf = rxBufs[i]
+					local seq = buf:getUdpPtpPacket().ptp:getSequenceID()
 					--	print("seq", seq)
-						if seq == expectedSeq then
-							t3 = rxQueue:getTimestamp() --t3
-							print("t3 - t2", (t3-t2)/10^6, "ms")
-							print("t4-t3+t2-t1", (t4-t1)*10^3-(t3-t2)/10^6, "ms")
-							print("---------------------")
-							hist:update((t4-t1)*10^3, 666)
-						end
-					end -- end of for	
-					rxBufs:freeAll()
-				end
-			
+					if seq == expectedSeq then
+						print("t4-t1", (t4-t1)*10^3, "ms")
+						print("---------------------")
+					end
+				end -- end of for	
+				rxBufs:freeAll()
 			end -- end of while
-		end -- end of if t2
+		end
+	end -- end of mg.running
 
-	end
---	hist:print()
-	hist:save("ts_latency_test.csv")
 end
-
-
 
 
 
