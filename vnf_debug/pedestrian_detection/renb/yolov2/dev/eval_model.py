@@ -15,14 +15,11 @@ def get_mAPs():
     dataDir = 'cocoapi'
     dataType = 'val2017'
     annFile = '%s/annotations/%s_%s.json' % (dataDir, prefix, dataType)
-    resFile = '%s/results/results.json' % dataDir
+    resFile = '%s/results/results_orig.json' % dataDir
     cocoGt = COCO(annFile)
     cocoDt = cocoGt.loadRes(resFile)
 
-    imgIds=sorted(cocoGt.getImgIds())
-    imgIds = imgIds[0:50]
     cocoEval = COCOeval(cocoGt,cocoDt,annType)
-    cocoEval.params.imgIds  = imgIds
     cocoEval.evaluate()
     cocoEval.accumulate()
     cocoEval.summarize()
