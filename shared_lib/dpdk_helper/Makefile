@@ -1,3 +1,4 @@
+# Legacy DPDK makefile
 include $(RTE_SDK)/mk/rte.vars.mk
 
 LIB = libdpdkhelper.so
@@ -17,8 +18,8 @@ ifeq ($(PREFIX), )
 	PREFIX := /usr/local
 endif
 
-install: build/lib/libdpdkhelper.so
-	sudo install -d $(DESTDIR)$(PREFIX)/lib/
-	sudo install -m 644 build/lib/libdpdkhelper.so $(DESTDIR)$(PREFIX)/lib/
-
 include $(RTE_SDK)/mk/rte.extlib.mk
+
+#install: build/lib/libdpdkhelper.so
+#sudo install -d $(DESTDIR)$(PREFIX)/lib/
+#sudo install -m 644 build/lib/libdpdkhelper.so $(DESTDIR)$(PREFIX)/lib/

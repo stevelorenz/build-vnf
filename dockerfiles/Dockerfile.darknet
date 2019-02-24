@@ -1,5 +1,6 @@
 #
 # Dockerfile for DarkNet (NN in C)
+# WARN: This dockerfile is used for dev and debugging. Some files are copied into container based on the build-vnf directory structure
 #
 # - For CPU ONLY (without CUDA related stuffs)
 # - Use the fork of AlexyAB for AVX acceleration

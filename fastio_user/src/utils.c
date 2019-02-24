@@ -32,7 +32,7 @@
 #include <rte_ring.h>
 #include <rte_udp.h>
 
-#include "dpdk_helper.h"
+#include "utils.h"
 
 struct rte_mbuf* mbuf_udp_deep_copy(
     struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len)
