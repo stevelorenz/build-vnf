@@ -1,0 +1,17 @@
+#
+# Dockerfile for MoonGen
+#
+
+FROM ubuntu:16.04
+
+RUN apt-get update && apt-get install -y build-essential cmake linux-headers-`uname -r` pciutils libnuma-dev
+RUN apt-get install -y git
+
+WORKDIR /root
+
+RUN \
+    git clone https://github.com/emmericp/MoonGen && \
+    cd MoonGen && \
+    ./build.sh
+
+CMD ["bash"]
