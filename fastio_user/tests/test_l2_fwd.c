@@ -11,7 +11,8 @@
 #include <rte_lcore.h>
 #include <rte_mbuf.h>
 
-#include <fastio_user/utils.h>
+#include <fastio_user/device.h>
+#include <fastio_user/memory.h>
 
 #define RX_RING_SIZE 128
 #define TX_RING_SIZE 512
@@ -24,47 +25,6 @@ static struct rte_eth_conf port_conf_default = {
 		.max_rx_pkt_len = 9000,
 	},
 };
-
-static inline int port_init(uint16_t port, struct rte_mempool* mbuf_pool)
-{
-        struct rte_eth_conf port_conf = port_conf_default;
-        const uint16_t rx_rings = 2, tx_rings = 4;
-        uint16_t nb_rxd = RX_RING_SIZE;
-        uint16_t nb_txd = TX_RING_SIZE;
-        int retval;
-
-        if (port >= 2)
-                return -1;
-
-        retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
-        if (retval != 0)
-                return retval;
-
-        retval = rte_eth_dev_adjust_nb_rx_tx_desc(port, &nb_rxd, &nb_txd);
-        if (retval != 0)
-                return retval;
-
-        for (uint16_t q = 0; q < rx_rings; q++) {
-                retval = rte_eth_rx_queue_setup(port, q, nb_rxd,
-                    rte_eth_dev_socket_id(port), NULL, mbuf_pool);
-                if (retval < 0)
-                        return retval;
-        }
-
-        for (uint16_t q = 0; q < tx_rings; q++) {
-                retval = rte_eth_tx_queue_setup(
-                    port, q, nb_txd, rte_eth_dev_socket_id(port), NULL);
-                if (retval < 0)
-                        return retval;
-        }
-
-        retval = rte_eth_dev_start(port);
-        if (retval < 0)
-                return retval;
-
-        rte_eth_promiscuous_enable(port);
-        return 0;
-}
 
 static __attribute__((noreturn)) void lcore_main(void)
 {
@@ -122,25 +82,25 @@ int main(int argc, char* argv[])
         struct rte_mempool* mbuf_pool;
         uint16_t portid;
 
+        // Init EAL environment
         int ret = rte_eal_init(argc, argv);
         if (ret < 0)
                 rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
 
+        // MARK: Hard-coded for testing
         const unsigned nb_ports = 1;
         printf("%u ports were found\n", nb_ports);
-        if (nb_ports != 2)
-                rte_exit(EXIT_FAILURE, "Error: number of ports is not 2\n");
+        if (nb_ports != 1)
+                rte_exit(EXIT_FAILURE, "Error: ONLY support one port! \n");
 
-        mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS * nb_ports,
-            MBUF_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+        mbuf_pool = dpdk_init_mempool("test_mbuf_pool", NUM_MBUFS * nb_ports,
+            rte_socket_id(), RTE_MBUF_DEFAULT_BUF_SIZE);
 
-        if (mbuf_pool == NULL)
-                rte_exit(EXIT_FAILURE, "Cannot create mbuf pool\n");
+        // Init the device with port_id 0
+        struct dpdk_device_config cfg = { 0, &mbuf_pool, 1, 1, 256, 256, 1, 1 };
+        dpdk_init_device(&cfg);
 
-        for (portid = 0; portid < nb_ports; portid++)
-                if (port_init(portid, mbuf_pool) != 0)
-                        rte_exit(EXIT_FAILURE, "Cannot init port %" PRIu16 "\n",
-                            portid);
+        return 0;
 
         if (rte_lcore_count() > 1)
                 printf("\nWARNING: Too many lcores enabled. Only 1 used.\n");

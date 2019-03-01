@@ -113,6 +113,8 @@ class RPA_EB(object):
         self._edge_boxes = cv.ximgproc.createEdgeBoxes()
         self._edge_boxes.setMaxBoxes(self._max_boxes_num)
 
+        self._proc_stats = list()
+
     def _check_prop(self):
         """Check properties to avoid conflicts"""
         if self._output_to_file and self._multi_process:
@@ -151,11 +153,16 @@ class RPA_EB(object):
             print(metadata_arr)
             # TODO: Calculate the compression ratio = Uncompressed / Compressed
 
+        compress_ratio = (
+            self._shape[0] * self._shape[1]) / (metadata_arr[2] * metadata_arr[3])
+
+        return compress_ratio
+
     def _proc_frame(self, frame_size):
         """Processing the frame with a newly forked process"""
         frame = np.frombuffer(self._buf, count=frame_size, dtype=np.uint8)
         frame = cv.imdecode(frame, cv.IMREAD_UNCHANGED)
-        frame.resize(self._shape)
+        # frame.resize(self._shape)
         if self._shape[-1] == 1:
             frame = cv.cvtColor(frame, cv.COLOR_GRAY2RGB)
         elif self._shape[-1] == 3:
@@ -172,7 +179,7 @@ class RPA_EB(object):
             cv.imwrite("./{}_a.jpg".format(self._img_ctr), frame)
 
         # Compress the image based on the bounding boxes
-        self._merge_bboxes(boxes, frame)
+        compress_ratio = self._merge_bboxes(boxes, frame)
 
         if self._output_to_file:
             for box in boxes:
@@ -199,16 +206,23 @@ class RPA_EB(object):
         if self._multi_process:
             os._exit(0)
 
+        return compress_ratio
+
+    @staticmethod
+    def __img_sort_func(item):
+        return int(item.split("/")[-1].split(".")[0])
+
     def _run_test(self, frame_num):
         """Run test with images stored in the local path"""
         print("Run in test mode. Image data is read from {}".format(TEST_IMAGE_DIR))
         image_lst = list(map(str, list(Path(TEST_IMAGE_DIR).glob("*.jpg"))))
-        image_lst.sort()
+        image_lst.sort(key=self.__img_sort_func)
         for p in image_lst[:frame_num]:
             with open(p, "rb") as data_in:
                 frame_size = data_in.readinto(self._buf)
 
             if self._multi_process:
+                dur = 0
                 while True:
                     try:
                         pid = os.fork()
@@ -223,19 +237,37 @@ class RPA_EB(object):
                     raise RuntimeError("Can not fork new processes!")
                 if pid == 0:
                     # child processes
-                    self._proc_frame(frame_size)
+                    compress_ratio = self._proc_frame(frame_size)
                 else:
                     logger.debug("Fork a new child with pid: %d", pid)
                     self._last = pid
                     continue
             else:
-                self._proc_frame(frame_size)
+                st = time.time()
+                compress_ratio = self._proc_frame(frame_size)
+                dur = time.time() - st
+
+            self._proc_stats.append((dur, compress_ratio))
 
         # Avoid zombie processes
         if self._multi_process:
             logger.debug("The main process waits until all children terminate.")
             for _ in range(frame_num):
                 os.waitpid(0, 0)
+
+        # Calculate frame processing stats
+        dur_avg = np.average([x[0] for x in self._proc_stats])
+        dur_std = np.std([x[0] for x in self._proc_stats])
+        cr_avg = np.average([x[1] for x in self._proc_stats])
+        cr_std = np.std([x[1] for x in self._proc_stats])
+        print("### Processing statistics ###")
+        print("--- Number of bounding boxes: {}".format(self._max_boxes_num))
+        print(
+            "* Frame processing duration: avg: {}, std: {}".format(
+                dur_avg, dur_std))
+        print("* Compression ration: avg: {}, std:{}".format(
+            cr_avg, cr_std
+        ))
 
     def _run_usock(self):
         """Mark"""
@@ -281,10 +313,17 @@ def set_logger_debug():
 
 def just_debug():
     """Just make it work"""
-    import ipdb
     rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE, max_boxes_num=MAX_BOXES_NUM)
-    rpa_eb.run(test=True, multi_process=False, frame_num=100,
+    rpa_eb.run(test=True, multi_process=False, frame_num=10,
                output_to_file=True, verbose=True)
+
+
+def run_local_test():
+    for boxes_num in (5, 50):
+        rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE,
+                        max_boxes_num=boxes_num)
+        rpa_eb.run(test=True, multi_process=False, frame_num=100,
+                   output_to_file=False, verbose=False)
 
 
 # Try to make it work better...
@@ -349,3 +388,6 @@ if __name__ == "__main__":
         elif sys.argv[1] == '-d':
             print("Run in debugging mode")
             just_debug()
+        elif sys.argv[1] == '-t':
+            print("Run local tests...")
+            run_local_test()
