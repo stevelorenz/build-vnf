@@ -5,11 +5,6 @@
 DEBUG=1
 include $(RTE_SDK)/mk/rte.vars.mk
 
-EXEC=test.out
-
-SRC=test_l2_fwd.c
-OBJ=test_l2_fwd.o
-
 CC=gcc
 CFLAGS+=-I$(RTE_SDK)/$(RTE_TARGET)/include
 CFLAGS+=-I/fastio_user/include
@@ -24,18 +19,15 @@ endif
 
 CFLAGS+=$(OPTS)
 
-all: $(EXEC)
+all: test_l2_fwd.out
 
-$(EXEC): $(OBJ)
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
-
-$(OBJ): $(SRC)
-	$(CC) $(CFLAGS) -c $< -o $@
+test_l2_fwd.out: test_l2_fwd.c
+	$(CC) $(CFLAGS) test_l2_fwd.c -o test_l2_fwd.out $(LDFLAGS)
 
 .PHONY:clean
 
 clean:
-	rm -rf $(EXEC) $(OBJ)
+	rm -rf *.out *.o
 
 # vim:ft=make
 #

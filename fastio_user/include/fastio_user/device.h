@@ -9,7 +9,7 @@
  * @brief
  */
 struct dpdk_device_config {
-        uint32_t portid;
+        uint32_t port_id;
         struct rte_mempool** pool;
         uint16_t rx_queues;
         uint16_t tx_queues;
@@ -27,5 +27,10 @@ struct dpdk_device_config {
  * @return
  */
 int dpdk_init_device(struct dpdk_device_config* cfg);
+
+/**
+ * @brief dpdk_cleanup_devices
+ */
+void dpdk_cleanup_devices(void);
 
 #endif /* !DEVICE_H */

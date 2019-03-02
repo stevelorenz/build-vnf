@@ -52,7 +52,7 @@ def run_client():
                 send_slow_nb += 1
                 if send_slow_nb >= MAX_SEND_SLOW_NUMBER:
                     raise Exception(
-                        "Client sends too slow, the IDP may be too small.")
+                        "Client sends too slow, the IPD may be too small.")
 
             logger.debug('Packet Idx: %d, Send duration: %f, sleep time: %f, payload: %s',
                          send_idx, send_dur, IPD-send_dur, data_arr)

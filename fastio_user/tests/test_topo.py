@@ -20,12 +20,15 @@ for v in ["/sys/bus/pci/drivers", "/sys/kernel/mm/hugepages",
 
 FASTIO_USER_VOLUMES.append("/vagrant/fastio_user/:/fastio_user:rw")
 
-net = Containernet(controller=Controller, autoStaticArp=True)
+net = Containernet(controller=Controller)
+net.addController("c0")
 
 info('*** Adding docker containers\n')
-d1 = net.addDocker('d1', ip='10.0.0.251', dimage="ubuntu:trusty")
-d2 = net.addDocker('d2', ip='10.0.0.252', dimage="fastio_user",
-                   volumes=FASTIO_USER_VOLUMES)
+d1 = net.addDocker('d1', ip='10.0.0.1/24', dimage="ubuntu:trusty",
+                   cpuset_cpus="0")
+d2 = net.addDocker('d2', ip='10.0.0.2/24', dimage="fastio_user",
+                   volumes=FASTIO_USER_VOLUMES,
+                   cpuset_cpus="1")
 
 info('*** Adding switches\n')
 s1 = net.addSwitch('s1')
@@ -38,7 +41,10 @@ net.addLink(s2, d2)
 
 info('*** Starting network\n')
 net.start()
+net.ping([d1, d2])
+
 info('*** Running CLI\n')
 CLI(net)
+
 info('*** Stopping network')
 net.stop()

@@ -3,74 +3,56 @@
  */
 
 #include <inttypes.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #include <rte_cycles.h>
 #include <rte_eal.h>
-#include <rte_ethdev.h>
-#include <rte_lcore.h>
-#include <rte_mbuf.h>
 
 #include <fastio_user/device.h>
+#include <fastio_user/io.h>
 #include <fastio_user/memory.h>
+#include <fastio_user/task.h>
 
 #define RX_RING_SIZE 128
 #define TX_RING_SIZE 512
 #define NUM_MBUFS 5000
 #define MBUF_CACHE_SIZE 250
 #define BURST_SIZE 32
+#define RX_BUF_SIZE 40
 
-static struct rte_eth_conf port_conf_default = {
-	.rxmode = {
-		.max_rx_pkt_len = 9000,
-	},
-};
+static volatile bool force_quit = false;
 
-static __attribute__((noreturn)) void lcore_main(void)
+struct rte_mempool* mbuf_pool;
+
+static void quit_signal_handler(int signum)
 {
-        const uint16_t nb_ports = 1;
-        uint16_t port;
-
-        for (port = 0; port < nb_ports; port++)
-                if (rte_eth_dev_socket_id(port) > 0
-                    && rte_eth_dev_socket_id(port) != (int)rte_socket_id())
-                        printf("WARNING, port %u is on remote NUMA node to "
-                               "polling thread.\n\tPerformance will "
-                               "not be optimal.\n",
-                            port);
-
-        printf(
-            "\nCore %u forwarding packets. [Ctrl+C to quit]\n", rte_lcore_id());
-
-        for (;;) {
-                for (port = 0; port < nb_ports; port++) {
-                        for (uint16_t qid = 0; qid < 2; qid++) {
-
-                                struct rte_mbuf* bufs[BURST_SIZE];
-                                const uint16_t nb_rx = rte_eth_rx_burst(
-                                    port, qid, bufs, BURST_SIZE);
-                                if (unlikely(nb_rx == 0))
-                                        continue;
-
-                                for (uint16_t i = 0; i < nb_rx; i++) {
-                                        printf(
-                                            "port%u:%u recv packet len=%u \n",
-                                            port, qid,
-                                            rte_pktmbuf_pkt_len(bufs[i]));
-                                        /* rte_pktmbuf_dump(stdout, bufs[i], 0);
-                                         */
-                                }
-
-                                const uint16_t nb_tx = rte_eth_tx_burst(
-                                    port ^ 1, qid, bufs, nb_rx);
-                                if (unlikely(nb_tx < nb_rx)) {
-                                        uint16_t buf;
-                                        for (buf = nb_tx; buf < nb_rx; buf++)
-                                                rte_pktmbuf_free(bufs[buf]);
-                                }
-                        }
-                }
+        if (signum == SIGINT || signum == SIGTERM) {
+                printf(
+                    "\n\nSignal %d received, preparing to exit...\n", signum);
+                force_quit = true;
         }
+}
+
+static int proc_loop(__attribute__((unused)) void* dummy)
+{
+        struct rte_mbuf* rx_buf[RX_BUF_SIZE];
+        uint16_t nb_mbuf = 0;
+        uint16_t tail_size = 0;
+
+        // BUG: The port_id and queue_id should be passed into proc_loop
+        // in a proper way.
+        /*dpdk_recv_into(0, 0, rx_buf, 0, RX_BUF_SIZE);*/
+        nb_mbuf = gen_rx_buf_from_file("/dataset/pedestrian_walking/0.jpg",
+            rx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
+        printf("%d mbufs are allocated. Tail size:%d.\n", nb_mbuf, tail_size);
+
+        sleep(0.05);
+        dpdk_free_buf(rx_buf, nb_mbuf);
+
+        return 0;
 }
 
 /**
@@ -79,13 +61,15 @@ static __attribute__((noreturn)) void lcore_main(void)
  */
 int main(int argc, char* argv[])
 {
-        struct rte_mempool* mbuf_pool;
-        uint16_t portid;
+        uint16_t port_id;
 
         // Init EAL environment
         int ret = rte_eal_init(argc, argv);
         if (ret < 0)
                 rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
+
+        signal(SIGINT, quit_signal_handler);
+        signal(SIGTERM, quit_signal_handler);
 
         // MARK: Hard-coded for testing
         const unsigned nb_ports = 1;
@@ -100,13 +84,7 @@ int main(int argc, char* argv[])
         struct dpdk_device_config cfg = { 0, &mbuf_pool, 1, 1, 256, 256, 1, 1 };
         dpdk_init_device(&cfg);
 
-        return 0;
+        dpdk_enter_mainloop_master(proc_loop);
 
-        if (rte_lcore_count() > 1)
-                printf("\nWARNING: Too many lcores enabled. Only 1 used.\n");
-
-        rte_exit(EXIT_FAILURE, "Finish the port init process.\n");
-
-        lcore_main();
         return 0;
 }

@@ -4,7 +4,7 @@
  * About: Helper functions for DPDK development
  *
  *        These are util functions that are not provided by official DPDK APIs
- *        (Version 18.02).
+ *        (Version 18.11).
  *
  * Email: xianglinks@gmail.com
  */

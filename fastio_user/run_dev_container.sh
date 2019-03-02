@@ -18,6 +18,7 @@ else
     sudo docker run --rm --privileged \
         -v /sys/bus/pci/drivers:/sys/bus/pci/drivers -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev \
         -v $PWD:/fastio_user -w /fastio_user \
+        -v /vagrant/dataset:/dataset \
         -it fastio_user bash
 
 fi
