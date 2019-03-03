@@ -147,7 +147,7 @@ class Preprocessor:
         img_preprossed = self.preprocess_image(img)
         feature_maps = self.sess.run(self.output1, feed_dict={
                                      self.input1: img_preprossed})
-        quality = 60
+        quality = 50
         all_batch_info = self.compressor.jpeg_enc(feature_maps, quality)
 
         h_1 = bytes([self.batch_size])
@@ -169,8 +169,7 @@ def main():
     if len(sys.argv) == 2:
         if sys.argv[1] == "-t":
             LOG_TIME = True
-            print("The inference times are stored in ./proc_time.csv")
-            sys.exit(0)
+            print("Time information will be logged into CSV files")
 
     # socket
     server_address = '/uds_socket'
@@ -190,15 +189,42 @@ def main():
     print("Waiting for connections")
     connection, client_address = sock.accept()
     # connection.setblocking(0)
-    idx = 0
+    if LOG_TIME:
+        load_rx_buf_ts_lst = list()
+        load_rx_buf_dur_lst = list()
+        infer_dur_lst = list()
+
     while(1):
-        img_bytes = preprocessor.read_buffer(connection)
-        res_bytes = preprocessor.inference(img_bytes)
-        preprocessor.fill_buffer(res_bytes, connection)
-        print("image_idx:{}, {}, {}".format(
-            idx, len(img_bytes), len(res_bytes)))
-        connection.recv(0)
-        idx += 1
+        if LOG_TIME:
+            st = time.time()
+            img_bytes = preprocessor.read_buffer(connection)
+            load_rx_buf_ts_lst.append(time.time())
+            load_rx_buf_dur_lst.append(time.time() - st)
+            st = time.time()
+            try:
+                res_bytes = preprocessor.inference(img_bytes)
+            except cv2.error:
+                with open("./infer_dur.csv", "a+") as f:
+                    for dur in infer_dur_lst:
+                        f.write("%s\n" % dur)
+                with open("./rx_buffer_load_dur.csv", "a+") as f:
+                    for ts in load_rx_buf_dur_lst:
+                        f.write("%s\n" % ts)
+                with open("./rx_buffer_load_ts.csv", "a+") as f:
+                    for ts in load_rx_buf_ts_lst:
+                        f.write("%s\n" % ts)
+                sys.exit(0)
+            infer_dur_lst.append(time.time() - st)
+            preprocessor.fill_buffer(res_bytes, connection)
+            connection.recv(0)
+        else:
+            try:
+                img_bytes = preprocessor.read_buffer(connection)
+                res_bytes = preprocessor.inference(img_bytes)
+                preprocessor.fill_buffer(res_bytes, connection)
+                connection.recv(0)
+            except cv2.error:
+                sys.exit(0)
 
 
 if __name__ == "__main__":

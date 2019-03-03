@@ -214,6 +214,7 @@ app/yolo/*.bin
 app/yolo/massif.*
 app/yolo/*.pdf
 app/yolo/*.weights
+vnf_debug/pedestrian_detection/yolo_pp/*.csv
 
 ----------
 -  DPDK  -

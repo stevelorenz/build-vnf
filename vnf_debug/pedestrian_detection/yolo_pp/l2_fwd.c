@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <rte_cycles.h>
@@ -23,6 +24,7 @@
 #define MBUF_CACHE_SIZE 250
 #define BURST_SIZE 32
 #define RX_BUF_SIZE 500
+#define TEST_IMG_NUM 100
 
 static volatile bool force_quit = false;
 
@@ -37,6 +39,24 @@ static void quit_signal_handler(int signum)
         }
 }
 
+uint64_t get_unix_ts_micro()
+{
+        struct timespec tms;
+        /* POSIX.1-2008 way */
+        if (clock_gettime(CLOCK_REALTIME, &tms)) {
+                return -1;
+        }
+        /* seconds, multiplied with 1 million */
+        int64_t micros = tms.tv_sec * 1000000;
+        /* Add full microseconds */
+        micros += tms.tv_nsec / 1000;
+        /* round up if necessary */
+        if (tms.tv_nsec % 1000 >= 500) {
+                ++micros;
+        }
+        return micros;
+}
+
 static int proc_loop(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* rx_buf[RX_BUF_SIZE];
@@ -45,21 +65,31 @@ static int proc_loop(__attribute__((unused)) void* dummy)
         int socket = 0;
         uint16_t i = 0;
         char img_path[50];
+        uint64_t rx_buffer_send_ts_arr[TEST_IMG_NUM];
+        FILE* fd;
 
         socket = init_uds_stream_cli("/uds_socket");
-        for (i = 0; i < 100; ++i) {
+        for (i = 0; i < TEST_IMG_NUM; ++i) {
                 sprintf(
                     img_path, "/app/yolov2/cocoapi/images/val2017/%d.jpg", i);
                 nb_mbuf = gen_rx_buf_from_file(
                     img_path, rx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
-                printf("%d mbufs are allocated. Tail size:%d.\n", nb_mbuf,
-                    tail_size);
+                /*printf("%d mbufs are allocated. Tail size:%d.\n", nb_mbuf,*/
+                /*tail_size);*/
 
+                rx_buffer_send_ts_arr[i] = get_unix_ts_micro();
                 send_mbufs_data_uds(socket, rx_buf,
                     1500 * (nb_mbuf - 1) + tail_size, nb_mbuf, tail_size);
                 sleep(0.5);
                 dpdk_free_buf(rx_buf, nb_mbuf);
         }
+
+        // Store array of timestamps
+        fd = fopen("./rx_buffer_send_ts.csv", "a+");
+        for (i = 0; i < TEST_IMG_NUM; ++i) {
+                fprintf(fd, "%lu\n", rx_buffer_send_ts_arr[i]);
+        }
+        fclose(fd);
         return 0;
 }
 
