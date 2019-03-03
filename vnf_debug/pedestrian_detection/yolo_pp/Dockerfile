@@ -58,4 +58,40 @@ RUN pip3 install scipy sklearn
 # Use python3 as the default python
 RUN rm -rf /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 
+# Build DPDK
+
+ENV RTE_SDK=/root/dpdk
+ENV RTE_TARGET=x86_64-native-linuxapp-gcc
+
+RUN apt-get update && apt-get install -y net-tools \
+        build-essential automake python-pip libcap-ng-dev gawk pciutils kmod \
+        linux-headers-$(uname -a | awk '{print $3}') \
+        git hugepages clang doxygen \
+        libnuma-dev libpcap-dev
+
+WORKDIR /root
+
+RUN \
+        git clone http://dpdk.org/git/dpdk "${RTE_SDK}" && \
+        cd dpdk && \
+        git checkout -b lts v18.11 && \
+        make config T=${RTE_TARGET} && \
+        make && \
+        ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
+
+# Add fastio_user library
+WORKDIR /app
+RUN git clone https://github.com/stevelorenz/build-vnf.git
+
+WORKDIR /app/build-vnf
+RUN git fetch origin dev-zuo && \
+    git checkout -b dev-zuo origin/dev-zuo && \
+    cp -r ./fastio_user /fastio_user
+
+WORKDIR /fastio_user
+RUN make
+
+RUN apt-get install -y gdb
+RUN pip3 install ipdb
+
 CMD /bin/bash

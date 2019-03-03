@@ -69,7 +69,7 @@ uint16_t gen_rx_buf_from_file(char const* pathname, struct rte_mbuf** rx_buf,
     uint16_t rx_buf_size, struct rte_mempool* pool, uint16_t MTU,
     uint16_t* tail_size)
 {
-        uint16_t size_b = 0;
+        uint32_t size_b = 0;
         uint16_t nb_mbuf = 0;
         uint16_t i = 0;
         uint8_t* data;

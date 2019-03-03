@@ -18,6 +18,7 @@ import socket
 import sys
 import os
 import struct
+import time
 
 from utils.imgutils import feature_maps_to_image
 
@@ -107,8 +108,8 @@ class Preprocessor:
     def read_buffer(self, connection):
         header = bytearray(4)
         connection.recv_into(header, 4)
-        # # 4 bytes presents data length
-        to_read = struct.unpack('>L', header)[0]
+        # 4 bytes presents data length
+        to_read = struct.unpack('>I', header)[0]
         data_length = to_read
         # buf = bytearray(data_length)
         # view = memoryview(buf)
@@ -162,6 +163,15 @@ class Preprocessor:
 
 
 def main():
+
+    LOG_TIME = False
+
+    if len(sys.argv) == 2:
+        if sys.argv[1] == "-t":
+            LOG_TIME = True
+            print("The inference times are stored in ./proc_time.csv")
+            sys.exit(0)
+
     # socket
     server_address = '/uds_socket'
     try:

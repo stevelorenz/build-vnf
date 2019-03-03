@@ -31,6 +31,8 @@ if __name__ == "__main__":
     for i, img_name in enumerate(img_paths):
         with open(img_name, 'rb') as f:
             data = f.read()
-        sock.sendall(struct.pack('>L', len(data)) + data)
-        print("image_idx:{}, len: {}".format(i, len(data) + 4))
+        sock.sendall(struct.pack('>I', len(data)) + data)
+        print("image_idx:{}, len: {}".format(i, len(data)))
+        if i == 49:
+            break
 time.sleep(2)

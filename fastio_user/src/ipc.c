@@ -41,17 +41,17 @@ int init_uds_stream_cli(const char* socket_path)
         return sock;
 }
 
-void send_mbufs_data_uds(int socket, struct rte_mbuf** buf, uint16_t size_b,
+void send_mbufs_data_uds(int socket, struct rte_mbuf** buf, uint32_t size_b,
     uint16_t nb_mbuf, uint16_t tail_size)
 {
         uint16_t i;
-        uint16_t conv;
+        uint32_t conv;
         uint8_t* data;
 
         // Send the total length with 4 bytes
-        conv = rte_cpu_to_be_16(size_b);
+        conv = rte_cpu_to_be_32(size_b);
         data = (uint8_t*)(&conv);
-        send(socket, data, 4, 0);
+        send(socket, data, sizeof(uint32_t), 0);
         for (i = 0; i < nb_mbuf - 1; ++i) {
                 data = rte_pktmbuf_mtod((*(buf + i)), uint8_t*);
                 send(socket, data, (*(buf + i))->data_len, 0);
