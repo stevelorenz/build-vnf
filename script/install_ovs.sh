@@ -3,9 +3,10 @@
 # About: Install the Open vSwitch
 #
 
-OVS_DEV_VERSION="v2.10.1"
-OVS_DPDK_VERSION="v2.10.1"
-DPDK_VERSION="17.11.3"
+OVS_DEV_VERSION="v2.11.0"
+OVS_DPDK_VERSION="v2.11.0"
+DPDK_VERSION="18.11"
+NUM_CPUS=$(cat /proc/cpuinfo  | grep "processor\\s: " | wc -l)
 
 function bootstrap() {
     # Remove installed OVS
@@ -25,7 +26,7 @@ function install_ovs_dpdk() {
     cd $HOME || exit
     wget http://fast.dpdk.org/rel/"dpdk-$DPDK_VERSION.tar.xz"
     tar xf "dpdk-$DPDK_VERSION.tar.xz"
-    export DPDK_DIR=$HOME/"dpdk-stable-$DPDK_VERSION"
+    export DPDK_DIR=$HOME/"dpdk-$DPDK_VERSION"
     echo "export DPDK_DIR=${DPDK_DIR}" >> ${HOME}/.profile
     cd $DPDK_DIR || exit
 
@@ -52,8 +53,8 @@ function install_ovs_dev() {
     bootstrap
     cd $HOME || exit
     git clone https://github.com/openvswitch/ovs.git
-    cd $HOME/ovs || exit
     git checkout -b $OVS_DEV_VERSION $OVS_DEV_VERSION
+    cd $HOME/ovs || exit
     ./boot.sh
     autoreconf -i
     ./configure

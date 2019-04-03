@@ -15,6 +15,10 @@
 
 #define MEMPOOL_CACHE_SIZE 256
 
+/*
+ * MARK: Some NICs need at least 2KB buffer to receive standard Ethernet frame.
+ * Minimal buffer length is 2KB + RTE_PKTMBUF_HEADROOM
+ * */
 struct rte_mempool* dpdk_init_mempool(
     const char* name, uint32_t nb_mbuf, uint32_t socket, uint32_t mbuf_size)
 {

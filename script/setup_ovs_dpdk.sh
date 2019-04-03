@@ -10,7 +10,7 @@
 #        - OVS-DPDK is used for bare-mental tests
 
 # Config DPDK
-sudo sysctl -w vm.nr_hugepages=1024
+sudo sysctl -w vm.nr_hugepages=512
 
 # Install and load kernel modules
 if grep -Fxq "igb_uio" /etc/modules ; then

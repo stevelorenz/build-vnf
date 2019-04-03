@@ -12,7 +12,7 @@ include $(RTE_SDK)/mk/rte.vars.mk
 
 LIB = libfastio_user.so
 
-SRCS-y := $(addprefix ./src/, utils.c memory.c device.c io.c task.c ipc.c)
+SRCS-y := $(addprefix ./src/, utils.c memory.c device.c io.c task.c ipc.c collections.c)
 
 ifeq ($(RTE_SDK),)
 	$(error "Please define RTE_SDK environment variable")
@@ -35,5 +35,7 @@ CFLAGS+=$(OPTS)
 ifeq ($(PREFIX), )
 	PREFIX := /usr/local
 endif
+
+all: $(SRCS-y)
 
 include $(RTE_SDK)/mk/rte.extlib.mk

@@ -38,14 +38,14 @@ sudo apt install -y bash-completion htop dfc
 sudo apt install -y iperf iperf3 tcpdump
 
 # Add termite infos
-wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O ~/termite.terminfo
-tic -x ~/termite.terminfo
+wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
+tic -x /home/vagrant/termite.terminfo
 
 # Get zuo's dotfiles
-git clone https://github.com/stevelorenz/dotfiles.git ~/dotfiles
-cp ~/dotfiles/tmux/tmux.conf ~/.tmux.conf
-cp -r ~/dotfiles/vim ~/.vim
-cp ~/dotfiles/vim/vimrc_tiny.vim ~/.vimrc
+git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
+cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
+cp -r /home/vagrant/dotfiles/vim /home/vagrant/.vim
+cp /home/vagrant/dotfiles/vim/vimrc_tiny.vim /home/vagrant/.vimrc
 SCRIPT
 
 $setup_devstack= <<-SCRIPT
@@ -102,15 +102,15 @@ SCRIPT
 # Setup a minimal emulation environment for network softwarization
 $setup_netsoft_apt= <<-SCRIPT
 echo "Install Mininet..."
-git clone git://github.com/mininet/mininet ~/mininet
-cd ~/mininet/
+git clone git://github.com/mininet/mininet /home/vagrant/mininet
+cd /home/vagrant/mininet/
 git checkout -b 2.2.2 2.2.2
 bash ./util/install.sh -nfv
 
 echo "Install Ryu SDN controller..."
 sudo apt install -y gcc python-dev libffi-dev libssl-dev libxml2-dev libxslt1-dev zlib1g-dev python-pip
-git clone git://github.com/osrg/ryu.git ~/ryu
-cd ~/ryu
+git clone git://github.com/osrg/ryu.git /home/vagrant/ryu
+cd /home/vagrant/ryu
 git checkout -b v4.29 v4.29
 pip install .
 SCRIPT
