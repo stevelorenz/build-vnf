@@ -1,10 +1,10 @@
 #! /bin/bash
 #
-# About:
+# About: Run benchmark with virtio_user interfaces
 #
 
-TESTPMD_APP="dpdk_base"
-TESTPMD_IMAGE="dpdk_base:v0.1"
+TESTPMD_APP="fastio_user"
+TESTPMD_IMAGE="fastio_user"
 PKTGEN_APP="dpdk_pktgen"
 PKTGEN_IMAGE="dpdk_pktgen:v0.1"
 MOONGEN_APP="moongen"
@@ -32,19 +32,22 @@ function create_ovs_bridge() {
     echo "# Create OVS-DPDK bridge with vhost-user interface"
     sudo ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
     echo "# Create 4 vhost user ports"
-    sudo ovs-vsctl add-port br0 vhost-user0 -- set Interface vhost-user0 type=dpdkvhostuser
     sudo ovs-vsctl add-port br0 vhost-user1 -- set Interface vhost-user1 type=dpdkvhostuser
     sudo ovs-vsctl add-port br0 vhost-user2 -- set Interface vhost-user2 type=dpdkvhostuser
     sudo ovs-vsctl add-port br0 vhost-user3 -- set Interface vhost-user3 type=dpdkvhostuser
+    sudo ovs-vsctl add-port br0 vhost-user4 -- set Interface vhost-user4 type=dpdkvhostuser
     sudo ovs-vsctl show
 }
 
 function add_traffic_flow() {
     echo "# Add Flows into br0 to build the chain. TODO: This part SHOULD be done by SDN controller"
     sudo ovs-ofctl del-flows br0
-    sudo ovs-ofctl add-flow br0 in_port=2,dl_type=0x800,idle_timeout=0,action=output:3
-    sudo ovs-ofctl add-flow br0 in_port=3,dl_type=0x800,idle_timeout=0,action=output:2
-    sudo ovs-ofctl add-flow br0 in_port=1,dl_type=0x800,idle_timeout=0,action=output:4
+    # sudo ovs-ofctl add-flow br0 in_port=2,dl_type=0x800,idle_timeout=0,action=output:3
+    # sudo ovs-ofctl add-flow br0 in_port=3,dl_type=0x800,idle_timeout=0,action=output:2
+    # sudo ovs-ofctl add-flow br0 in_port=1,dl_type=0x800,idle_timeout=0,action=output:4
+    # sudo ovs-ofctl add-flow br0 in_port=4,dl_type=0x800,idle_timeout=0,action=output:1
+    # For single input port
+    sudo ovs-ofctl add-flow br0 in_port=1,dl_type=0x800,idle_timeout=0,action=output:3
     sudo ovs-ofctl add-flow br0 in_port=4,dl_type=0x800,idle_timeout=0,action=output:1
     sudo ovs-ofctl dump-flows br0
 }

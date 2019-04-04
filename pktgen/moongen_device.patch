@@ -1,0 +1,145 @@
+--- libmoon/src/device.orig.c	2019-01-28 10:06:28.975980108 +0100
++++ libmoon/src/device.c	2019-04-04 10:15:57.941322845 +0200
+@@ -60,78 +60,79 @@ struct libmoon_device_config {
+ };
+ 
+ int dpdk_configure_device(struct libmoon_device_config* cfg) {
+-	const char* driver = dpdk_get_driver_name(cfg->port);
+-	bool is_i40e_device = strcmp("net_i40e", driver) == 0;
++	/*const char* driver = dpdk_get_driver_name(cfg->port);*/
++	/*bool is_i40e_device = strcmp("net_i40e", driver) == 0;*/
+ 	// TODO: make fdir configurable
+-	struct rte_fdir_conf fdir_conf = {
+-		.mode = RTE_FDIR_MODE_PERFECT,
+-		.pballoc = RTE_FDIR_PBALLOC_64K,
+-		.status = RTE_FDIR_REPORT_STATUS,
+-		.mask = {
+-			.vlan_tci_mask = 0x0,
+-			.ipv4_mask = {
+-				.src_ip = 0,
+-				.dst_ip = 0,
+-			},
+-			.ipv6_mask = {
+-				.src_ip = {0,0,0,0},
+-				.dst_ip = {0,0,0,0},
+-			},
+-			.src_port_mask = 0,
+-			.dst_port_mask = 0,
+-			.mac_addr_byte_mask = 0,
+-			.tunnel_type_mask = 0,
+-			.tunnel_id_mask = 0,
+-		},
+-		.flex_conf = {
+-			.nb_payloads = 1,
+-			.nb_flexmasks = 1,
+-			.flex_set = {
+-				[0] = {
+-					.type = RTE_ETH_RAW_PAYLOAD,
+-					// i40e requires to use all 16 values here, otherwise it just fails
+-					.src_offset = { 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57 },
+-				}
+-			},
+-			.flex_mask = {
+-				[0] = {
+-					// ixgbe *only* accepts RTE_ETH_FLOW_UNKNOWN, i40e accepts any value other than that
+-					// other drivers don't really seem to care...
+-					// WTF?
+-					// any other value is apparently an error for this undocumented field
+-					.flow_type = is_i40e_device ? RTE_ETH_FLOW_NONFRAG_IPV4_UDP : RTE_ETH_FLOW_UNKNOWN,
+-					.mask = { [0] = 0xFF, [1] = 0xFF }
+-				}
+-			},
+-		},
+-		.drop_queue = 63,
+-	};
++	/*struct rte_fdir_conf fdir_conf = {*/
++		/*.mode = RTE_FDIR_MODE_PERFECT,*/
++		/*.pballoc = RTE_FDIR_PBALLOC_64K,*/
++		/*.status = RTE_FDIR_REPORT_STATUS,*/
++		/*.mask = {*/
++			/*.vlan_tci_mask = 0x0,*/
++			/*.ipv4_mask = {*/
++				/*.src_ip = 0,*/
++				/*.dst_ip = 0,*/
++			/*},*/
++			/*.ipv6_mask = {*/
++				/*.src_ip = {0,0,0,0},*/
++				/*.dst_ip = {0,0,0,0},*/
++			/*},*/
++			/*.src_port_mask = 0,*/
++			/*.dst_port_mask = 0,*/
++			/*.mac_addr_byte_mask = 0,*/
++			/*.tunnel_type_mask = 0,*/
++			/*.tunnel_id_mask = 0,*/
++		/*},*/
++		/*.flex_conf = {*/
++			/*.nb_payloads = 1,*/
++			/*.nb_flexmasks = 1,*/
++			/*.flex_set = {*/
++				/*[0] = {*/
++					/*.type = RTE_ETH_RAW_PAYLOAD,*/
++					/*// i40e requires to use all 16 values here, otherwise it just fails*/
++					/*.src_offset = { 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57 },*/
++				/*}*/
++			/*},*/
++			/*.flex_mask = {*/
++				/*[0] = {*/
++					/*// ixgbe *only* accepts RTE_ETH_FLOW_UNKNOWN, i40e accepts any value other than that*/
++					/*// other drivers don't really seem to care...*/
++					/*// WTF?*/
++					/*// any other value is apparently an error for this undocumented field*/
++					/*.flow_type = is_i40e_device ? RTE_ETH_FLOW_NONFRAG_IPV4_UDP : RTE_ETH_FLOW_UNKNOWN,*/
++					/*.mask = { [0] = 0xFF, [1] = 0xFF }*/
++				/*}*/
++			/*},*/
++		/*},*/
++		/*.drop_queue = 63,*/
++	/*};*/
+ 
+-	struct rte_eth_rss_conf rss_conf = {
+-		.rss_key = NULL,
+-		.rss_key_len = 0,
+-		.rss_hf = cfg->rss_mask,
+-	};
++	/*struct rte_eth_rss_conf rss_conf = {*/
++		/*.rss_key = NULL,*/
++		/*.rss_key_len = 0,*/
++		/*.rss_hf = cfg->rss_mask,*/
++	/*};*/
+ 	struct rte_eth_conf port_conf = {
+ 		.rxmode = {
+-			.mq_mode = cfg->enable_rss ? ETH_MQ_RX_RSS : ETH_MQ_RX_NONE,
+-			.split_hdr_size = 0,
+-			.header_split = 0,
+-			.hw_ip_checksum = !cfg->disable_offloads,
+-			.hw_vlan_filter = 0,
+-			.jumbo_frame = 0,
+-			.hw_strip_crc = 1,
+-			.hw_vlan_strip = cfg->strip_vlan ? 1 : 0,
++			/*.mq_mode = cfg->enable_rss ? ETH_MQ_RX_RSS : ETH_MQ_RX_NONE,*/
++			/*.split_hdr_size = 0,*/
++			/*.header_split = 0,*/
++                        /*.hw_ip_checksum = !cfg->disable_offloads,*/
++			/*.hw_vlan_filter = 0,*/
++			/*.jumbo_frame = 0,*/
++			/*.hw_strip_crc = 1,*/
++			/*.hw_vlan_strip = cfg->strip_vlan ? 1 : 0,*/
++                        .max_rx_pkt_len = 9000,
+ 		},
+ 		.txmode = {
+ 			.mq_mode = ETH_MQ_TX_NONE,
+ 		},
+-		.fdir_conf = fdir_conf,
++		/*.fdir_conf = fdir_conf,*/
+ 		// FIXME: update link speed API for dpdk 16.04
+-		.link_speeds = ETH_LINK_SPEED_AUTONEG,
+-    	.rx_adv_conf = {
+-			.rss_conf = rss_conf,
+-		}
++		/*.link_speeds = ETH_LINK_SPEED_AUTONEG,*/
++            /*.rx_adv_conf = {*/
++			/*.rss_conf = rss_conf,*/
++		/*}*/
+ 	};
+ 	int rc = rte_eth_dev_configure(cfg->port, cfg->rx_queues, cfg->tx_queues, &port_conf);
+ 	if (rc) return rc;

@@ -48,7 +48,7 @@ function master(args)
     -- configure devices and queues
     local arpQueues = {}
     -- arp needs extra queues
-    local dev = device.config{port = args.dev, txQueues = 2, rxQueues = 2}
+    local dev = device.config{port = args.dev, txQueues = 1, rxQueues = 1}
     if args.arp then
         table.insert(arpQueues, { rxQueue = dev:getRxQueue(1), txQueue = dev:getTxQueue(args.threads), ips = ARP_IP })
     end
@@ -85,6 +85,7 @@ function master(args)
 end
 
 function latencyTest(txQueue, rxQueue, dstMac, useTimestamp)
+    log:info("Start latency test")
     -- memory pool with default values for all packets, this is our archetype
     local mempool = memory.createMemPool(function(buf)
         buf:getUdpPtpPacket():fill{
@@ -159,6 +160,7 @@ function latencyTest(txQueue, rxQueue, dstMac, useTimestamp)
             while timer:running() do
                 local rx = rxQueue:tryRecv(rxBufs, 100)
                 t4 = mg.getTime() --t4
+                print(t4)
                 numPkts = numPkts + rx
                 for i = 1, rx do
                     local buf = rxBufs[i]
