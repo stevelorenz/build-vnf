@@ -1,0 +1,91 @@
+@article{ananthanarayanan2017real,
+    title={Real-time video analytics: The killer app for edge computing},
+    author={Ananthanarayanan, Ganesh and Bahl, Paramvir and Bod{\'\i}k, Peter and Chintalapudi, Krishna and Philipose, Matthai and Ravindranath, Lenin and Sinha, Sudipta},
+    journal={computer},
+    volume={50},
+    number={10},
+    pages={58--67},
+    year={2017},
+    publisher={IEEE}
+}
+
+@inproceedings{sanvito_can_2018,
+    address = {New York, NY, USA},
+    series = {{NetCompute} '18},
+    title = {Can the {Network} {Be} the {AI} {Accelerator}?},
+    isbn = {978-1-4503-5908-5},
+    url = {http://doi.acm.org/10.1145/3229591.3229594},
+    doi = {10.1145/3229591.3229594},
+    abstract = {Artificial Neural Networks (NNs) play an increasingly important role in many services and applications, contributing significantly to compute infrastructures' workloads. When used in latency sensitive services, NNs are usually processed by CPUs since using an external dedicated hardware accelerator would be inefficient. However, with growing workloads size and complexity, CPUs are hitting their computation limits, requiring the introduction of new specialized hardware accelerators tailored to the task. In this paper we analyze the option to use programmable network devices, such as Network Cards and Switches, as NN accelerators in place of purpose built dedicated hardware. To this end, in this preliminary work we analyze in depth the properties of NN processing on CPUs, derive options to efficiently split such processing, and show that programmable network devices may be a suitable engine for implementing a CPU's NN co-processor.},
+    urldate = {2019-04-27},
+    booktitle = {Proceedings of the 2018 {Morning} {Workshop} on {In}-{Network} {Computing}},
+    publisher = {ACM},
+    author = {Sanvito, Davide and Siracusano, Giuseppe and Bifulco, Roberto},
+    year = {2018},
+    note = {event-place: Budapest, Hungary},
+    keywords = {Computation offloading, Programmable switches, SmartNIC},
+    pages = {20--25},
+    file = {Sanvito et al_2018_Can the Network Be the AI Accelerator.pdf:/home/zuo/Zotero/storage/JYG3I5YL/Sanvito et al_2018_Can the Network Be the AI Accelerator.pdf:application/pdf}
+}
+
+@inproceedings{redmon_you_2016,
+    title = {You {Only} {Look} {Once}: {Unified}, {Real}-{Time} {Object} {Detection}},
+    shorttitle = {You {Only} {Look} {Once}},
+    url = {https://www.cv-foundation.org/openaccess/content_cvpr_2016/html/Redmon_You_Only_Look_CVPR_2016_paper.html},
+    urldate = {2019-04-27},
+    author = {Redmon, Joseph and Divvala, Santosh and Girshick, Ross and Farhadi, Ali},
+    year = {2016},
+    pages = {779--788},
+    file = {Redmon et al_2016_You Only Look Once.pdf:/home/zuo/Zotero/storage/YQ6S6MW7/Redmon et al_2016_You Only Look Once.pdf:application/pdf;Snapshot:/home/zuo/Zotero/storage/2SQTF6SY/Redmon_You_Only_Look_CVPR_2016_paper.html:text/html}
+}
+
+@inproceedings{katsikas2018metron,
+    title={Metron:$\{$NFV$\}$ Service Chains at the True Speed of the Underlying Hardware},
+    author={Katsikas, Georgios P and Barbette, Tom and Kostic, Dejan and Steinert, Rebecca and Maguire Jr, Gerald Q},
+    booktitle={15th $\{$USENIX$\}$ Symposium on Networked Systems Design and Implementation ($\{$NSDI$\}$ 18)},
+    pages={171--186},
+    year={2018}
+}
+
+@article{kablan_stateless_nodate,
+    title = {Stateless {Network} {Functions}: {Breaking} the {Tight} {Coupling} of {State} and {Processing}},
+    abstract = {In this paper we present Stateless Network Functions, a new architecture for network functions virtualization, where we decouple the existing design of network functions into a stateless processing component along with a data store layer. In breaking the tight coupling, we enable a more elastic and resilient network function infrastructure. Our StatelessNF processing instances are architected around efﬁcient pipelines utilizing DPDK for high performance network I/O, packaged as Docker containers for easy deployment, and a data store interface optimized based on the expected request patterns to efﬁciently access a RAMCloud-based data store. A network-wide orchestrator monitors the instances for load and failure, manages instances to scale and provide resilience, and leverages an OpenFlow-based network to direct trafﬁc to instances. We implemented three example network functions (network address translator, ﬁrewall, and load balancer). Our evaluation shows (i) we are able to reach a throughput of 10Gbit/sec, with an added latency overhead of between 100µs and 500µs, (ii) we are able to have a failover which does not disrupt ongoing trafﬁc, and (iii) when scaling out and scaling in we are able to match the ideal performance.},
+    language = {en},
+    author = {Kablan, Murad and Alsudais, Azzam and Keller, Eric and Le, Franck},
+    pages = {17},
+    file = {Kablan et al. - Stateless Network Functions Breaking the Tight Co.pdf:/home/zuo/Zotero/storage/XSJ57ZGZ/Kablan et al. - Stateless Network Functions Breaking the Tight Co.pdf:application/pdf}
+}
+
+@article{agarwal_vnf_2019,
+    title = {{VNF} {Placement} and {Resource} {Allocation} for the {Support} of {Vertical} {Services} in 5G {Networks}},
+    volume = {27},
+    issn = {1063-6692},
+    doi = {10.1109/TNET.2018.2890631},
+    abstract = {One of the main goals of 5G networks is to support the technological and business needs of various industries (the so-called verticals), which wish to offer to their customers a wide range of services characterized by diverse performance requirements. In this context, a critical challenge lies in mapping in an automated manner the requirements of verticals into decisions concerning the network infrastructure, including VNF placement, resource assignment, and traffic routing. In this paper, we seek to make such decisions jointly, accounting for their mutual interaction, efficiently. To this end, we formulate a queuing-based model and use it at the network orchestrator to optimally match the vertical's requirements to the available system resources. We then propose a fast and efficient solution strategy, called MaxZ, which allows us to reduce the solution complexity. Our performance evaluation, carried out an accounting for multiple scenarios representing the real-world services, shows that MaxZ performs substantially better than the state-of-the-art alternatives and consistently close to the optimum.},
+    number = {1},
+    journal = {IEEE/ACM Transactions on Networking},
+    author = {Agarwal, S. and Malandrino, F. and Chiasserini, C. F. and De, S.},
+    month = feb,
+    year = {2019},
+    keywords = {Servers, 5G mobile communication, queueing theory, Resource management, Routing, virtual machines, virtualisation, 5G networks, available system resources, Complexity theory, Delays, IEEE transactions, MaxZ, mutual interaction, network infrastructure, network orchestrator, performance evaluation, queuing theory, queuing-based model, resource allocation, resource assignment, solution complexity reduction, telecommunication network routing, telecommunication traffic, traffic routing, vertical services, verticals, VNF placement},
+    pages = {433--446},
+    file = {Agarwal et al_2019_VNF Placement and Resource Allocation for the Support of Vertical Services in.pdf:/home/zuo/Zotero/storage/FUJUF4Q5/Agarwal et al_2019_VNF Placement and Resource Allocation for the Support of Vertical Services in.pdf:application/pdf;IEEE Xplore Abstract Record:/home/zuo/Zotero/storage/NIQKFMRH/8611305.html:text/html}
+}
+
+@inproceedings{yi2015security,
+    title={Security and privacy issues of fog computing: A survey},
+    author={Yi, Shanhe and Qin, Zhengrui and Li, Qun},
+    booktitle={International conference on wireless algorithms, systems, and applications},
+    pages={685--695},
+    year={2015},
+    organization={Springer}
+}
+
+@inproceedings{gilad2016cryptonets,
+    title={Cryptonets: Applying neural networks to encrypted data with high throughput and accuracy},
+    author={Gilad-Bachrach, Ran and Dowlin, Nathan and Laine, Kim and Lauter, Kristin and Naehrig, Michael and Wernsing, John},
+    booktitle={International Conference on Machine Learning},
+    pages={201--210},
+    year={2016}
+}
+

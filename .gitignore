@@ -229,3 +229,6 @@ vnf_debug/pedestrian_detection/yolo_pp/*.csv
 paper/.build
 doc/build
 doc/.build
+placement/system_model/*.pdf
+placement/system_model/helpers/*
+placement/system_model/figures/*

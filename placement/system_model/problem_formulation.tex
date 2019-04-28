@@ -1,0 +1,247 @@
+% vim:ft=tex:
+%
+\documentclass[12pt]{article}
+
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{subfig}
+\usepackage[
+    backend=biber,
+    style=numeric,
+    sorting=ynt
+]{biblatex}
+\addbibresource{bib.bib}
+
+\setlist{nosep}
+
+\newcommand{\zuo}[1]{\textcolor{blue}{Z:#1}}
+
+\title{
+    (TBD) Compute like a Deep-Learning Expert: Wise VNF Placement Taking Compute and Forward into Consideration
+}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Motivation and Introduction}%
+\label{sec:motivation_introduction}
+
+The original motivation or my original story line of this work is as fellows: With CALVIN approach, we can now transmit
+packets with relative small per-packet delay, including store and forward as well as compute and forward (network
+coding). However, we achieve this at the cost of significantly reducing the bandwidth supported by the system.
+Furthermore, the computation tasks, e.g. network coding and AES encryption, are practically not really that suitable or
+helpful in the wired domain of our latency budget. To be honest, I used them in the CALVIN paper because we already have
+mature implementation of them at that time (Naja, I had two weeks to benchmark compute and forward...). After the
+submission, I started to think about the compute and forward concept in our context again and have now some new ideas.
+
+NFV is mainly used to manage and deploy middleboxes \textbf{between} the client and server. That's the reason, typical
+examples of VNF include always firewall, NAT, DPI, load balancer. Compared to the Alice-Relay-Bob scenario, VNF are
+running on the Relay while the applications are running on Alice or Bob. With the rapid development of softwarization
+technologies, VNFs (written in software) running on the Relay can perform more flexible and smarter computation instead
+of convolutional store and forward (Naja, new concepts are proposed daily with fancy names... This one is called
+Computing-In Network (COIN), IRTF has a working group on it. The basic idea is to offload computational tasks into
+network to have some kinds of "continuum computing", just compared to the convolutional two-ends-distributed computing.
+(While Mobil phones and the server running in the Google cloud have fancy applications with different service fees, the
+network providers in the middle just transport packets and have the same price for all services.). It would be great if
+the VNF can perform some computation, namely provides its own service, to improve the end-to-end performance without any
+negative impact on the end-to-end functionality of the application. In my own verbose word, it likes: The Relay in the
+middle is not that powerful than Alice and Bob, but he wants to help the Bob to compute something if Bob is currently
+very busy... Instead of just shooting every packet from Alice to make the Bob overwhelmed (this leads to potential
+retransmissions between Alice and Bob), the Relay can buffer the packets and do some lightweight computing if Bob is
+busy now (How to know this? SDN provides the statistics.). Then Relay can ask Bob to pay more for its contribution.
+Naja, it sounds great like all hypes, but \textbf{WHAT} computation should be performed? That's a good research
+question, and our paper will later show a working and also practical example (It is some kind of specific, but ultimate
+and generic solution is extremely difficult, I will explain this later.).
+
+Firstly, taking network coding into consideration, the computation that VNF can perform is \textbf{recoding}.
+I really like network coding, but the recoding may not, at least currently and from my perspective,
+helpful to significantly reduce the \textbf{end-to-end} service delay inside the wired domain with network
+softwarization.
+
+One key reason of why recoding is not suitable is that, the \textbf{congestion} instead of channel unreliability is the
+dominant problem that causes packet losses. In wired domain, physical hosts are often connected with relative reliable
+links, e.g. Gigabit Ethernet or fiber. Instead of channel losses, packets are dropped in the \textbf{queues} on both
+receiving and sending sides of each VNF and the application server. Taken one physical host with Ethernet connections as
+an example, there are many queues exist in the system, especially with network virtualization: Each physical NIC has one
+or multiple hardware ring buffers for queuing Ethernet frames; Each virtual network network interface assigned to each
+VM, container or unikernel has one or multiple software ring buffers for queuing packets; Each network function
+application can create and use software queues in its application code to buffer some packets to enable batching
+processing or for other purposes. Theoretically and practically, the packet can be dropped in any aforementioned queue
+during the processing, because of the protocol design (e.g. in Time Sensitive Network (TSN), to be shortly, one key
+concept, here is each frame has a synchronized timestamp, already out-dated frames are dropped by hardware.) or limited
+processing capability. The situation is significantly worse for network softwarization based systems on COTS servers
+compared to dedicated high-performance hardware. Therefore, the enemy in our domain here is \textbf{congestion} at each
+node instead of connection links (Fiber has enough bandwidth.).
+
+A simple example of store and forward for Alice and Bob is shown in Fig \ref{fig:arb_sf}. It is assumed that
+
+\begin{figure}[h]
+    \subfloat[Store and Forward]{
+        \begin{minipage}{0.5\textwidth}
+            \centering
+            \label{fig:arb_sf}
+            \includegraphics[width=1.0\textwidth]{\string~/figures/calvin/alice_bob_example_store_forward.pdf}
+        \end{minipage}
+    }
+    \subfloat[Compute and Forward]{
+        \begin{minipage}{0.5\textwidth}
+            \centering
+            \label{fig:arb_cf}
+            \includegraphics[width=1.0\textwidth]{\string~/figures/calvin/alice_bob_example_compute_forward.pdf}
+        \end{minipage}
+    }
+    \caption{Alice-Relay-Bob example for store-and-forward, compute-and-forward in the wired domain with nearly 0\%
+    channel losses.}
+    \label{fig:alice_relay_bob_example}
+\end{figure}
+
+Therefore, it is great if.
+
+\begin{itemize}
+
+    \item Real-time video analytics is one of the killer applications for the edge computing
+        \cite{ananthanarayanan2017real}.
+
+    \item Object detection is one fundamental technology used in many computer vision applications such as tracking
+        objects, video surveillance. So reduce the latency of this technology
+
+\end{itemize}
+
+% Add the abstract illustrations here about the topology
+\begin{figure}[h]
+    \centering
+    \label{pic:123}
+    \includegraphics[width=0.8\textwidth]{\string~/figures/calvin/typical_topo.pdf}
+    \caption{A typical topology of remote cloud based object detection service.}
+    \label{fig:typical_topology}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \label{pic:123}
+    \includegraphics[width=0.8\textwidth]{\string~/figures/calvin/queue_model_example_1.pdf}
+    \caption{A simplified queue model based illustration of a sub-topology of Fig \ref{fig:typical_topology}}
+    \label{fig:typical_topology}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \label{pic:123}
+    \includegraphics[width=0.8\textwidth]{\string~/figures/calvin/queue_model_example_1.pdf}
+    \caption{A simplified queue model based illustration of a sub-topology of Fig \ref{fig:typical_topology}}
+    \label{fig:typical_topology}
+\end{figure}
+
+\section{Model and Problem Formulation}%
+\label{sec:queuing_model}
+
+The model and formulation are based on the approach proposed in \cite{agarwal_vnf_2019}.
+
+\subsection{Reference Model}%
+\label{sub:queue_model}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{\string~/figures/calvin/notation_vnf_placement_queue_model.png}
+    \caption{Notation used in the reference model}
+    \label{fig:notation}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{\string~/figures/calvin/example_vnf_placement_queue_model.png}
+    \caption{Example of three service graphs and six VNFs.}
+    \label{fig:example_3_6}
+\end{figure}
+
+\paragraph{Notes and comments to this model}%
+\label{par:notes_and_comments_to_this_model}
+
+\begin{itemize}
+    \item $\mu(q)$ indicate the CPU is assigned to each VNF instead of each specific service. So each VNF can serve
+        multiple requests of different services in this model.
+    \item Each host h has a finite CPU capacity $k_{h}$. The CPU state (e.g. energy-saving mode) is accounted in this
+        parameter.
+    \item $K$ is the set of provided service classes. For example. $K$ = \{ video streaming, gaming, vehicle collision
+        detection \}
+    \item The routing here can be deterministic or probabilistic, depending on the use-cases.
+\end{itemize}
+
+\paragraph{Problem Formulation and Complexity}%
+\label{par:problem_formulation_and_complexity}
+
+When allocating the resource necessary to run each service, the NFV orchestrator has to make three main decisions:
+
+\begin{itemize}
+    \item VNF placement: which physical hosts have to run the required VNFs.
+    \item CPU assignment: How the computational capabilities of each host have to be shared between VNFs
+    \item How traffic shall be steered between VNFs (Service function chaining)
+\end{itemize}
+
+In this paper, the service delay is taken as the main performance metric. The same metric we want to minimize in our
+approach.
+
+Constraints including:
+
+\begin{equation}
+    \begin{aligned}
+        \sum_{q \in Q} A(h,q)\mu(q) & \leq & k_{h} \\
+        \sum_{h \in H} A(h,q) & = & 1
+    \end{aligned}
+\end{equation}
+
+For arrival traffic, the assumption is made: \textbf{Total} rate of requests of class $k$ that enter the queue q, either
+from outside the system or from other queues. And the processing of each queue \textbf{does not} change the amount of
+the requests to the next queue, therefore, \textbf{store and forward} is used.
+
+\begin{equation}
+    \hat{\lambda}_{k}(q) = \sum_{q \in Q} \lambda_{k, q} + \sum_{p \in Q} P(q|p, k) \hat{\lambda}_{k}(p)
+\end{equation}
+
+However, there are scenarios where the amount of requests (or called traffic in this draft) of output of the queue p is not equal the input:
+
+\begin{itemize}
+
+    \item Some functions can drops invalid packets based on its ACL e.g. firewall. This is not the focus of our paper,
+        we focus on valid packets.
+
+    \item Some functions can add redundant packets. For example, the network recoder. Radiant packets can be used to fix
+        channel losses with FEC code. However, we focus on the wired domain of the latency budget illustrated in the
+        CALVIN paper. Here the physical hosts are normally connected with reliable wired connections, the channel losses
+        can be ignored. The key problem here is the \textbf{congestion}: For traffic with high bandwidth requirement
+        like video streaming, many packets are dropped in both queues on the sender and receiver sides due to the
+        limited link capacity and also the limited processing capacity. This problem is more critical by network
+        softwarization, because the performance of VNFs running on the COTS servers is definitely not comparable to
+        hardware implementations. Many packets can be dropped at the receiving side because the VNF can not process the
+        packet fast enough. Therefore, it is beneficial
+
+    \item Some functions can \textbf{reduce} the number of output packets \textbf{without} significantly impact the
+        end-to-end service.
+
+\end{itemize}
+
+\subsection{Our Delta}%
+\label{sub:our_delta}
+
+I have simplify the original M/M/1 based model based on our use-case:
+
+\begin{itemize}
+    \item Use D/D/1 instead of M/M/1 in our model: Job service time are fixed (deterministic)
+\end{itemize}
+
+Input Ethernet frames of each video frame (Assume that only intra-frame encoding is used for video frames)
+
+\subsection{Improved Placement Algorithm}%
+\label{sub:improved_placement_algorithm}
+
+\subsection{Simulation Results}%
+\label{sub:simulation_results}
+
+\medskip
+\printbibliography
+
+\end{document}
