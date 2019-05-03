@@ -22,22 +22,17 @@ struct mbuf_vec {
         uint16_t id;
         struct rte_mbuf** head; /* Head of a rte_mbuf* array */
         uint16_t len;
-        struct rte_mempool* pool;
-
-        uint8_t* m_data; /* Pointer to the start of the payload of each mbuf */
-        uint8_t* m_tail; /* Pointer to the end of the payload */
-
+        uint16_t tail_size;
+        uint16_t* m_payload_head_arr;
         const volatile void* pre_fetch0; /* To be pre-fetched cache-line before
                                             vector processing */
 };
 
-/**
- * @brief Initialize a mbuf vector
- *
- * @param vec
- *
- * @return
- */
-int mbuf_vec_init(struct mbuf_vec* vec);
+struct mbuf_vec* mbuf_vec_init(
+    struct rte_mbuf** rx_buf, uint16_t len, uint16_t tail_size);
+
+void mbuf_vec_free(struct mbuf_vec* vec);
+
+void print_mbuf_vec(struct mbuf_vec* vec);
 
 #endif /* !COLLECTIONS_H */

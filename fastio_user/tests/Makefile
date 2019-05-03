@@ -19,10 +19,13 @@ endif
 
 CFLAGS+=$(OPTS)
 
-all: test_l2_fwd.out
+all: test_l2_fwd.out test_mp.out
 
 test_l2_fwd.out: test_l2_fwd.c
 	$(CC) $(CFLAGS) test_l2_fwd.c -o test_l2_fwd.out $(LDFLAGS)
+
+test_mp.out: test_mp.c
+	$(CC) $(CFLAGS) test_mp.c -o test_mp.out $(LDFLAGS)
 
 .PHONY:clean
 

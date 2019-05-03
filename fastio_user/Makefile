@@ -12,7 +12,8 @@ include $(RTE_SDK)/mk/rte.vars.mk
 
 LIB = libfastio_user.so
 
-SRCS-y := $(addprefix ./src/, utils.c memory.c device.c io.c task.c ipc.c collections.c)
+SRCS-y := $(addprefix ./src/, utils.c memory.c device.c io.c task.c ipc.c collections.c \
+	mp.c)
 
 ifeq ($(RTE_SDK),)
 	$(error "Please define RTE_SDK environment variable")

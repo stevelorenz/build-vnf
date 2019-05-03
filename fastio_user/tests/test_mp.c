@@ -1,5 +1,5 @@
 /*
- * About:
+ * About: Test multi-process functions of fastio_user
  */
 
 #include <inttypes.h>
@@ -15,6 +15,7 @@
 #include <fastio_user/device.h>
 #include <fastio_user/io.h>
 #include <fastio_user/memory.h>
+#include <fastio_user/mp.h>
 #include <fastio_user/task.h>
 
 #define RX_RING_SIZE 128
@@ -74,6 +75,10 @@ int main(int argc, char* argv[])
 
         signal(SIGINT, quit_signal_handler);
         signal(SIGTERM, quit_signal_handler);
+
+        if (rte_eal_process_type() == RTE_PROC_PRIMARY) {
+                printf("This is the primary process.\n");
+        }
 
         // MARK: Hard-coded for testing
         const unsigned nb_ports = 1;
