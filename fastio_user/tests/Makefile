@@ -31,6 +31,7 @@ test_mp.out: test_mp.c
 
 clean:
 	rm -rf *.out *.o
+	rm -rf *.log
 
 # vim:ft=make
 #

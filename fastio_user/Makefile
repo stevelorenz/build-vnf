@@ -39,4 +39,9 @@ endif
 
 all: $(SRCS-y)
 
+test: all
+	@echo "* Run core tests of fastio_user..."
+	@cd ./tests/ && make clean > /dev/null && make > /dev/null
+	@cd ./tests/ && ./run_tests.sh
+
 include $(RTE_SDK)/mk/rte.extlib.mk

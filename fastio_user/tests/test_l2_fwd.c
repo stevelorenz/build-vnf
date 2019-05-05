@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
         struct dpdk_device_config cfg = { 0, &mbuf_pool, 1, 1, 256, 256, 1, 1 };
         dpdk_init_device(&cfg);
 
-        dpdk_enter_mainloop_master(proc_loop);
+        dpdk_enter_mainloop_master(proc_loop, NULL);
 
         return 0;
 }
