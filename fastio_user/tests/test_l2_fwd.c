@@ -90,5 +90,6 @@ int main(int argc, char* argv[])
 
         dpdk_enter_mainloop_master(proc_loop, NULL);
 
+        rte_eal_cleanup();
         return 0;
 }

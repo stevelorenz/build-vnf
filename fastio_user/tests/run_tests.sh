@@ -22,6 +22,21 @@ function run_l2_fwd_test() {
     ./test_l2_fwd.out $EAL_PARAMS > $LOG
 }
 
+function run_test_ring() {
+    echo ""
+    echo "*** Run Ring test..."
+    # MARK: Use one master core and one slave core
+    EAL_PARAMS="-l 0,1 -m $HUGE_MEM \
+        --file-prefix l2fwd \
+        --no-pci \
+        --single-file-segments \
+        --vdev=eth_af_packet0,iface=$IFACE \
+        --log-level=eal,$EAL_LOG_LEVEL"
+
+    LOG="./test_ring.log"
+    ./test_ring.out $EAL_PARAMS > $LOG
+}
+
 function run_mp_test() {
     echo ""
     echo "*** Run multi-process test..."
@@ -50,5 +65,6 @@ echo "# Run tests for core functions of fastio_user ..."
 echo "--------------------------------------------------------------------------"
 rm ./*.log > /dev/null 2>&1
 run_l2_fwd_test 2>&1 | grep error
+run_test_ring 2>&1 | grep error
 #run_mp_tes
 echo "--------------------------------------------------------------------------"
