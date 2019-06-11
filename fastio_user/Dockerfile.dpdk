@@ -3,7 +3,7 @@
 # - DPDK version: v18.11 LTS
 #
 
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 # Build DPDK
 # MARK: Use the latest LTS version

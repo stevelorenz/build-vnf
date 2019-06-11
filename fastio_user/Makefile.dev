@@ -1,0 +1,13 @@
+#
+# About: Makefile for the development tasks
+#
+
+SRCS := $(addprefix ./src/, utils.c memory.c device.c io.c task.c ipc.c collections.c \
+	mp.c)
+
+HEADERS := $(addprefix ./include/fastio_user/, utils.h memory.h device.h io.h task.h ipc.h collections.h \
+	mp.h)
+
+.PHONY: docs
+docs: ./README.md $(SRCS) $(HEADERS)
+	doxygen ./docs/Doxyfile

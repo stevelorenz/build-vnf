@@ -232,3 +232,5 @@ doc/.build
 placement/system_model/*.pdf
 placement/system_model/helpers/*
 placement/system_model/figures/*
+fastio_user/docs/html
+fastio_user/docs/latex

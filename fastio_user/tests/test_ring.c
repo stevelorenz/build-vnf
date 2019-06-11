@@ -30,7 +30,7 @@
 #define NUM_MBUFS 5000
 #define MBUF_CACHE_SIZE 250
 #define BURST_SIZE 32
-#define RX_BUF_SIZE 40
+#define RX_BUF_SIZE 80
 
 static volatile bool force_quit = false;
 
@@ -70,7 +70,7 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
                 rte_ring_dequeue(in_que, &msg);
                 *(rx_buf + i) = (struct rte_mbuf*)(msg);
         }
-        vec = mbuf_vec_init(rx_buf, nb_mbuf, 0);
+        vec = mbuf_vec_init(rx_buf, nb_mbuf);
 
         print_mbuf_vec(vec);
         // MARK: Add the processing code of mbuf vectors here, e.g. parse
@@ -92,8 +92,8 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
         uint16_t tail_size = 0;
         void* msg = NULL;
 
-        nb_mbuf = gen_rx_buf_from_file("/dataset/pedestrian_walking/0.jpg",
-            tx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
+        nb_mbuf = gen_rx_buf_from_file(
+            "./pikachu.jpg", tx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
 
         RTE_LOG(INFO, RING, "[SLAVE] %d mbufs are allocated. Tail size:%d.\n",
             nb_mbuf, tail_size);

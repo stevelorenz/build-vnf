@@ -26,7 +26,7 @@
 #define NUM_MBUFS 5000
 #define MBUF_CACHE_SIZE 250
 #define BURST_SIZE 32
-#define RX_BUF_SIZE 40
+#define RX_BUF_SIZE 80
 
 #define RTE_LOGTYPE_MP RTE_LOGTYPE_USER2
 
@@ -57,12 +57,12 @@ static int proc_loop_prim(__attribute__((unused)) void* dummy)
         // BUG: The port_id and queue_id should be passed into proc_loop
         // in a proper way.
         /*dpdk_recv_into(0, 0, rx_buf, 0, RX_BUF_SIZE);*/
-        nb_mbuf = gen_rx_buf_from_file("/dataset/pedestrian_walking/0.jpg",
-            rx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
+        nb_mbuf = gen_rx_buf_from_file(
+            "./pikachu.jpg", rx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
         RTE_LOG(INFO, MP, "%d mbufs are allocated. Tail size:%d.\n", nb_mbuf,
             tail_size);
 
-        vec = mbuf_vec_init(rx_buf, nb_mbuf, tail_size);
+        vec = mbuf_vec_init(rx_buf, nb_mbuf);
         print_mbuf_vec(vec);
         mbuf_vec_free(vec);
 
