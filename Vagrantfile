@@ -110,6 +110,7 @@ Vagrant.configure("2") do |config|
   config.vm.define "vnf" do |vnf|
     vnf.vm.box = UBUNTU_LTS
     vnf.vm.hostname = "vnf"
+    vnf.vm.box_check_update= false
 
     vnf.vm.network "private_network", ip: "192.168.10.13", nic_type: "82540EM"
     vnf.vm.network "private_network", ip: "192.168.10.14", nic_type: "82540EM"
