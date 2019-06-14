@@ -9,7 +9,7 @@ set -e
 # Fail on unset var usage
 set -o nounset
 
-TEST_FUNS=(test_l2_fwd test_ring)
+TEST_FUNS=(test_ring)
 
 QUITE=false
 
@@ -19,20 +19,8 @@ HUGEPAGE_NUM_2048=256
 EAL_MEM="-m $HUGEPAGE_NUM_2048"
 EAL_IFACE="--vdev=eth_af_packet0,iface=eth0"
 # EAL log level, use 8 for debugging, 1 for info
-EAL_LOG_LEVEL=8
+EAL_LOG_LEVEL=1
 EAL_MISC="--no-pci --single-file-segments --log-level=eal,$EAL_LOG_LEVEL"
-
-function test_l2_fwd() {
-    local EAL_PARAMS="$EAL_CORE $EAL_MEM $EAL_IFACE $EAL_MISC"
-    local LOG="./test_l2_fwd.log"
-
-    echo "- Run L2 forwarding test..."
-    if [[ $QUITE == true ]]; then
-        ./test_l2_fwd.out $EAL_PARAMS > "$LOG" 2>&1
-    else
-        ./test_l2_fwd.out $EAL_PARAMS
-    fi
-}
 
 function test_ring() {
     # MARK: Use one master core and one slave core
@@ -44,7 +32,7 @@ function test_ring() {
     if [[ $QUITE == true ]]; then
         ./test_ring.out $EAL_PARAMS > "$LOG" 2>&1
     else
-        ./test_ring.out $EAL_PARAMS
+        time ./test_ring.out $EAL_PARAMS
     fi
 }
 

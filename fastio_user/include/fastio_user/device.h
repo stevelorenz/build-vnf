@@ -6,7 +6,14 @@
 #define DEVICE_H
 
 /**
- * @brief
+ * @file
+ *
+ * Device API
+ *
+ */
+
+/**
+ * struct dpdk_device_config - DPDK device configuration
  */
 struct dpdk_device_config {
         uint32_t port_id;
@@ -20,16 +27,16 @@ struct dpdk_device_config {
 };
 
 /**
- * @brief dpdk_init_device
+ * dpdk_init_device() - Initialize a Ethernet device.
  *
- * @param cfg
+ * @param cfg: Device configuration packed in a dpdk_device_config struct
  *
- * @return
+ * @return: Flag
  */
 int dpdk_init_device(struct dpdk_device_config* cfg);
 
 /**
- * @brief dpdk_cleanup_devices
+ * dpdk_cleanup_devices - Cleanup all initialized Ethernet devices.
  */
 void dpdk_cleanup_devices(void);
 

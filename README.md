@@ -1,5 +1,8 @@
 # Build VNF #
 
+This repository is under heavy development. The directories are not cleanly and clearly organized. Redundant directories
+will be removed before the beta 1.0 version. The README will also be updated.
+
 ## Motivation ##
 
 Test and evaluate different packet IO and processing tools for implementing Virtualized Network Function (VNFs) on

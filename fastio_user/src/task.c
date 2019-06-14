@@ -7,6 +7,7 @@
 #include <rte_lcore.h>
 #include <rte_log.h>
 
+#include "config.h"
 #include "device.h"
 #include "task.h"
 

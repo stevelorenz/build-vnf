@@ -51,7 +51,7 @@ static int proc_loop_prim(__attribute__((unused)) void* dummy)
         struct rte_mbuf* rx_buf[RX_BUF_SIZE];
         uint16_t nb_mbuf = 0;
         uint16_t tail_size = 0;
-        struct mbuf_vec* vec = NULL;
+        struct mvec* vec = NULL;
         void* msg;
 
         // BUG: The port_id and queue_id should be passed into proc_loop
@@ -62,9 +62,9 @@ static int proc_loop_prim(__attribute__((unused)) void* dummy)
         RTE_LOG(INFO, MP, "%d mbufs are allocated. Tail size:%d.\n", nb_mbuf,
             tail_size);
 
-        vec = mbuf_vec_init(rx_buf, nb_mbuf);
-        print_mbuf_vec(vec);
-        mbuf_vec_free(vec);
+        vec = mvec_init(rx_buf, nb_mbuf);
+        print_mvec(vec);
+        mvec_free(vec);
 
         if (rte_mempool_get(mbuf_pool, &msg) < 0) {
                 rte_panic("Failed to get a message buffer\n");

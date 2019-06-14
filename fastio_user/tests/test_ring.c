@@ -4,8 +4,8 @@
  *        Can be used as a emulation for single-producer and -consumer FIFO
  *        queue based pktgen --- VNF. Namely, master core -> consumer and VNF,
  *        slave core -> producer and pktgen.
- */
 
+ */
 #include <inttypes.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -19,6 +19,7 @@
 #include <rte_ring.h>
 
 #include <fastio_user/collections.h>
+#include <fastio_user/config.h>
 #include <fastio_user/device.h>
 #include <fastio_user/io.h>
 #include <fastio_user/memory.h>
@@ -48,13 +49,52 @@ static void quit_signal_handler(int signum)
         }
 }
 
+void check_pull_values(uint64_t* arr, uint16_t len)
+{
+        uint16_t i;
+        for (i = 0; i < len; ++i) {
+                if (arr[i] != FFBB_MAGIC) {
+                        rte_panic("ERROR! Pulled values are wrong!");
+                }
+        }
+}
+
+/**
+ * Process or operate on a mbuf vector.
+ * This functions does not perform meaningful processing. It is used to test
+ * mvec helper functions. The mbuf vector should be the same as the input at
+ * the end.
+ */
+void test_mvec_helpers(struct mvec* v)
+{
+        uint16_t i;
+        uint8_t tmp_u8[v->len];
+        uint16_t tmp_u16[v->len];
+        uint32_t tmp_u32[v->len];
+        uint64_t tmp_u64[v->len];
+
+        mvec_push_u8(v, FFBB_MAGIC);
+        mvec_pull_u8(v, tmp_u8);
+        mvec_push_u16(v, FFBB_MAGIC);
+        mvec_pull_u16(v, tmp_u16);
+        mvec_push_u32(v, FFBB_MAGIC);
+        mvec_pull_u32(v, tmp_u32);
+        mvec_push_u64(v, FFBB_MAGIC);
+        mvec_pull_u64(v, tmp_u64);
+        check_pull_values(tmp_u64, v->len);
+}
+
 static int proc_loop_master(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* rx_buf[RX_BUF_SIZE];
+        struct rte_mbuf* read_buf[RX_BUF_SIZE];
         void* msg = NULL;
         uint16_t nb_mbuf = 0;
         uint16_t i = 0;
-        struct mbuf_vec* vec = NULL;
+        uint16_t tail_size = 0;
+        struct mvec* vec_recv = NULL;
+        struct mvec* vec_read = NULL;
+        int ret = 0;
 
         /* Dequeue metadata packet */
         while (rte_ring_dequeue(in_que, &msg) < 0) {
@@ -62,7 +102,7 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
         }
         nb_mbuf = *((uint16_t*)msg);
         RTE_LOG(
-            INFO, RING, "[MASTER] %d mbufs are in the in_queue.\n", nb_mbuf);
+            INFO, TEST, "[MASTER] %d mbufs are in the in_queue.\n", nb_mbuf);
         rte_mempool_put(mbuf_pool, msg);
 
         /* Dequeue data packets */
@@ -70,18 +110,38 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
                 rte_ring_dequeue(in_que, &msg);
                 *(rx_buf + i) = (struct rte_mbuf*)(msg);
         }
-        vec = mbuf_vec_init(rx_buf, nb_mbuf);
 
-        print_mbuf_vec(vec);
-        // MARK: Add the processing code of mbuf vectors here, e.g. parse
-        // headers and send the payload to another process via Unix domain
-        // socket.
+        /* Test mvec operations, push, pull etc */
+        vec_recv = mvec_init(rx_buf, nb_mbuf);
 
-        RTE_LOG(INFO, RING, "Free the mbuf vector.\n");
-        mbuf_vec_free(vec);
+        RTE_LOG(INFO, TEST, "Before mvec processing.\n");
+        print_mvec(vec_recv);
+        test_mvec_helpers(vec_recv);
+        RTE_LOG(INFO, TEST, "After mvec processing.\n");
+        print_mvec(vec_recv);
+
+        /* Check if TX/RX and mbuf vector operations work properly */
+        nb_mbuf = gen_rx_buf_from_file("./pikachu.jpg", read_buf, RX_BUF_SIZE,
+            mbuf_pool, 1500, &tail_size);
+        vec_read = mvec_init(read_buf, nb_mbuf);
+        print_mvec(vec_read);
+
+        ret = mvec_datacmp(vec_recv, vec_read);
+        if (ret != 0) {
+                rte_panic(
+                    "ERROR! Received data is different from the sent data.\n");
+        }
+
+        RTE_LOG(INFO, TEST, "Free the mbuf vectors.\n");
+        mvec_free(vec_recv);
+        mvec_free(vec_read);
         return 0;
 }
 
+/**
+ * Main loop of the slave thread
+ *
+ */
 static int proc_loop_slave(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* tx_buf[RX_BUF_SIZE];
@@ -95,7 +155,7 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
         nb_mbuf = gen_rx_buf_from_file(
             "./pikachu.jpg", tx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
 
-        RTE_LOG(INFO, RING, "[SLAVE] %d mbufs are allocated. Tail size:%d.\n",
+        RTE_LOG(INFO, TEST, "[SLAVE] %d mbufs are allocated. Tail size:%d.\n",
             nb_mbuf, tail_size);
 
         /* Add metadata packet */
@@ -111,7 +171,7 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
 
         ring_size = rte_ring_get_size(in_que);
         free_space = rte_ring_free_count(in_que);
-        RTE_LOG(INFO, RING,
+        RTE_LOG(INFO, TEST,
             "[SLAVE] Enqueue finished, in_que size:%u, free space of "
             "in_que:%u\n",
             ring_size, free_space);
@@ -159,7 +219,7 @@ int main(int argc, char* argv[])
 
         print_lcore_infos();
 
-        RTE_LOG(INFO, RING, "Launch task on the first slave core.\n");
+        RTE_LOG(INFO, TEST, "Launch task on the first slave core.\n");
         RTE_LCORE_FOREACH_SLAVE(lcore_id)
         {
                 rte_eal_remote_launch(proc_loop_slave, NULL, lcore_id);
