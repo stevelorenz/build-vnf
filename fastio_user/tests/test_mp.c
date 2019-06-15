@@ -62,7 +62,7 @@ static int proc_loop_prim(__attribute__((unused)) void* dummy)
         RTE_LOG(INFO, MP, "%d mbufs are allocated. Tail size:%d.\n", nb_mbuf,
             tail_size);
 
-        vec = mvec_init(rx_buf, nb_mbuf);
+        vec = mvec_new(rx_buf, nb_mbuf);
         print_mvec(vec);
         mvec_free(vec);
 

@@ -75,3 +75,14 @@ int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
         }
         return 0;
 }
+
+/******************
+ *  Cycles/Timer  *
+ ******************/
+
+double get_delay_tsc(uint64_t tsc_cnt)
+{
+        double delay = 0;
+        delay = (1.0 / rte_get_tsc_hz()) * (tsc_cnt);
+        return delay;
+}

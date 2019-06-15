@@ -12,7 +12,7 @@
 #include "config.h"
 #include "utils.h"
 
-struct mvec* mvec_init(struct rte_mbuf** mbuf_arr, uint16_t len)
+struct mvec* mvec_new(struct rte_mbuf** mbuf_arr, uint16_t len)
 {
         static volatile uint16_t mvec_id = 0;
         struct mvec* vec
@@ -22,20 +22,23 @@ struct mvec* mvec_init(struct rte_mbuf** mbuf_arr, uint16_t len)
         vec->head = mbuf_arr;
         vec->tail = mbuf_arr + len;
         vec->len = len;
-        vec->mbuf_payload_off = rte_pktmbuf_headroom(*mbuf_arr);
+        vec->mbuf_payload_off = RTE_PKTMBUF_HEADROOM;
 
         __sync_fetch_and_add(&mvec_id, 1);
         return vec;
 }
-void mvec_free(struct mvec* vec)
+
+void mvec_free_part(struct mvec* vec, uint16_t offset)
 {
         uint16_t i = 0;
 
-        for (i = 0; i < vec->len; ++i) {
+        for (i = offset; i < vec->len; ++i) {
                 rte_pktmbuf_free(*(vec->head + i));
         }
         rte_free(vec);
 }
+
+void mvec_free(struct mvec* vec) { mvec_free_part(vec, 0); }
 
 void print_mvec(struct mvec* vec)
 {
@@ -56,29 +59,6 @@ int mvec_datacmp(struct mvec* v1, struct mvec* v2)
                 ret = mbuf_datacmp(*(v1->head + i), *(v2->head + i));
                 if (ret != 0) {
                         return ret;
-                }
-        }
-        return 0;
-}
-
-int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
-{
-        uint8_t* pt_m1 = NULL;
-        uint8_t* pt_m2 = NULL;
-        uint16_t len = 0;
-        size_t i = 0;
-
-        len = RTE_MIN(m1->data_len, m2->data_len);
-        pt_m1 = rte_pktmbuf_mtod(m1, uint8_t*);
-        pt_m2 = rte_pktmbuf_mtod(m2, uint8_t*);
-        rte_prefetch_non_temporal((void*)pt_m1);
-        rte_prefetch_non_temporal((void*)pt_m2);
-
-        for (i = 0; i < len; ++i) {
-                if (*pt_m1 < *pt_m2) {
-                        return -1;
-                } else if (*pt_m1 > *pt_m2) {
-                        return 1;
                 }
         }
         return 0;

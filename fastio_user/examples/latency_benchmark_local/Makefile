@@ -2,7 +2,7 @@
 # Makefile
 #
 
-DEBUG=1
+DEBUG=0
 include $(RTE_SDK)/mk/rte.vars.mk
 
 CC=gcc
@@ -19,16 +19,16 @@ endif
 
 CFLAGS+=$(OPTS)
 
-all: load_gen_image.out
+all: latency_benchmark_local.out
 
-load_gen_image.out: load_gen_image.c
-	$(CC) $(CFLAGS) load_gen_image.c -o load_gen_image.out $(LDFLAGS)
-
+latency_benchmark_local.out: latency_benchmark_local.c
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 .PHONY:clean
 
 clean:
 	rm -rf *.out *.o
+	rm -rf *.log
 
 # vim:ft=make
 #

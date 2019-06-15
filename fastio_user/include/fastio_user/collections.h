@@ -44,14 +44,14 @@ struct mvec {
 };
 
 /**
- * mvec_init() - Initialize a mbuf vector.
+ * mvec_new() - Initialize a mbuf vector.
  *
  * @param mbuf_arr: An array of pointers to mbufs.
  * @param len: The length of the array.
  *
  * @return: Pointer to the new mbuf vector.
  */
-struct mvec* mvec_init(struct rte_mbuf** mbuf_arr, uint16_t len);
+struct mvec* mvec_new(struct rte_mbuf** mbuf_arr, uint16_t len);
 
 /**
  * mvec_free() - Free all mbufs in the vector.
@@ -59,6 +59,14 @@ struct mvec* mvec_init(struct rte_mbuf** mbuf_arr, uint16_t len);
  * @param vec
  */
 void mvec_free(struct mvec* vec);
+
+/**
+ * mvec_free_part() - Free a part of mbufs in the vector
+ *
+ * @param vec
+ * @param offset
+ */
+void mvec_free_part(struct mvec* vec, uint16_t offset);
 
 /**
  * print_mvec() - Print metadata of a mbuf vector.

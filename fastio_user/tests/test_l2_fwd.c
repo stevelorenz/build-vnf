@@ -52,7 +52,7 @@ static int proc_loop(__attribute__((unused)) void* dummy)
             "./pikachu.jpg", rx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
         printf("%d mbufs are allocated. Tail size:%d.\n", nb_mbuf, tail_size);
 
-        vec = mvec_init(rx_buf, nb_mbuf);
+        vec = mvec_new(rx_buf, nb_mbuf);
         sleep(0.05);
         print_mvec(vec);
         mvec_free(vec);

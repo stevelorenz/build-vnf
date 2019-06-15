@@ -106,10 +106,10 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
         rte_mempool_put(mbuf_pool, meta_data);
 
         /* Dequeue data packets */
-        rte_ring_dequeue_bulk(in_que, rx_buf, nb_mbuf, NULL);
+        rte_ring_dequeue_bulk(in_que, (void**)rx_buf, nb_mbuf, NULL);
 
         /* Test mvec operations, push, pull etc */
-        vec_recv = mvec_init(rx_buf, nb_mbuf);
+        vec_recv = mvec_new(rx_buf, nb_mbuf);
 
         RTE_LOG(INFO, TEST, "Before mvec processing.\n");
         print_mvec(vec_recv);
@@ -120,7 +120,7 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
         /* Check if TX/RX and mbuf vector operations work properly */
         nb_mbuf = gen_rx_buf_from_file("./pikachu.jpg", read_buf, RX_BUF_SIZE,
             mbuf_pool, 1500, &tail_size);
-        vec_read = mvec_init(read_buf, nb_mbuf);
+        vec_read = mvec_new(read_buf, nb_mbuf);
         print_mvec(vec_read);
 
         ret = mvec_datacmp(vec_recv, vec_read);
@@ -160,7 +160,7 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
                 rte_panic("Failed to get message buffer\n");
         *(uint16_t*)(meta_data) = nb_mbuf;
         rte_ring_enqueue(in_que, meta_data);
-        rte_ring_enqueue_bulk(in_que, tx_buf, nb_mbuf, NULL);
+        rte_ring_enqueue_bulk(in_que, (void**)tx_buf, nb_mbuf, NULL);
 
         ring_size = rte_ring_get_size(in_que);
         free_space = rte_ring_free_count(in_que);
