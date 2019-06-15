@@ -79,8 +79,6 @@ void print_mvec(struct mvec* vec);
  */
 int mvec_datacmp(struct mvec* v1, struct mvec* v2);
 
-int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
-
 /**
  * mvec_push() - Like skb_push. Push data to the reserved header room of all
  * mbufs in the vector. Data is prepended to mbuf data room.

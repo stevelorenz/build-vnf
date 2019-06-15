@@ -1,6 +1,5 @@
 /*
- * dpdk_test.c
- *
+ * utils.c
  */
 
 #include <errno.h>
@@ -28,11 +27,16 @@
 #include <rte_memory.h>
 #include <rte_mempool.h>
 #include <rte_per_lcore.h>
+#include <rte_prefetch.h>
 #include <rte_random.h>
 #include <rte_ring.h>
 #include <rte_udp.h>
 
 #include "utils.h"
+
+/*********************
+ *  Mbuf Operations  *
+ *********************/
 
 struct rte_mbuf* mbuf_udp_deep_copy(
     struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len)
@@ -51,74 +55,23 @@ struct rte_mbuf* mbuf_udp_deep_copy(
         return m_copy;
 }
 
-void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
+int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
 {
-        udph->dgram_cksum = 0;
-        iph->hdr_checksum = 0;
-        udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
-        iph->hdr_checksum = rte_ipv4_cksum(iph);
-}
-
-void px_mbuf_udp(struct rte_mbuf* m)
-{
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-        uint8_t* pt_data;
-        uint16_t data_len;
-        size_t i;
-        printf("Dataroom len: %u\n", m->data_len);
-
-        printf("Header part: \n");
-        pt_data = rte_pktmbuf_mtod(m, uint8_t*);
-        for (i = 0; i < (14 + 20 + 8); ++i) {
-                printf("%02x ", *(pt_data + i));
-        }
-        printf("\n");
-        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
-        udph = (struct udp_hdr*)((char*)iph + 20);
-        data_len = rte_be_to_cpu_16(udph->dgram_len) - 8;
-        // printf("[PRINT] UDP dgram len:%u, data len:%u\n",
-        // rte_be_to_cpu_16(udph->dgram_len), data_len);
-        pt_data = (uint8_t*)udph + 8;
-        printf("UDP data: \n");
-        for (i = 0; i < data_len; ++i) {
-                printf("%02x ", *(pt_data + i));
-        }
-        printf("\n");
-}
-
-int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
-{
-        uint8_t* pt_m1;
-        uint8_t* pt_m2;
-        size_t i;
-
+        uint8_t* pt_m1 = NULL;
+        uint8_t* pt_m2 = NULL;
+        uint16_t len = 0;
+        size_t i = 0;
+        len = RTE_MIN(m1->data_len, m2->data_len);
         pt_m1 = rte_pktmbuf_mtod(m1, uint8_t*);
         pt_m2 = rte_pktmbuf_mtod(m2, uint8_t*);
-        if (m1->data_len != m2->data_len) {
-                RTE_LOG(INFO, USER1,
-                    "Mbufs have different data_len. m1 len: %u, m2 len: %u\n",
-                    m1->data_len, m2->data_len);
-                return -2;
-        }
-
-        for (i = 0; i < m1->data_len; ++i) {
+        rte_prefetch_non_temporal((void*)pt_m1);
+        rte_prefetch_non_temporal((void*)pt_m2);
+        for (i = 0; i < len; ++i) {
                 if (*pt_m1 < *pt_m2) {
                         return -1;
                 } else if (*pt_m1 > *pt_m2) {
                         return 1;
                 }
         }
-        return 0;
-}
-
-int mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
-{
-        /*uint8_t* pt_m1;*/
-        /*uint8_t* pt_m2;*/
-
-        rte_pktmbuf_free(m1);
-        rte_pktmbuf_free(m2);
-
         return 0;
 }

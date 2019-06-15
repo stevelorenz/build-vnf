@@ -1,19 +1,23 @@
 /*
- * dpdk_test.h
- *
- * About: Helper functions for DPDK development
- *
- *        These are util functions that are not provided by official DPDK APIs
- *        (Version 18.11).
- *
- * Email: xianglinks@gmail.com
+ * utils.h
  */
 
 #ifndef DPDK_HELPER_H
 #define DPDK_HELPER_H
 
 /**
- * @brief Make a deep copy of a mbuf
+ * @file
+ *
+ * Utility functions
+ *
+ */
+
+/*********************
+ *  Mbuf Operations  *
+ *********************/
+
+/**
+ * mbuf_udp_deep_copy() -  Make a deep copy of a mbuf.
  *
  *
  * @param m
@@ -26,35 +30,13 @@ struct rte_mbuf* mbuf_udp_deep_copy(
     struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len);
 
 /**
- * @brief Recalculate IP and UDP checksum
- *
- * @param iph
- * @param udph
- */
-void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph);
-
-/**
- * @brief Print in mbuf encapsulated UDP segment in hex format
- *
- */
-void px_mbuf_udp(struct rte_mbuf* m);
-
-/**
- * @brief Compare data room of two mbufs
+ * mbuf_datacmp() - Compare two mbufs' data room
  *
  * @param m1
  * @param m2
  *
  * @return
  */
-int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
-
-/**
- * @brief Compare two in mbuf encapsulated UDP segments
- *
- * @param m1
- * @param m2
- */
-int mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
+int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
 
 #endif /* !DPDK_HELPER_H */

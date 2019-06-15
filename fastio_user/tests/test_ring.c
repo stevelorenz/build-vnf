@@ -88,7 +88,7 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* rx_buf[RX_BUF_SIZE];
         struct rte_mbuf* read_buf[RX_BUF_SIZE];
-        void* msg = NULL;
+        void* meta_data = NULL;
         uint16_t nb_mbuf = 0;
         uint16_t i = 0;
         uint16_t tail_size = 0;
@@ -97,19 +97,16 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
         int ret = 0;
 
         /* Dequeue metadata packet */
-        while (rte_ring_dequeue(in_que, &msg) < 0) {
+        while (rte_ring_dequeue(in_que, &meta_data) < 0) {
                 usleep(50);
         }
-        nb_mbuf = *((uint16_t*)msg);
+        nb_mbuf = *((uint16_t*)meta_data);
         RTE_LOG(
             INFO, TEST, "[MASTER] %d mbufs are in the in_queue.\n", nb_mbuf);
-        rte_mempool_put(mbuf_pool, msg);
+        rte_mempool_put(mbuf_pool, meta_data);
 
         /* Dequeue data packets */
-        for (i = 0; i < nb_mbuf; ++i) {
-                rte_ring_dequeue(in_que, &msg);
-                *(rx_buf + i) = (struct rte_mbuf*)(msg);
-        }
+        rte_ring_dequeue_bulk(in_que, rx_buf, nb_mbuf, NULL);
 
         /* Test mvec operations, push, pull etc */
         vec_recv = mvec_init(rx_buf, nb_mbuf);
@@ -150,7 +147,7 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
         uint16_t ring_size = 0;
         uint16_t free_space = 0;
         uint16_t tail_size = 0;
-        void* msg = NULL;
+        void* meta_data = NULL;
 
         nb_mbuf = gen_rx_buf_from_file(
             "./pikachu.jpg", tx_buf, RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
@@ -158,16 +155,12 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
         RTE_LOG(INFO, TEST, "[SLAVE] %d mbufs are allocated. Tail size:%d.\n",
             nb_mbuf, tail_size);
 
-        /* Add metadata packet */
-        if (rte_mempool_get(mbuf_pool, &msg) < 0)
+        /* Enqueue first the number of mbufs, then all mbufs */
+        if (rte_mempool_get(mbuf_pool, &meta_data) < 0)
                 rte_panic("Failed to get message buffer\n");
-        *(uint16_t*)(msg) = nb_mbuf;
-
-        /* Enqueue data packets */
-        rte_ring_enqueue(in_que, msg);
-        for (i = 0; i < nb_mbuf; ++i) {
-                rte_ring_enqueue(in_que, *(tx_buf + i));
-        }
+        *(uint16_t*)(meta_data) = nb_mbuf;
+        rte_ring_enqueue(in_que, meta_data);
+        rte_ring_enqueue_bulk(in_que, tx_buf, nb_mbuf, NULL);
 
         ring_size = rte_ring_get_size(in_que);
         free_space = rte_ring_free_count(in_que);

@@ -12,11 +12,17 @@ API {#index}
 
 The public API headers are grouped by topics
 
-- *device*:
-    [dev]                (@ref device.h),
-
 - *task*:
     [task]               (@ref task.h)
 
+- *device*:
+    [dev]                (@ref device.h),
+
+- *Packet IO*:
+    [io]                 (@ref io.h),
+
 - *containers*:
     [collections]        (@ref collections.h)
+
+- *utility functions*:
+    [utils]              (@ref utils.h)

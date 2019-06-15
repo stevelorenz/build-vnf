@@ -7,10 +7,10 @@
 #include <rte_compat.h>
 #include <rte_malloc.h>
 #include <rte_mbuf.h>
-#include <rte_prefetch.h>
 
 #include "collections.h"
 #include "config.h"
+#include "utils.h"
 
 struct mvec* mvec_init(struct rte_mbuf** mbuf_arr, uint16_t len)
 {

@@ -5,6 +5,13 @@
 #ifndef IO_H
 #define IO_H
 
+/**
+ * @file
+ *
+ * IO functions
+ *
+ */
+
 #include <rte_mbuf.h>
 
 /**
@@ -36,17 +43,5 @@ void dpdk_free_buf(struct rte_mbuf** buf, uint16_t buf_size);
 uint16_t gen_rx_buf_from_file(char const* pathname, struct rte_mbuf** rx_buf,
     uint16_t rx_buf_size, struct rte_mempool* pool, uint16_t MTU,
     uint16_t* tail_size);
-
-/**
- * @brief gen_test_udp
- *
- * @param mbuf_pool
- * @param hdr_len
- * @param data_len
- *
- * @return
- */
-struct rte_mbuf* gen_test_udp(
-    struct rte_mempool* mbuf_pool, uint16_t hdr_len, uint16_t data_len);
 
 #endif /* !IO_H */

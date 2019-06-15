@@ -115,34 +115,3 @@ uint16_t gen_rx_buf_from_file(char const* pathname, struct rte_mbuf** rx_buf,
 
         return nb_mbuf;
 }
-
-struct rte_mbuf* gen_test_udp(
-    struct rte_mempool* mbuf_pool, uint16_t hdr_len, uint16_t data_len)
-{
-        struct rte_mbuf* m;
-        uint8_t* data;
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-        uint64_t cur_tsc;
-
-        m = rte_pktmbuf_alloc(mbuf_pool);
-        if (m == NULL) {
-                rte_exit(EXIT_FAILURE, "Can not allocate new mbuf for UDP\n");
-        }
-        m->data_len = hdr_len + data_len;
-        m->pkt_len = hdr_len + data_len;
-        data = rte_pktmbuf_mtod(m, uint8_t*);
-        memset(data, MAGIC_DATA, hdr_len + data_len);
-
-        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
-        udph = (struct udp_hdr*)((char*)iph + 20);
-        cur_tsc = rte_get_tsc_cycles();
-        data = (uint8_t*)udph + 8;
-        rte_memcpy(data, &cur_tsc, sizeof(uint64_t));
-        udph->dgram_len = rte_cpu_to_be_16(data_len + MBUF_l4_UDP_HDR_LEN);
-        iph->total_length = rte_cpu_to_be_16(
-            data_len + MBUF_l4_UDP_HDR_LEN + MBUF_l3_HDR_LEN);
-        iph->version_ihl = 0x45;
-        recalc_cksum(iph, udph);
-        return m;
-}
