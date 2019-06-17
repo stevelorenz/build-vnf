@@ -6,6 +6,8 @@
 set -e
 set -o nounset
 
+dpdk_mnt="-v /sys/bus/pci/drivers:/sys/bus/pci/drivers -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev"
+
 declare -r opt="${1-"default"}"
 
 cd ../ || exit
@@ -26,15 +28,15 @@ if [[ $opt == "-b" ]]; then
 elif [[ $opt == "-m" ]]; then
     echo "Build dpdk image with ./Dockerfile ..."
     sudo docker run --rm --privileged \
-        -v /sys/bus/pci/drivers:/sys/bus/pci/drivers -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev \
+        $dpdk_mnt \
         -v "$PWD":/fastio_user -w /fastio_user \
-        -it fastio_user make
+        -it fastio_user make lib
 
 elif [[ $opt == "-k" ]]; then
     echo "Run container for performance benchmarking"
     sudo docker run --rm --privileged \
         -v /usr/local/var/run/openvswitch:/var/run/openvswitch \
-        -v /sys/bus/pci/drivers:/sys/bus/pci/drivers -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev \
+        $dpdk_mnt \
         -v "$PWD":/fastio_user -w /fastio_user \
         -v /vagrant/dataset:/dataset \
         -it fastio_user bash
@@ -52,7 +54,7 @@ elif [[ $opt == "-h" || $opt == "--help" ]]; then
 elif [[ $opt == "default" ]]; then
     echo "Run container for development and tests"
     sudo docker run --rm --privileged \
-        -v /sys/bus/pci/drivers:/sys/bus/pci/drivers -v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages -v /sys/devices/system/node:/sys/devices/system/node -v /dev:/dev \
+        $dpdk_mnt \
         -v "$PWD":/fastio_user -w /fastio_user \
         -v /vagrant/dataset:/dataset \
         -it fastio_user bash

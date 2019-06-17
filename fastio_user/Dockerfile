@@ -1,7 +1,8 @@
 #
-# Dockerfile for FastIO User development and tests
+# Dockerfile ONLY used for the development and tests of FastIO User library
+# - root user is used
 #
-# - Deps:
+# - Dependencies:
 #   - DPDK: v18.11 LTS
 #
 
@@ -32,5 +33,11 @@ RUN \
 
 # Install debug/perf tools
 RUN apt-get install -y gdb linux-tools-$(uname -r) lldb valgrind iputils-ping
+
+# Build FastIO User library
+RUN git clone https://github.com/stevelorenz/build-vnf.git ./build-vnf && \
+        cp -r /root/build-vnf/fastio_user/. /fastio_user
+WORKDIR /fastio_user
+RUN make clean && make lib
 
 CMD ["bash"]
