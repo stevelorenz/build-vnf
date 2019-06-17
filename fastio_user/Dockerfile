@@ -1,6 +1,8 @@
 #
-# Dockerfile for DPDK
-# - DPDK version: v18.11 LTS
+# Dockerfile for FastIO User development and tests
+#
+# - Deps:
+#   - DPDK: v18.11 LTS
 #
 
 FROM ubuntu:18.04
@@ -27,14 +29,8 @@ RUN \
         make && \
         ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
 
-RUN apt-get install -y iputils-ping
 
-# Download nothings/stb for easy prototyping
-RUN \
-        mkdir -p /stb && \
-        git clone https://github.com/nothings/stb /stb
-
-# - linux-tools for perf monitoring
-RUN apt-get install -y gdb linux-tools-$(uname -r) lldb valgrind
+# Install debug/perf tools
+RUN apt-get install -y gdb linux-tools-$(uname -r) lldb valgrind iputils-ping
 
 CMD ["bash"]

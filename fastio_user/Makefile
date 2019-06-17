@@ -1,47 +1,30 @@
 #
-# About: Makefile for the fastio_user library
+# Makefile for FastIO User project
 #
-# MARK :
-# - Run make command in the container descriped in ./Dockerfile.dpdk for all dependencies
-# - Currently uses the LEGACY DPDK makefile format, should use libdpdk-based approach
-# - Use Cmake latter
 
-DEBUG=1
+SRCS-y := $(shell find ./src/ -name '*.c')
+HEADERS := $(shell find ./include/fastio_user/ -name '*.h')
+DOCS_MD := $(shell find ./docs/ -name '*.md')
 
-include $(RTE_SDK)/mk/rte.vars.mk
+echo:
+	@echo $(SRCS-y)
+	@echo $(SRCS)
 
-LIB = libfastio_user.so
+lib: $(SRCS-y) $(HEADERS)
+	@make -f ./lib.mk all
 
-SRCS-y := $(addprefix ./src/, utils.c memory.c device.c io.c task.c ipc.c collections.c \
-	mp.c)
-
-ifeq ($(RTE_SDK),)
-	$(error "Please define RTE_SDK environment variable")
-endif
-
-RTE_TARGET ?= x86_64-native-linuxapp-gcc
-
-CFLAGS += -O3
-CFLAGS += $(WERROR_FLAGS)
-CFLAGS += -I/fastio_user/include/fastio_user/
-CFLAGS += -I/usr/local/include
-CFLAGS += -I/stb
-
-OPTS=-O3
-ifeq ($(DEBUG), 1)
-	OPTS=-O0 -g -DDBUG
-endif
-CFLAGS+=$(OPTS)
-
-ifeq ($(PREFIX), )
-	PREFIX := /usr/local
-endif
-
-all: $(SRCS-y)
-
-test: all
+.PHONY: test
+test: $(SRCS-y) $(HEADERS)
 	@echo "* Run core tests of fastio_user..."
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
 	@cd ./tests/ && ./run_tests.sh
 
-include $(RTE_SDK)/mk/rte.extlib.mk
+clean:
+	@echo "* Run cleanups"
+	@echo "- cleanup fastio_user library"
+	@make -f ./lib.mk clean
+	@rm -r ./build/
+
+.PHONY: docs
+docs: $(DOCS_MD) $(SRCS-y) $(HEADERS)
+	doxygen ./docs/Doxyfile
