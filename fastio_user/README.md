@@ -11,10 +11,10 @@ more programmer friendly APIs and utility functions.
 
 In order to simplify and the build process on different platforms. The Docker container is suggested to build the
 library (To avoid "I could not build this on my laptop due to dependency errors etc"). There is a
-[Dockerfile](./Dockerfile.dpdk) and a [bash script](./util/run_dev_container.sh) to automate the build process. Make
-sure you have Docker CE installed. The container image and shared library (.so file) can be built with following steps.
-(Because the DPDK is compiled from the source code, the step of build the container image takes time, -j can be modified
-in the Dockerfile to speed up the compiling time.)
+[Dockerfile](./Dockerfile) and a [bash script](./util/run_dev_container.sh) to automate the build process. Make sure you
+have Docker CE installed. The container image and shared library (.so file) can be built with following steps.  (Because
+the DPDK is compiled from the source code, the step of build the container image takes time, -j can be modified in the
+Dockerfile to speed up the compiling time.)
 
 ```bash
 $ cd ./util/
