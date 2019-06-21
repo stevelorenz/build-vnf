@@ -10,9 +10,9 @@
 CPUS = 2
 RAM = 2048
 
-UBUNTU_LTS = "bento/ubuntu-18.04"
-UBUNTU_LTS_LATEST = "bento/ubuntu-18.04"
-UBUNTU_1404 = "bento/ubuntu-14.04"
+# Use Ubuntu LTS for development
+BOX = "bento/ubuntu-18.04"
+BOX_VER = "201906.18.0"
 
 #######################
 #  Provision Scripts  #
@@ -26,16 +26,15 @@ UBUNTU_1404 = "bento/ubuntu-14.04"
 # Common bootstrap
 $bootstrap_apt= <<-SCRIPT
 # Install dependencies
-sudo apt-get update
-sudo apt-get install -y git pkg-config gdb
-sudo apt-get install -y bash-completion htop dfc
-sudo apt-get install -y iperf iperf3 tcpdump
+DEBIAN_FRONTEND=noninteractive sudo apt-get update
+DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y
+DEBIAN_FRONTEND=noninteractive sudo apt-get install -y git pkg-config gdb bash-completion htop dfc iperf iperf3 tcpdump
 
-# Add termite infos
+# Add termite terminal infos
 wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
 tic -x /home/vagrant/termite.terminfo
 
-# Get zuo's dotfiles
+# Use zuo's tmux config
 git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
 cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
 SCRIPT
@@ -53,7 +52,8 @@ git checkout -b LINUX_KERNEL_VERSION LINUX_KERNEL_VERSION
 ## Build and install the kernel from source code
 ## An alternative is to use compiled binaries from z.B. Ubuntu kernel mainline.
 # Install dependencies
-sudo apt-get install -y libncurses-dev bison build-essential flex
+DEBIAN_FRONTEND=noninteractive sudo apt-get update
+DEBIAN_FRONTEND=noninteractive sudo apt-get install -y libncurses-dev bison build-essential flex
 # Configure the kernel
 #     1. Copy the configure file from current kernel
 #     zcat /proc/config.gz ./.config
@@ -71,9 +71,8 @@ sudo sysctl -w net.ipv4.ip_forward=1
 SCRIPT
 
 $setup_x11_server_apt= <<-SCRIPT
-sudo apt-get update
-sudo apt-get install -y xorg
-sudo apt-get install -y openbox xterm
+DEBIAN_FRONTEND=noninteractive sudo apt-get update
+DEBIAN_FRONTEND=noninteractive sudo apt-get install -y xorg openbox xterm
 SCRIPT
 
 ####################
@@ -85,7 +84,8 @@ Vagrant.configure("2") do |config|
   # --- VM to test Software Traffic Generators ---
   # MARK: To be tested: MoonGen, Trex, wrap17
   config.vm.define "trafficgen" do |trafficgen|
-    trafficgen.vm.box = UBUNTU_LTS
+    trafficgen.vm.box = BOX
+    trafficgen.vm.box_version = BOX_VER
     trafficgen.vm.hostname = "trafficgen"
 
     trafficgen.vm.network "private_network", ip: "192.168.10.11", mac: "0800271e2d13",
@@ -108,7 +108,8 @@ Vagrant.configure("2") do |config|
 
   # --- VM for VNF development ---
   config.vm.define "vnf" do |vnf|
-    vnf.vm.box = UBUNTU_LTS
+    vnf.vm.box = BOX
+    vnf.vm.box_version = BOX_VER
     vnf.vm.hostname = "vnf"
     vnf.vm.box_check_update= false
 
@@ -118,6 +119,19 @@ Vagrant.configure("2") do |config|
     vnf.vm.network :forwarded_port, guest: 8181, host: 18181
     vnf.vm.provision :shell, inline: $bootstrap_apt, privileged: false
     vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: false
+    vnf.vm.provision :shell, privileged: false, inline: <<-SHELL
+        git clone https://github.com/stevelorenz/build-vnf $HOME/build-vnf
+        cd $HOME/build-vnf/script || exit
+        bash ./install_docker.sh
+        cd $HOME/build-vnf/fastio_user/util || exit
+        bash ./run_dev_container.sh -b
+    SHELL
+    # Always run this when use `vagrant up`
+    vnf.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
+        cd $HOME/build-vnf/fastio_user/util || exit
+        sudo bash ./setup_hugepage.sh
+    SHELL
+
     vnf.ssh.forward_agent = true
     vnf.ssh.forward_x11 = true
 
@@ -133,7 +147,8 @@ Vagrant.configure("2") do |config|
 
   # --- VM for VNF-Next development. Try latest kernels/framworks/technologies ---
   config.vm.define "vnfnext" do |vnfnext|
-    vnfnext.vm.box = UBUNTU_LTS
+    vnfnext.vm.box = BOX
+    vnfnext.vm.box_version = BOX_VER
     vnfnext.vm.hostname = "vnfnext"
 
     vnfnext.vm.network "private_network", ip: "192.168.10.15", nic_type: "82540EM"
