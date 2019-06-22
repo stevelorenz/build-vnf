@@ -6,15 +6,15 @@
 Welcome to Build-VNF's documentation!
 =====================================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+This documentation includes details about all algorithms, technologies, systems, tools and also hypes (^_^) related to
+Build-VNF project.
 
-   ./vnf
-   ./approach
-   ./tech
-   ./devenv
-   ./testbed
+.. toctree::
+   :maxdepth: 1
+   :caption: Concepts:
+
+   ./nfv
+   ./serverless
 
 
 
