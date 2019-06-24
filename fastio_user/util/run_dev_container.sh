@@ -53,7 +53,7 @@ elif [[ $opt == "-h" || $opt == "--help" ]]; then
 
 elif [[ $opt == "default" ]]; then
     echo "Run container for development and tests"
-    sudo docker run --rm --privileged \
+    sudo docker run --rm --privileged --name fastio_user \
         $dpdk_mnt \
         -v "$PWD":/fastio_user -w /fastio_user \
         -v /vagrant/dataset:/dataset \

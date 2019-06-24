@@ -120,11 +120,4 @@ void mvec_pull_u16(struct mvec* v, uint16_t* values);
 void mvec_pull_u32(struct mvec* v, uint32_t* values);
 void mvec_pull_u64(struct mvec* v, uint64_t* values);
 
-/**
- * mvec_pull_tsc() - Push current TSC cycles with mvec_push_u64.
- *
- * @param v: Mbuf vector to modify.
- */
-void mvec_push_tsc(struct mvec* v);
-
 #endif /* !COLLECTIONS_H */

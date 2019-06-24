@@ -6,10 +6,6 @@ SRCS-y := $(shell find ./src/ -name '*.c')
 HEADERS := $(shell find ./include/fastio_user/ -name '*.h')
 DOCS_MD := $(shell find ./docs/ -name '*.md')
 
-echo:
-	@echo $(SRCS-y)
-	@echo $(SRCS)
-
 lib: $(SRCS-y) $(HEADERS)
 	@make -f ./lib.mk all
 

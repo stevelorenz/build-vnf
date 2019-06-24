@@ -71,7 +71,7 @@ $ xdg-open docs/html/index.html
 Some tricks and low level optimizations are learned from several high-performance packet I/O and processing frameworks
 and integrated into fastio_user. These frameworks are awesome, but are relative too heavy, hide many tunable parameters
 or have some limitations to simply integrated with data processing frameworks (e.g. Using OpenCV's python bindings to
-process images easily). Therefore, I have built this light library.
+process images easily). Therefore, I planed to built this light library.
 
 - [VPP](https://wiki.fd.io/view/VPP/What_is_VPP%3F):
 
