@@ -13,6 +13,8 @@ FROM ubuntu:18.04
 
 ENV RTE_SDK=/root/dpdk
 ENV RTE_TARGET=x86_64-native-linuxapp-gcc
+# Disable RDRAND, conflict with valgrind memory checker
+ENV EXTRA_CFLAGS=-mno-rdrnd
 
 RUN apt-get update && apt-get install -y net-tools \
         build-essential automake python-pip libcap-ng-dev gawk pciutils kmod \

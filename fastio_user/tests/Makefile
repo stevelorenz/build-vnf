@@ -18,6 +18,7 @@ ifeq ($(DEBUG), 1)
 endif
 
 CFLAGS+=$(OPTS)
+CFLAGS+= -mno-rdrnd
 # CFLAGS+=-fsanitize=address
 
 all: test_l2_fwd.out test_mp.out test_ring.out

@@ -15,6 +15,12 @@ test: $(SRCS-y) $(HEADERS)
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
 	@cd ./tests/ && ./run_tests.sh
 
+.PHONY: mem_check
+mem_check: $(SRCS-y) $(HEADERS)
+	@echo "* Run core tests with memory leak checking... (WARN: it takes time...)"
+	@cd ./tests/ && make clean > /dev/null && make > /dev/null
+	@cd ./tests/ && ./run_tests.sh -c
+
 clean:
 	@echo "* Run cleanups"
 	@echo "- cleanup fastio_user library"
