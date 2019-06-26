@@ -34,7 +34,7 @@ RUN \
 
 
 # Install debug/perf tools
-RUN apt-get install -y gdb linux-tools-$(uname -r) lldb valgrind iputils-ping
+RUN apt-get install -y gdb linux-tools-$(uname -r) lldb valgrind iputils-ping iproute2 tcpdump
 
 # Build FastIO User library
 RUN git clone https://github.com/stevelorenz/build-vnf.git ./build-vnf && \

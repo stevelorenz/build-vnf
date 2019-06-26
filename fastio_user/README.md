@@ -21,17 +21,17 @@ frameworks like [NFF-GO](https://github.com/intel-go/nff-go), [libmoon](https://
 
 In order to simplify and the build process on different platforms. The Docker container is suggested to build the
 library (To avoid "I could not build this on my laptop due to dependency errors etc"). There is a
-[Dockerfile](./Dockerfile) and a [bash script](./util/run_dev_container.sh) to automate the build process. Make sure you
-have Docker CE installed. The container image and shared library (.so file) can be built with following steps.  (Because
-the DPDK is compiled from the source code, the step of build the container image takes time, -j can be modified in the
-Dockerfile to speed up the compiling time.)
+[Dockerfile](./Dockerfile) and a [Python3 script](./util/run_dev_container.py) to automate the build process. Make sure
+you have Docker CE installed. The container image and shared library (.so file) can be built with following steps.
+(Because the DPDK is compiled from the source code, the step of build the container image takes time, -j can be modified
+in the Dockerfile to speed up the compiling time.)
 
 ```bash
 $ cd ./util/
-# Build the DPDK development container
-$ ./run_dev_container.sh -b
+# Build the DPDK development docker container image
+$ ./run_dev_container.py build_image
 # Run make INSIDE the development container
-$ ./run_dev_container.sh -m
+$ ./run_dev_container.py build_lib
 ```
 
 By default, the compiled shared library (libfastio_user.so) is placed in ./build/ directory.
@@ -47,14 +47,14 @@ The dependencies are planned to managed by the Dockerfile. The versions are mark
 DPDK should be configured properly before running tests and examples. Detailed setup guide can be found in the DPDK's
 official [quick start setup guide](https://doc.dpdk.org/guides/linux_gsg/quick_start.html). FastIO User's tests and
 examples use a run.sh script with AF_PACKET driver configured for the device. No device binding is required. The
-hugepages can be created by running `./util/setup_hugepage.sh`. By default, 1GB hugepages is allocated.
+hugepages can be created by running `sudo ./util/setup_hugepage.sh`. By default, 1GB hugepages is allocated.
 
-- Run tests in the development container with:
+- Run tests in the development container (without interaction) with:
 
     ```bash
     $ cd ./util/
-    $ ./run_dev_container
-    $ make clean && make lib && make test
+    # Run development container in interactive mode
+    $ ./run_dev_container.py run_test
     ```
 
 ## Documentation ##
