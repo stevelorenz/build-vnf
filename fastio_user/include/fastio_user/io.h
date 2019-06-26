@@ -15,7 +15,7 @@
 #include <rte_mbuf.h>
 
 /**
- * @brief dpdk_recv_into
+ * dpdk_recv_into() - Receive rx_nb of packets in the RX buffer
  *
  * @param port_id
  * @param queue_id

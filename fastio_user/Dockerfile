@@ -33,7 +33,7 @@ RUN \
         ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
 
 
-# Install debug/perf tools
+# Install utils/debug/perf tools
 RUN apt-get install -y gdb linux-tools-$(uname -r) lldb valgrind iputils-ping iproute2 tcpdump
 
 # Build FastIO User library

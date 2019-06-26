@@ -21,16 +21,19 @@ CFLAGS+=$(OPTS)
 CFLAGS+= -mno-rdrnd
 # CFLAGS+=-fsanitize=address
 
-all: test_l2_fwd.out test_mp.out test_ring.out
+all: test_l2_fwd.out test_mp.out test_ring.out test_icmp.out
 
 test_l2_fwd.out: test_l2_fwd.c
-	$(CC) $(CFLAGS) test_l2_fwd.c -o test_l2_fwd.out $(LDFLAGS)
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 test_mp.out: test_mp.c
-	$(CC) $(CFLAGS) test_mp.c -o test_mp.out $(LDFLAGS)
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 test_ring.out: test_ring.c
-	$(CC) $(CFLAGS) test_ring.c -o test_ring.out $(LDFLAGS)
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+
+test_icmp.out: test_icmp.c
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 .PHONY:clean
 

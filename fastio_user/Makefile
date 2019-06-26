@@ -3,7 +3,9 @@
 #
 
 SRCS-y := $(shell find ./src/ -name '*.c')
-HEADERS := $(shell find ./include/fastio_user/ -name '*.h')
+SHARED_HEADERS := $(shell find ./include/fastio_user/ -name '*.h')
+PRIVATE_HEADERS := $(shell find ./src/ -name '*.h')
+HEADERS := $(SHARED_HEADERS) $(PRIVATE_HEADERS)
 DOCS_MD := $(shell find ./docs/ -name '*.md')
 EXAMPLES := $(shell find ./examples/ -name '*.c')
 
@@ -15,12 +17,12 @@ lib: $(SRCS-y) $(HEADERS)
 test: $(SRCS-y) $(HEADERS)
 	@echo "* Run core tests of fastio_user..."
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
-	@cd ./tests/ && ./run_tests.sh
+	@cd ./tests/ && ./run_tests.py
 
 mem_check: $(SRCS-y) $(HEADERS)
 	@echo "* Run core tests with memory leak checking... (WARN: it takes time...)"
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
-	@cd ./tests/ && ./run_tests.sh -c
+	@cd ./tests/ && ./run_tests.py --mem_check
 
 flaw_check: $(SRCS-y) $(HEADERS) $(EXAMPLES)
 	@echo "* Check torrential flaws and vulnerabilities with static checker..."

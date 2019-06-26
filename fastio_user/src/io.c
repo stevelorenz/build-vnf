@@ -18,15 +18,7 @@
 #include <rte_pci.h>
 #include <rte_udp.h>
 
-//#define STB_IMAGE_IMPLEMENTATION
-///* ISSUE: stb_image.h has warnings for cast-qual and type-limits, since it is
-// * just for testing, is temporally ignored */
-//#pragma GCC diagnostic push // require GCC 4.6
-//#pragma GCC diagnostic ignored "-Wcast-qual"
-//#pragma GCC diagnostic ignored "-Wtype-limits"
-//#include "stb_image.h"
-//#pragma GCC diagnostic pop // require GCC 4.6
-
+#include "config.h"
 #include "io.h"
 #include "utils.h"
 
@@ -45,7 +37,7 @@ void dpdk_recv_into(uint16_t port_id, uint16_t queue_id,
         while (rx_ed_nb < rx_nb) {
                 rx_ed_nb += rte_eth_rx_burst(port_id, queue_id,
                     rx_buf + offset + rx_ed_nb, rx_nb - rx_ed_nb);
-                rte_delay_us(1000);
+                rte_delay_us(FASTIO_USER_IO_SLEEP);
         }
 }
 

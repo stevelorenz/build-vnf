@@ -3,6 +3,10 @@
 This repository is under heavy development. The directories are not cleanly and clearly organized. Redundant directories
 will be removed before the beta 1.0 version. The README will also be updated.
 
+This project is hosted on [GitHub](https://github.com/stevelorenz/build-vnf) and
+[BitBucket](https://bitbucket.org/comnets/build-vnf/src/master/), please create an issue or a pull request if you have
+any questions or code contribution.
+
 ## Introduction ##
 
 This repository is a collection of programs/tools used for my PhD topic: Ultra Low Latency Network Softwarization.
