@@ -64,7 +64,6 @@ uint16_t gen_rx_buf_from_file(char const* pathname, struct rte_mbuf** rx_buf,
         uint32_t size_b = 0;
         uint16_t nb_mbuf = 0;
         uint16_t i = 0;
-        uint8_t* data;
         FILE* fd = NULL;
 
         fd = fopen(pathname, "r");
@@ -82,6 +81,7 @@ uint16_t gen_rx_buf_from_file(char const* pathname, struct rte_mbuf** rx_buf,
         *tail_size = size_b - ((nb_mbuf - 1) * MTU);
 
         for (i = 0; i < nb_mbuf; ++i) {
+                uint8_t* data;
                 *(rx_buf) = rte_pktmbuf_alloc(pool);
                 if (*(rx_buf) == NULL) {
                         rte_exit(EXIT_FAILURE, "Can not allocate new mbufs\n");

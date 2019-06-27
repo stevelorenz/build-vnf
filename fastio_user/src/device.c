@@ -75,11 +75,19 @@ int dpdk_init_device(struct dpdk_device_config* cfg)
         rxq_conf.offloads = port_conf.rxmode.offloads;
         ret = rte_eth_rx_queue_setup(cfg->port_id, 0, cfg->rx_descs,
             rte_eth_dev_socket_id(cfg->port_id), &rxq_conf, *(cfg->pool));
+        if (unlikely(ret != 0)) {
+                rte_exit(EXIT_FAILURE,
+                    "Can not setup rx queue with error code:%d\n", ret);
+        }
 
         txq_conf = dev_info.default_txconf;
         txq_conf.offloads = port_conf.txmode.offloads;
         ret = rte_eth_tx_queue_setup(cfg->port_id, 0, cfg->tx_descs,
             rte_eth_dev_socket_id(cfg->port_id), &txq_conf);
+        if (unlikely(ret != 0)) {
+                rte_exit(EXIT_FAILURE,
+                    "Can not setup tx queue with error code:%d\n", ret);
+        }
 
         // Start device
         ret = rte_eth_dev_start(cfg->port_id);

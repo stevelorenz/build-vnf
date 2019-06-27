@@ -8,6 +8,8 @@ PRIVATE_HEADERS := $(shell find ./src/ -name '*.h')
 HEADERS := $(SHARED_HEADERS) $(PRIVATE_HEADERS)
 DOCS_MD := $(shell find ./docs/ -name '*.md')
 EXAMPLES := $(shell find ./examples/ -name '*.c')
+TESTS := $(shell find ./tests/ -name '*.c')
+ALL_SRCS_CH := $(SRCS-y) $(HEADERS) $(EXAMPLES) $(TESTS)
 
 lib: $(SRCS-y) $(HEADERS)
 	@make -f ./lib.mk all
@@ -24,9 +26,14 @@ mem_check: $(SRCS-y) $(HEADERS)
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
 	@cd ./tests/ && ./run_tests.py --mem_check
 
-flaw_check: $(SRCS-y) $(HEADERS) $(EXAMPLES)
+flaw_check: $(ALL_SRCS_CH)
 	@echo "* Check torrential flaws and vulnerabilities with static checker..."
-	@flawfinder $(SRCS-y) $(EXAMPLES)
+	@flawfinder $(ALL_SRCS_CH)
+
+code_check: $(ALL_SRCS_CH)
+	@echo "* Run static checkers..."
+	@echo "- Run cppcheck all: "
+	@cppcheck --enable=all $(ALL_SRCS_CH)
 
 clean:
 	@echo "* Run cleanups"

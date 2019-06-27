@@ -1,14 +1,14 @@
 # Fast Packet IO library in User Space (FastIO User -> fastio_user) #
 
-This library is developed for **prototyping** and **teaching** high-performance Virtualized Network Functions (VNFs)
-with data plane frameworks in the Linux's **user space**. Since this library is used for my PhD research and teaching
-purposes, it focus on the **simplicity**. Different from high performance virtual switch/router frameworks like
-[BESS](https://github.com/NetSys/bess) or [VPP](https://github.com/FDio/vpp), this library is target at building the
-virtual network function program running normally INSIDE a container or VM. According to the SDN/NFV design, this
-network function is responsible to handle ONLY a subset of flows that are filtered and redirected by the virtual
-switches. Compared to the filtering/routing/redirecting functions provided by virtual switch, these VNFs perform more
-complex tasks that require more computational power like DPI, NAT, video transcoding or payload compression etc. The
-FastIO User supported VNFs should only handle **virtual** network interfaces (like virtio-user, vhost, veth, tun/tap
+This library is developed for **prototyping** and **teaching** innovative and high-performance Virtualized Network
+Functions (VNFs) with data plane frameworks in the Linux's **user space**. Since this library is used for my PhD
+research and teaching purposes, it focus on the **simplicity**. Different from high performance virtual switch/router
+frameworks like [BESS](https://github.com/NetSys/bess) or [VPP](https://github.com/FDio/vpp), this library is target at
+building the virtual network function program running normally INSIDE a container or VM. According to the SDN/NFV
+design, this network function is responsible to handle ONLY a subset of flows that are filtered and redirected by the
+virtual switches. Compared to the filtering/routing/redirecting functions provided by virtual switch, these VNFs perform
+more complex tasks that require more computational power like DPI, NAT, video transcoding or payload compression etc.
+The FastIO User supported VNFs should only handle **virtual** network interfaces (like virtio-user, vhost, veth, tun/tap
 etc.).
 
 FastIO User currently focuses on providing DPDK C wrappers that can be used to speed up packet I/O and processing with
@@ -51,11 +51,11 @@ hugepages can be created by running `sudo ./util/setup_hugepage.sh`. By default,
 
 - Run tests in the development container (without interaction) with:
 
-    ```bash
-    $ cd ./util/
-    # Run development container in interactive mode
-    $ ./run_dev_container.py run_test
-    ```
+```bash
+$ cd ./util/
+# Run development container in interactive mode
+$ ./run_dev_container.py run_test
+```
 
 ## Documentation ##
 

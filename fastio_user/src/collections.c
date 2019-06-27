@@ -52,10 +52,10 @@ int mvec_datacmp(struct mvec* v1, struct mvec* v2)
 {
         uint16_t len = 0;
         uint16_t i = 0;
-        int ret = 0;
 
         len = RTE_MIN(v1->len, v2->len);
         for (i = 0; i < len; ++i) {
+                int ret = 0;
                 ret = mbuf_datacmp(*(v1->head + i), *(v2->head + i));
                 if (ret != 0) {
                         return ret;

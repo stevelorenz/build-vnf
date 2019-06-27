@@ -14,6 +14,7 @@
 
 #include <rte_log.h>
 
+/* U know, I love my Fanfan baby. */
 #define FFBB_MAGIC 117
 
 /* Logger defines */
