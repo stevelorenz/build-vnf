@@ -25,11 +25,11 @@ RUN apt-get update && apt-get install -y net-tools \
 WORKDIR /root
 
 RUN \
-        git clone http://dpdk.org/git/dpdk "${RTE_SDK}" && \
+        git clone https://dpdk.org/git/dpdk "${RTE_SDK}" && \
         cd dpdk && \
         git checkout -b lts v18.11 && \
         make config T=${RTE_TARGET} && \
-        make && \
+        make -j 2 && \
         ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
 
 

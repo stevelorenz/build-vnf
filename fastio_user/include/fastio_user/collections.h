@@ -41,7 +41,7 @@ struct mvec {
         uint16_t len;
 
         uint16_t mbuf_payload_off; /**< Offset of the paload */
-};
+} __rte_cache_aligned;
 
 /**
  * mvec_new() - Initialize a mbuf vector.

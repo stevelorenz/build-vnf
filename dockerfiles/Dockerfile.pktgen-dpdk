@@ -4,12 +4,11 @@
 
 FROM ubuntu:18.04
 
-# Build DPDK
-# MARK: Use latest LTS version
-
 ENV RTE_SDK=/root/dpdk
 ENV RTE_TARGET=x86_64-native-linuxapp-gcc
+ENV PKTGEN_DIR=/root/pktgen-dpdk
 
+# Build DPDK
 RUN apt-get update && apt-get install -y net-tools \
     build-essential automake python-pip libcap-ng-dev gawk pciutils kmod \
     linux-headers-$(uname -a | awk '{print $3}') \
@@ -19,11 +18,18 @@ RUN apt-get update && apt-get install -y net-tools \
 WORKDIR /root
 
 RUN \
-    git clone http://dpdk.org/git/dpdk "${RTE_SDK}" && \
+    git clone https://dpdk.org/git/dpdk "${RTE_SDK}" && \
     cd dpdk && \
-    git checkout -b lts v18.11 && \
     make config T=${RTE_TARGET} && \
-    make && \
+    make -j 2 && \
     ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
+
+# Build pktgen-dpdk
+RUN apt-get install -y lua5.3 liblua5.3-dev
+
+RUN \
+    git clone https://dpdk.org/git/apps/pktgen-dpdk "${PKTGEN_DIR}" && \
+    cd pktgen-dpdk && \
+    make -j 2
 
 CMD ["bash"]

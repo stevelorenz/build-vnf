@@ -50,7 +50,7 @@ def test_ring():
 def test_icmp():
     print("[CASE] Test handle ICMP messages.")
     paras = EAL_PARAS.copy()
-    paras["cpu"] = "0"
+    paras["cpu"] = "0,1"
     paras["iface"] = "test_dpdk"
     eal_cmd = get_eal_cmd(paras)
     cmd = "./test_icmp.out {}".format(eal_cmd)

@@ -34,10 +34,6 @@
 
 #include "utils.h"
 
-/*********************
- *  Mbuf Operations  *
- *********************/
-
 struct rte_mbuf* mbuf_udp_deep_copy(
     struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len)
 {
@@ -75,10 +71,6 @@ int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
         }
         return 0;
 }
-
-/******************
- *  Cycles/Timer  *
- ******************/
 
 double get_delay_tsc(uint64_t tsc_cnt)
 {

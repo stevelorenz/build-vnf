@@ -27,8 +27,9 @@ void dpdk_enter_mainloop_master(lcore_function_t* func, void* args)
         RTE_LOG(INFO, FASTIO_USER,
             "Enter main loop for the master lcore with ID: %u\n",
             rte_lcore_id());
-        func(args);
-
+        if (func != NULL) {
+                func(args);
+        }
         /* Wait until all lcores finish their jobs */
         rte_eal_mp_wait_lcore();
 
@@ -39,4 +40,19 @@ void dpdk_enter_mainloop_master(lcore_function_t* func, void* args)
 
         /* TODO: Release memory resources if this is fully supported by the
          * upstream  <01-03-19, Zuo> */
+}
+
+int launch_workers(lcore_function_t* func, struct worker* workers)
+{
+        int core;
+        RTE_LCORE_FOREACH_SLAVE(core)
+        {
+                int ret;
+                ret = rte_eal_remote_launch(func, &workers[core], core);
+                if (ret < 0) {
+                        RTE_LOG(ERR, FASTIO_USER,
+                            "Cannot launch worker for core:%d\n", core);
+                }
+        }
+        return 0;
 }

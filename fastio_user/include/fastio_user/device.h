@@ -12,6 +12,8 @@
  *
  */
 
+#define FASTIO_USER_MAX_PORTS 8
+
 /**
  * struct dpdk_device_config - DPDK device configuration
  */
@@ -39,5 +41,14 @@ int dpdk_init_device(struct dpdk_device_config* cfg);
  * dpdk_cleanup_devices - Cleanup all initialized Ethernet devices.
  */
 void dpdk_cleanup_devices(void);
+
+struct rx_queue {
+        uint16_t id;
+};
+
+struct tx_queue {
+        uint16_t id;
+        uint16_t len;
+};
 
 #endif /* !DEVICE_H */

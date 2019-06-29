@@ -8,14 +8,10 @@
 /**
  * @file
  *
- * Packet handler/worker
+ * Packet handler
  *
  * It may not be the right name... Just a temp solution.
  *
  */
-
-/*
- * Logical cores used as workers to handle packets
- * */
 
 #endif /* !HANDLER_H */
