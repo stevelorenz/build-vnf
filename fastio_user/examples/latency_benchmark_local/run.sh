@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# About: Run tests for core functions of FastIO-User library
+# About: Run latency_benchmark_local example
 #
 
 # Fail on error

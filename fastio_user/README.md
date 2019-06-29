@@ -49,6 +49,9 @@ official [quick start setup guide](https://doc.dpdk.org/guides/linux_gsg/quick_s
 examples use a run.sh script with AF_PACKET driver configured for the device. No device binding is required. The
 hugepages can be created by running `sudo ./util/setup_hugepage.sh`. By default, 1GB hugepages is allocated.
 
+**MARK**: All required setups are automatically configured for the VNF VM described in ../Vagrantfile after each boot:
+`vagrant up vnf`. So you can run tests and examples in this development VM directly after boot.
+
 - Run tests in the development container (without interaction) with:
 
 ```bash

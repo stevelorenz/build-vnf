@@ -44,12 +44,13 @@ int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
  ******************/
 
 /**
- * get_delay_tsc() - Get delay based on TSC counts
+ * get_delay_tsc_ms() - Get delay based on TSC counts
  *
  * @param tsc_cnt
  *
  * @return
  */
-double get_delay_tsc(uint64_t tsc_cnt);
+double get_delay_tsc_ms(uint64_t tsc_cnt);
 
 #endif /* !DPDK_HELPER_H */
+

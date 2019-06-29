@@ -25,7 +25,9 @@ considered.
 
 1. [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
 2. [fastio_user](./fastio_user/): A C library for packet IO and processing in user space.
-3. ...
+3. [benchmark](./benchmark/): Performance benchmarks' setups and utility scripts.
+4. [evaluation](./evaluation/): Scripts to plot evaluation results.
+5. ...
 
 
 

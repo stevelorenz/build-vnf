@@ -1,5 +1,5 @@
 /*
- * About: Simple example of benchmark mbuf vector processing latency locally
+ * About: Simple example of benchmark mbuf vector processing latency locally.
  *
  */
 #include <inttypes.h>
@@ -32,6 +32,8 @@
 #define RX_BUF_SIZE 80
 
 #define IMAGE_FRAME_NUM 3
+
+#define RUN_IMAGE_PROC 0
 
 static volatile bool force_quit = false;
 
@@ -79,7 +81,7 @@ void fake_processing(struct mvec* v)
         rte_delay_ms(300 + rte_rand() % 50);
 }
 
-static int proc_loop_master(__attribute__((unused)) void* dummy)
+static int proc_loop_slave(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* rx_buf[RX_BUF_SIZE];
         struct mvec* rx_vec = NULL;
@@ -109,7 +111,10 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
 
                 /* Fake process the mbuf vectors */
                 rx_vec = mvec_new(rx_buf, nb_mbuf);
-                fake_processing(rx_vec);
+
+                if (likely(RUN_IMAGE_PROC == 1)) {
+                        fake_processing(rx_vec);
+                }
 
                 /* ONLY send half of mbufs back */
                 nb_mbuf = nb_mbuf / 2;
@@ -121,17 +126,15 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
                 rte_ring_enqueue(v2l_que, meta_data);
                 rte_ring_enqueue_bulk(v2l_que, (void**)rx_buf, nb_mbuf, NULL);
         }
-
-        /* Dump results in CSV */
-
         return 0;
 }
 
 /**
- * Main loop of the slave thread
- *
+ * Main loop of the master core
+ * Load image into mbufs -> Enqueue mbufs into l2v_que ring -> Receive processed
+ * mbufs from v2l_que -> Calculate latencies and dump results in CSV file
  */
-static int proc_loop_slave(__attribute__((unused)) void* dummy)
+static int proc_loop_master(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* load_buf[RX_BUF_SIZE];
         struct rte_mbuf* rx_buf[RX_BUF_SIZE];
@@ -147,11 +150,15 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
         int ret;
 
         uint64_t total_tsc_avg[IMAGE_FRAME_NUM] = { 0 };
-        double total_delay_avg[IMAGE_FRAME_NUM] = { 0.0 };
+        double total_delay_ms_avg[IMAGE_FRAME_NUM] = { 0.0 };
 
         for (img_idx = 0; img_idx < IMAGE_FRAME_NUM; img_idx++) {
+                last_tsc = rte_get_tsc_cycles();
                 nb_mbuf = gen_rx_buf_from_file("./pikachu.jpg", load_buf,
                     RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
+                RTE_LOG(INFO, TEST,
+                    "Delay for generate mbufs from file:%.8f ms\n",
+                    get_delay_tsc_ms(rte_get_tsc_cycles() - last_tsc));
                 RTE_LOG(INFO, TEST,
                     "[SLAVE] %d mbufs are allocated. Tail size:%d.\n", nb_mbuf,
                     tail_size);
@@ -185,13 +192,14 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
                 }
 
                 total_tsc_avg[img_idx] = rte_get_tsc_cycles() - last_tsc;
-                total_delay_avg[img_idx]
-                    = get_delay_tsc(total_tsc_avg[img_idx]);
+                total_delay_ms_avg[img_idx]
+                    = get_delay_tsc_ms(total_tsc_avg[img_idx]);
 
-                printf("Image index:%u, the average total latency is %.8f s = "
-                       "%.5f ms; TSC cycles:%lu\n",
-                    img_idx, total_delay_avg[img_idx],
-                    total_delay_avg[img_idx] * 1000.0, total_tsc_avg[img_idx]);
+                RTE_LOG(INFO, FASTIO_USER,
+                    "Image index:%u, the average total latency is %.5f ms; TSC "
+                    "cycles:%lu\n",
+                    img_idx, total_delay_ms_avg[img_idx],
+                    total_tsc_avg[img_idx]);
 
                 mvec_free(load_vec);
                 mvec_free(rx_vec);
@@ -202,10 +210,6 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
         return 0;
 }
 
-/**
- * @brief main
- *
- */
 int main(int argc, char* argv[])
 {
         uint16_t port_id;
@@ -232,19 +236,19 @@ int main(int argc, char* argv[])
         mbuf_pool = dpdk_init_mempool("test_ring_pool", NUM_MBUFS * nb_ports,
             rte_socket_id(), RTE_MBUF_DEFAULT_BUF_SIZE);
 
-        // Init the device with port_id 0
+        // Init the device with port_id 0, 1 rx/tx queue
         struct dpdk_device_config cfg = { 0, &mbuf_pool, 1, 1, 256, 256, 1, 1 };
         dpdk_init_device(&cfg);
 
         if (l2v_que == NULL || v2l_que == NULL || mbuf_pool == NULL) {
-                rte_exit(EXIT_FAILURE, "Problem getting rings or mempool\n");
+                rte_exit(EXIT_FAILURE, "Problem getting rings or mempool.\n");
         }
         print_lcore_infos();
 
         // rte_log_set_global_level(RTE_LOG_EMERG);
         rte_log_set_global_level(RTE_LOG_INFO);
 
-        RTE_LOG(INFO, TEST, "Launch task on the first slave core.\n");
+        RTE_LOG(INFO, TEST, "Launch task on slave cores.\n");
         RTE_LCORE_FOREACH_SLAVE(lcore_id)
         {
                 rte_eal_remote_launch(proc_loop_slave, NULL, lcore_id);
@@ -252,7 +256,6 @@ int main(int argc, char* argv[])
         }
 
         dpdk_enter_mainloop_master(proc_loop_master, NULL);
-
         rte_eal_cleanup();
         return 0;
 }

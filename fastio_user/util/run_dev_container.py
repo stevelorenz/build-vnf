@@ -14,7 +14,8 @@ from subprocess import run, PIPE
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
 
 DOCKER_RUN_ARGS = {
-    "opts": "--rm --privileged --name fastio_user -w /fastio_user",
+    # essential options
+    "opts": "--rm --privileged -w /fastio_user",
     "dpdk_vols": "-v /sys/bus/pci/drivers:/sys/bus/pci/drivers "
     "-v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages "
     "-v /sys/devices/system/node:/sys/devices/system/node "
@@ -47,14 +48,16 @@ def build_lib():
 
 
 def run_interactive():
+    # Avoid conflict with other non-interactive actions
+    cname = "fastio_user_interactive"
     DOCKER_RUN_ARGS["vols"] = " ".join((DOCKER_RUN_ARGS["dpdk_vols"],
                                         DOCKER_RUN_ARGS["extra_vols"]))
     DOCKER_RUN_ARGS["cmd"] = "bash"
-    DOCKER_RUN_ARGS["extra_opts"] = "-itd"
+    DOCKER_RUN_ARGS["extra_opts"] = "-itd --name %s" % cname
     run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
     run(split(run_cmd))
-    setup_test_ifaces()
-    run(split("sudo docker attach {}".format(DOCKER_RUN_ARGS["name"])))
+    setup_test_ifaces(cname)
+    run(split("sudo docker attach {}".format(cname)))
     cleanup_test_ifaces()
 
 
@@ -76,9 +79,9 @@ def run_memcheck():
     run(split(run_cmd))
 
 
-def setup_test_ifaces():
+def setup_test_ifaces(cname):
     print("* Setup test ifaces")
-    ret = run(r"sudo docker inspect -f '{{.State.Pid}}' %s" % DOCKER_RUN_ARGS["name"],
+    ret = run(r"sudo docker inspect -f '{{.State.Pid}}' %s" % cname,
               check=True, shell=True, stdout=PIPE)
     pid_c = ret.stdout.decode().strip()
     cmds = [
@@ -90,13 +93,10 @@ def setup_test_ifaces():
         "sudo ip link set {} up".format(IFACE_NAME_LOADGEN),
         "sudo ip addr add 192.168.1.17/24 dev {}".format(IFACE_NAME_LOADGEN),
         "sudo ip link set {} netns {}".format(IFACE_NAME_DPDK, pid_c),
-        "sudo docker exec {} ip link set {} up".format(
-            DOCKER_RUN_ARGS['name'], IFACE_NAME_DPDK)
+        "sudo docker exec {} ip link set {} up".format(cname, IFACE_NAME_DPDK)
     ]
     for c in cmds:
         run(split(c), check=True)
-
-    cmds_shell = []
 
 
 def cleanup_test_ifaces():

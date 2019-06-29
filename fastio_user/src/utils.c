@@ -72,9 +72,9 @@ int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
         return 0;
 }
 
-double get_delay_tsc(uint64_t tsc_cnt)
+double get_delay_tsc_ms(uint64_t tsc_cnt)
 {
         double delay = 0;
-        delay = (1.0 / rte_get_tsc_hz()) * (tsc_cnt);
+        delay = 1000.0 * ( (1.0 / rte_get_tsc_hz()) * (tsc_cnt) );
         return delay;
 }
