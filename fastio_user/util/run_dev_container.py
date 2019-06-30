@@ -21,6 +21,7 @@ DOCKER_RUN_ARGS = {
     "-v /sys/devices/system/node:/sys/devices/system/node "
     "-v /dev:/dev",
     "image": "fastio_user",
+    "ver": "latest",
     "name": "fastio_user",
     "extra_vols": "-v %s:/fastio_user" % PARENT_DIR,
 }
@@ -33,8 +34,8 @@ IFACE_NAME_LOADGEN = "test_loadgen"
 
 def build_image():
     os.chdir("../")
-    run_cmd = "sudo docker build -t {} --file ./Dockerfile .".format(
-        DOCKER_RUN_ARGS["image"])
+    run_cmd = "sudo docker build --compress --rm -t {}:{} --file ./Dockerfile .".format(
+        DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"])
     run(split(run_cmd))
 
 

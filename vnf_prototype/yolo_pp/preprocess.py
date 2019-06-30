@@ -1,25 +1,24 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
-#
 
 """
 About: YOLO pre-processing
-"""
-# import ptvsd
-# addr = ("192.168.31.222", 5678)
-# ptvsd.enable_attach(address=addr, redirect_output=True)
-# ptvsd.wait_for_attach()
-import cv2
-import tensorflow as tf
-import numpy as np
 
-import socket
-import sys
+Author: zrbzrb1106
+Original source: https://github.com/zrbzrb1106/yolov2/blob/master/client/preprocess.py
+"""
+
+import copy
 import os
+import socket
 import struct
 import time
 
+import numpy as np
+
+import cv2
+import tensorflow as tf
 from utils.imgutils import feature_maps_to_image
 
 
@@ -37,19 +36,31 @@ class CompressorObj:
         fmap_images_with_info = feature_maps_to_image(
             feature_maps, shape, is_display=0, is_save=0)
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
-        res = []
-        for fmap_image in fmap_images_with_info:
-            # print(sys.getsizeof(fmap_image[0]))
-            result, encimg = cv2.imencode('.jpg', fmap_image[0], encode_param)
-            self.compressed_mem = sys.getsizeof(encimg)
-            res.append((encimg, fmap_image[1]))
+        result, encimg = cv2.imencode(
+            '.jpg', fmap_images_with_info[0][0], encode_param)
+        self.compressed_mem = len(encimg)
+        # print(len(encimg), "length of encoded image")
+        res = (encimg, fmap_images_with_info[0][1])
+        return res
+
+    def webp_enc(self, x, quality):
+        shape = (8, 16)
+        data = copy.copy(x)
+        fmap_images_with_info = feature_maps_to_image(
+            data, shape, is_display=0, is_save=0)
+        encode_param = [int(cv2.IMWRITE_WEBP_QUALITY), quality]
+        result, encimg = cv2.imencode(
+            '.webp', fmap_images_with_info[0][0], encode_param)
+        self.compressed_mem = len(encimg)
+        # print(len(encimg), "length of encoded image")
+        res = (encimg, fmap_images_with_info[0][1])
         return res
 
 
 class Preprocessor:
     def __init__(self):
-         # tensorflow graph
-        self.__model_path = '/app/yolov2/model/part1.pb'
+        # tensorflow graph
+        self.__model_path = './model/part1.pb'
         self.__name = 'part1'
         self.__input_tensor_name = 'input:0'
         self.__output_tensor_name = 'Pad_5:0'
@@ -102,14 +113,16 @@ class Preprocessor:
         return sess
 
     def fill_buffer(self, data, connection):
-        # connection.sendall(data)
-        pass
+        header = bytearray(4)
+        struct.pack_into(">L", header, 0, len(data))
+        connection.sendall(header)
+        connection.sendall(data)
 
     def read_buffer(self, connection):
         header = bytearray(4)
         connection.recv_into(header, 4)
-        # 4 bytes presents data length
-        to_read = struct.unpack('>I', header)[0]
+        # # 4 bytes presents data length
+        to_read = struct.unpack('>L', header)[0]
         data_length = to_read
         # buf = bytearray(data_length)
         # view = memoryview(buf)
@@ -120,7 +133,6 @@ class Preprocessor:
             nbytes = connection.recv_into(view, to_read)
             view = view[nbytes:]
             to_read -= nbytes
-
         # data = np.frombuffer(self.buffer, np.uint8, data_length)
         data = self.buffer[0:data_length]
         self.buffer = bytearray(10000000)
@@ -137,8 +149,9 @@ class Preprocessor:
         image_expanded = np.expand_dims(image_normalized, axis=0)
         return image_expanded
 
-    def inference(self, img_bytes):
+    def inference(self, mode, img_bytes, info):
         """
+        mode: 0:jpeg 1:webp 2:h264
         img: bytes array of image
         return: info payload in bytes
         """
@@ -147,32 +160,34 @@ class Preprocessor:
         img_preprossed = self.preprocess_image(img)
         feature_maps = self.sess.run(self.output1, feed_dict={
                                      self.input1: img_preprossed})
-        quality = 50
-        all_batch_info = self.compressor.jpeg_enc(feature_maps, quality)
-
         h_1 = bytes([self.batch_size])
+        h_2 = bytes([mode])
         header_tmp = b''
         payload_tmp = b''
-        for info in all_batch_info:
-            img_data = info[0]
-            header_tmp += np.array(info[1], dtype=self.dtype_header).tobytes()
-            payload_tmp += np.array(img_data,
+        res_bytes = b''
+        if mode == 0 or mode == 1:
+            quality = info
+            if mode == 0:
+                fmaps_bytes_with_info = self.compressor.jpeg_enc(
+                    feature_maps, quality)
+            if mode == 1:
+                fmaps_bytes_with_info = self.compressor.webp_enc(
+                    feature_maps, quality)
+            fmaps_data = fmaps_bytes_with_info[0]
+            header_tmp += np.array(fmaps_bytes_with_info[1],
+                                   dtype=self.dtype_header).tobytes()
+            payload_tmp += np.array(fmaps_data,
                                     dtype=self.dtype_payload).tobytes()
-        res_bytes = h_1 + header_tmp + payload_tmp
+            l1 = struct.pack('<H', len(header_tmp))
+            lp = struct.pack('>I', len(payload_tmp))
+            res_bytes = h_1 + h_2 + l1 + lp + header_tmp + payload_tmp
+
         return res_bytes
 
 
 def main():
-
-    LOG_TIME = False
-
-    if len(sys.argv) == 2:
-        if sys.argv[1] == "-t":
-            LOG_TIME = True
-            print("Time information will be logged into CSV files")
-
     # socket
-    server_address = '/uds_socket'
+    server_address = './uds_socket'
     try:
         os.unlink(server_address)
     except OSError:
@@ -180,51 +195,21 @@ def main():
             raise
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(server_address)
-    # compressor
-    compressor = CompressorObj()
-    # preprocessor
     preprocessor = Preprocessor()
+
     # main loop
     sock.listen(1)
     print("Waiting for connections")
     connection, client_address = sock.accept()
-    # connection.setblocking(0)
-    if LOG_TIME:
-        load_rx_buf_ts_lst = list()
-        load_rx_buf_dur_lst = list()
-        infer_dur_lst = list()
-
     while(1):
-        if LOG_TIME:
-            st = time.time()
-            img_bytes = preprocessor.read_buffer(connection)
-            load_rx_buf_ts_lst.append(time.time())
-            load_rx_buf_dur_lst.append(time.time() - st)
-            st = time.time()
-            try:
-                res_bytes = preprocessor.inference(img_bytes)
-            except cv2.error:
-                with open("./infer_dur.csv", "a+") as f:
-                    for dur in infer_dur_lst:
-                        f.write("%s\n" % dur)
-                with open("./rx_buffer_load_dur.csv", "a+") as f:
-                    for ts in load_rx_buf_dur_lst:
-                        f.write("%s\n" % ts)
-                with open("./rx_buffer_load_ts.csv", "a+") as f:
-                    for ts in load_rx_buf_ts_lst:
-                        f.write("%s\n" % ts)
-                sys.exit(0)
-            infer_dur_lst.append(time.time() - st)
-            preprocessor.fill_buffer(res_bytes, connection)
-            connection.recv(0)
-        else:
-            try:
-                img_bytes = preprocessor.read_buffer(connection)
-                res_bytes = preprocessor.inference(img_bytes)
-                preprocessor.fill_buffer(res_bytes, connection)
-                connection.recv(0)
-            except cv2.error:
-                sys.exit(0)
+        img_bytes = preprocessor.read_buffer(connection)
+        # jpeg
+        # res_bytes = preprocessor.inference(0, img_bytes, 70)
+        # webp
+        res_bytes = preprocessor.inference(1, img_bytes, 70)
+        preprocessor.fill_buffer(res_bytes, connection)
+        print(len(img_bytes), len(res_bytes))
+        connection.recv(0)
 
 
 if __name__ == "__main__":

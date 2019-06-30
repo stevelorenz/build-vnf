@@ -1,5 +1,5 @@
 #
-# Dockerfile for MoonGen
+# Dockerfile for MoonGen traffic generator
 #
 
 FROM ubuntu:18.04

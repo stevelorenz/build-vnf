@@ -1,5 +1,6 @@
 #
-# Dockerfile for DPDK
+# Dockerfile for Pktgen-DPDK traffic generator
+# - Use master branch of DPDK and Pktgen-DPDK
 #
 
 FROM ubuntu:18.04
