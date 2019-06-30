@@ -187,7 +187,7 @@ class Preprocessor:
 
 def main():
     # socket
-    server_address = './uds_socket'
+    server_address = '/uds_socket'
     try:
         os.unlink(server_address)
     except OSError:
@@ -208,7 +208,7 @@ def main():
         # webp
         res_bytes = preprocessor.inference(1, img_bytes, 70)
         preprocessor.fill_buffer(res_bytes, connection)
-        print(len(img_bytes), len(res_bytes))
+        # print(len(img_bytes), len(res_bytes))
         connection.recv(0)
 
 

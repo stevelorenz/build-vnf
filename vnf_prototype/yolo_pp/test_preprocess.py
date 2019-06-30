@@ -19,7 +19,7 @@ import cv2
 
 if __name__ == "__main__":
 
-    server_address = './uds_socket'
+    server_address = '/uds_socket'
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(server_address)
