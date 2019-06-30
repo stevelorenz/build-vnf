@@ -35,18 +35,22 @@ def main():
 
         vd = memoryview(img_data)
         while(not quit):
+            data_len = 0
             read = 0
-            to_read = conn.recv(4)
-            to_read = struct.unpack(">I", to_read)[0]
+            conn.recv_into(meta_data, 4)
+            to_read = struct.unpack_from(">L", meta_data, 0)[0]
             while to_read > 0:
                 # MARK: recv_into does not support offset, so memoryview is used
                 read = conn.recv_into(vd[read:], to_read)
+                data_len += read
                 to_read -= read
-            print(read)
             time.sleep(0.5)
-            struct.pack_into(">I", meta_data, 0, read)
+            print(data_len)
+            # Only send 50% back
+            data_len = int(data_len / 2)
+            struct.pack_into(">L", meta_data, 0, data_len)
             conn.sendall(meta_data)
-            conn.sendall(img_data[:to_read])
+            conn.sendall(img_data[:data_len])
 
     except KeyboardInterrupt:
         quit = True

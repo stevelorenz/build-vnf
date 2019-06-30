@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # About: Run latency_benchmark_local example
+#        Use root privileged user to run this script
 #
 
 # Fail on error
@@ -8,8 +9,6 @@ set -e
 
 # Fail on unset var usage
 set -o nounset
-
-TEST_FUNS=(latency_benchmark_local)
 
 QUITE=false
 
@@ -44,9 +43,10 @@ if [[ $opt == "-q" ]]; then
     QUITE=true
 fi
 
-for func in "${TEST_FUNS[@]}"
-do
-    $func
-done
+python3 ./uds_server.py > /dev/null 2>&1 &
+sleep 3
+latency_benchmark_local
+sleep 1
+pgrep -u root 'python3' | xargs kill
 
 echo "--------------------------------------------------------------------------"

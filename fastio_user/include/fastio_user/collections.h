@@ -120,4 +120,15 @@ void mvec_pull_u16(struct mvec* v, uint16_t* values);
 void mvec_pull_u32(struct mvec* v, uint32_t* values);
 void mvec_pull_u64(struct mvec* v, uint64_t* values);
 
+/**
+ * mvec_deep_copy() - Return a deep copy of a given mvec. Mbufs are allocated
+ * from the pool for the new copied mvec.
+ *
+ * @param pool
+ * @param v
+ *
+ * @return
+ */
+struct mvec* mvec_deep_copy(struct rte_mempool* pool, struct mvec* v);
+
 #endif /* !COLLECTIONS_H */

@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/queue.h>
 
 #include <rte_atomic.h>
 #include <rte_branch_prediction.h>
@@ -26,28 +25,28 @@
 #include <rte_memcpy.h>
 #include <rte_memory.h>
 #include <rte_mempool.h>
-#include <rte_per_lcore.h>
 #include <rte_prefetch.h>
-#include <rte_random.h>
-#include <rte_ring.h>
-#include <rte_udp.h>
 
 #include "utils.h"
 
-struct rte_mbuf* mbuf_udp_deep_copy(
-    struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len)
+/* TODO: <29-06-19, Zuo> Add support for multi-segment mbuf and header
+ * adjustment */
+struct rte_mbuf* mbuf_deep_copy(
+    struct rte_mempool* mbuf_pool, struct rte_mbuf* m)
 {
         if (m->nb_segs > 1) {
-                RTE_LOG(ERR, USER1,
+                rte_exit(EXIT_FAILURE,
                     "Deep copy doest not support scattered segments.\n");
-                return NULL;
         }
         struct rte_mbuf* m_copy;
         m_copy = rte_pktmbuf_alloc(mbuf_pool);
         m_copy->data_len = m->data_len;
         m_copy->pkt_len = m->pkt_len;
+        if (rte_pktmbuf_headroom(m) != RTE_PKTMBUF_HEADROOM) {
+                rte_exit(EXIT_FAILURE, "mbuf's header room is not default.\n");
+        }
         rte_memcpy(rte_pktmbuf_mtod(m_copy, uint8_t*),
-            rte_pktmbuf_mtod(m, uint8_t*), hdr_len);
+            rte_pktmbuf_mtod(m, uint8_t*), m->data_len);
         return m_copy;
 }
 
@@ -75,6 +74,38 @@ int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
 double get_delay_tsc_ms(uint64_t tsc_cnt)
 {
         double delay = 0;
-        delay = 1000.0 * ( (1.0 / rte_get_tsc_hz()) * (tsc_cnt) );
+        delay = 1000.0 * ((1.0 / rte_get_tsc_hz()) * (tsc_cnt));
         return delay;
+}
+
+void save_double_list_csv(char* path, double* list, size_t n)
+{
+        size_t i;
+        FILE* fd;
+
+        fd = fopen(path, "a+");
+        if (fd == NULL) {
+                perror("Can not open the CSV file!");
+        }
+        for (i = 0; i < n; ++i) {
+                fprintf(fd, "%.8f,", list[i]);
+        }
+        fprintf(fd, "\n");
+        fclose(fd);
+}
+
+void save_u64_list_csv(char* path, uint64_t* list, size_t n)
+{
+        size_t i;
+        FILE* fd;
+
+        fd = fopen(path, "a+");
+        if (fd == NULL) {
+                perror("Can not open the CSV file!");
+        }
+        for (i = 0; i < n; ++i) {
+                fprintf(fd, "%lu,", list[i]);
+        }
+        fprintf(fd, "\n");
+        fclose(fd);
 }

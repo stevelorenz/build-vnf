@@ -204,3 +204,16 @@ void mvec_pull_u64(struct mvec* v, uint64_t* values)
         }
         mvec_pull(v, sizeof(uint64_t));
 }
+
+struct mvec* mvec_deep_copy(struct rte_mempool* pool, struct mvec* v)
+{
+        struct mvec* v_copy = NULL;
+        struct rte_mbuf* mbufs_copy[v->len];
+        uint16_t i;
+        MVEC_FOREACH_MBUF(i, v)
+        {
+                mbufs_copy[i] = mbuf_deep_copy(pool, *(v->head + i));
+        }
+        v_copy = mvec_new(mbufs_copy, v->len);
+        return v_copy;
+}

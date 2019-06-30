@@ -26,12 +26,13 @@ if __name__ == "__main__":
         img_path = "./pikachu.jpg"
         with open(img_path, 'rb') as f:
             data_send = f.read()
-        sock.sendall(struct.pack('>I', len(data_send)) + data_send)
+        sock.sendall(struct.pack('>L', len(data_send)) + data_send)
         print("idx: {}, image {} is sent, length in bytes: {}.".format(
             i, img_path, len(data_send)))
 
         to_read = sock.recv(4)
-        to_read = struct.unpack(">I", to_read)[0]
-        print(to_read)
+        to_read = struct.unpack(">L", to_read)[0]
+        print("- Length of returned bytes: %d" % to_read)
+        _ = sock.recv(to_read)
 
     sock.close()

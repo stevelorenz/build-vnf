@@ -17,17 +17,17 @@
  *********************/
 
 /**
- * mbuf_udp_deep_copy() -  Make a deep copy of a mbuf.
+ * mbuf_deep_copy() -  Make a deep copy of a mbuf. The returned copied mbuf is
+ * allocated from the mbuf_pool, the head room is adjusted, the data room is
+ * copied from the given mbuf.
  *
- *
- * @param m
  * @param mbuf_pool
- * @param hdr_len
+ * @param m
  *
  * @return
  */
-struct rte_mbuf* mbuf_udp_deep_copy(
-    struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len);
+struct rte_mbuf* mbuf_deep_copy(
+    struct rte_mempool* mbuf_pool, struct rte_mbuf* m);
 
 /**
  * mbuf_datacmp() - Compare two mbufs' data room
@@ -52,5 +52,7 @@ int mbuf_datacmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
  */
 double get_delay_tsc_ms(uint64_t tsc_cnt);
 
-#endif /* !DPDK_HELPER_H */
+void save_double_list_csv(char* path, double* list, size_t n);
+void save_u64_list_csv(char* path, uint64_t* list, size_t n);
 
+#endif /* !DPDK_HELPER_H */

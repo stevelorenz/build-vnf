@@ -19,21 +19,28 @@
 #include <fastio_user/config.h>
 #include <fastio_user/device.h>
 #include <fastio_user/io.h>
+#include <fastio_user/ipc.h>
 #include <fastio_user/memory.h>
 #include <fastio_user/task.h>
 #include <fastio_user/utils.h>
 
-#define L2V_QUE_SIZE 128
-#define V2L_QUE_SIZE 128
-
 #define NUM_MBUFS 5000
 #define MBUF_CACHE_SIZE 250
 #define BURST_SIZE 32
-#define RX_BUF_SIZE 80
+#define RT_BUF_SIZE 80
 
-#define IMAGE_FRAME_NUM 3
+/* Must be power of 2 */
+#define L2V_QUE_SIZE 128
+#define V2L_QUE_SIZE 128
 
-#define RUN_IMAGE_PROC 0
+#define DEQUEUE_SLEEP 50  // us
+#define IPC_WAIT_SLEEP 50 // us
+
+#define IMAGE_FRAME_NUM 5
+#define RUN_IMAGE_PROC 1
+
+#define TEST_ROUND 5
+#define TEST_SLEEP 500 // ms
 
 static volatile bool force_quit = false;
 
@@ -78,54 +85,65 @@ void fake_processing(struct mvec* v)
         mvec_push_u64(v, FFBB_MAGIC);
         mvec_pull_u64(v, tmp_u64);
         check_pull_values(tmp_u64, v->len);
-        rte_delay_ms(300 + rte_rand() % 50);
+        rte_delay_ms(FFBB_MAGIC + rte_rand() % FFBB_MAGIC);
 }
 
+/**
+ * Main loop of the slave core
+ */
 static int proc_loop_slave(__attribute__((unused)) void* dummy)
 {
-        struct rte_mbuf* rx_buf[RX_BUF_SIZE];
-        struct mvec* rx_vec = NULL;
+        struct rte_mbuf* rt_buf[RT_BUF_SIZE];
+        struct mvec* rt_vec = NULL;
         void* meta_data = NULL;
         uint16_t nb_mbuf = 0;
         uint16_t i = 0;
+        uint16_t r = 0;
         uint16_t img_idx = 0;
         uint16_t tail_size = 0;
         int ret = 0;
         uint64_t last_tsc = 0;
-        uint64_t proc_tsc_avg[IMAGE_FRAME_NUM] = { 0 };
-        double proc_delay_avg[IMAGE_FRAME_NUM] = { 0.0 };
 
-        rte_srand(rte_get_tsc_cycles());
-        for (img_idx = 0; img_idx < IMAGE_FRAME_NUM; img_idx++) {
-                /* Dequeue metadata packet */
-                while (rte_ring_dequeue(l2v_que, &meta_data) < 0) {
-                        usleep(50);
+        int socket = 0;
+        socket = init_uds_stream_cli("/uds_socket");
+
+        for (r = 0; r < TEST_ROUND; r++) {
+                rte_srand(rte_get_tsc_cycles());
+                for (img_idx = 0; img_idx < IMAGE_FRAME_NUM; img_idx++) {
+                        while (rte_ring_dequeue(l2v_que, &meta_data) < 0) {
+                                rte_delay_us_block(DEQUEUE_SLEEP);
+                        }
+                        nb_mbuf = *((uint16_t*)meta_data);
+                        RTE_LOG(DEBUG, TEST,
+                            "[MASTER] %d mbufs are in the l2v_que.\n", nb_mbuf);
+                        rte_mempool_put(mbuf_pool, meta_data);
+                        rte_ring_dequeue_bulk(
+                            l2v_que, (void**)rt_buf, nb_mbuf, NULL);
+                        rt_vec = mvec_new(rt_buf, nb_mbuf);
+                        /* ts: receive all mbufs */
+                        last_tsc = rte_get_tsc_cycles();
+                        if (likely(RUN_IMAGE_PROC == 1)) {
+                                // fake_processing(rt_vec);
+                                send_mvec_data_uds(socket, rt_vec);
+                                /* Get processed and re-packetized data */
+                                nb_mbuf = recv_mvec_data_uds(socket, rt_vec);
+                        }
+                        /* Push the processing time, including IPC and
+                         * processing time
+                         */
+                        mvec_push_u64(rt_vec, rte_get_tsc_cycles() - last_tsc);
+
+                        mvec_free_part(rt_vec, nb_mbuf);
+                        /* TX processed mbufs back to load_gen */
+                        if (rte_mempool_get(mbuf_pool, &meta_data) < 0)
+                                rte_panic("Failed to get message buffer\n");
+                        *(uint16_t*)(meta_data) = nb_mbuf;
+                        rte_ring_enqueue(v2l_que, meta_data);
+                        rte_ring_enqueue_bulk(
+                            v2l_que, (void**)rt_buf, nb_mbuf, NULL);
                 }
-                nb_mbuf = *((uint16_t*)meta_data);
-                RTE_LOG(INFO, TEST, "[MASTER] %d mbufs are in the l2v_que.\n",
-                    nb_mbuf);
-                rte_mempool_put(mbuf_pool, meta_data);
-
-                /* Dequeue data packets */
-                rte_ring_dequeue_bulk(l2v_que, (void**)rx_buf, nb_mbuf, NULL);
-
-                /* Fake process the mbuf vectors */
-                rx_vec = mvec_new(rx_buf, nb_mbuf);
-
-                if (likely(RUN_IMAGE_PROC == 1)) {
-                        fake_processing(rx_vec);
-                }
-
-                /* ONLY send half of mbufs back */
-                nb_mbuf = nb_mbuf / 2;
-                mvec_free_part(rx_vec, nb_mbuf);
-                /* TX processed mbufs back to load_gen */
-                if (rte_mempool_get(mbuf_pool, &meta_data) < 0)
-                        rte_panic("Failed to get message buffer\n");
-                *(uint16_t*)(meta_data) = nb_mbuf;
-                rte_ring_enqueue(v2l_que, meta_data);
-                rte_ring_enqueue_bulk(v2l_que, (void**)rx_buf, nb_mbuf, NULL);
         }
+        close(socket);
         return 0;
 }
 
@@ -136,76 +154,95 @@ static int proc_loop_slave(__attribute__((unused)) void* dummy)
  */
 static int proc_loop_master(__attribute__((unused)) void* dummy)
 {
-        struct rte_mbuf* load_buf[RX_BUF_SIZE];
-        struct rte_mbuf* rx_buf[RX_BUF_SIZE];
-        struct mvec* load_vec = NULL;
+        struct rte_mbuf* rt_buf[RT_BUF_SIZE];
+        struct mvec* tx_vec = NULL;
         struct mvec* rx_vec = NULL;
         void* meta_data = NULL;
+        uint64_t proc_tscs[RT_BUF_SIZE];
 
         uint16_t i = 0;
+        uint16_t r = 0;
         uint16_t img_idx = 0;
         uint16_t nb_mbuf = 0;
         uint16_t tail_size = 0;
         uint64_t last_tsc = 0;
         int ret;
 
-        uint64_t total_tsc_avg[IMAGE_FRAME_NUM] = { 0 };
-        double total_delay_ms_avg[IMAGE_FRAME_NUM] = { 0.0 };
+        uint64_t total_tsc_list[IMAGE_FRAME_NUM] = { 0 };
+        uint64_t proc_tsc_list[IMAGE_FRAME_NUM] = { 0 };
+        double total_delay_ms_list[IMAGE_FRAME_NUM] = { 0.0 };
+        double proc_delay_ms_list[IMAGE_FRAME_NUM] = { 0.0 };
 
-        for (img_idx = 0; img_idx < IMAGE_FRAME_NUM; img_idx++) {
-                last_tsc = rte_get_tsc_cycles();
-                nb_mbuf = gen_rx_buf_from_file("./pikachu.jpg", load_buf,
-                    RX_BUF_SIZE, mbuf_pool, 1500, &tail_size);
-                RTE_LOG(INFO, TEST,
-                    "Delay for generate mbufs from file:%.8f ms\n",
-                    get_delay_tsc_ms(rte_get_tsc_cycles() - last_tsc));
-                RTE_LOG(INFO, TEST,
-                    "[SLAVE] %d mbufs are allocated. Tail size:%d.\n", nb_mbuf,
-                    tail_size);
+        for (r = 0; r < TEST_ROUND; r++) {
+                printf("[MASTER] Start test round %u\n", r);
+                for (img_idx = 0; img_idx < IMAGE_FRAME_NUM; img_idx++) {
+                        last_tsc = rte_get_tsc_cycles();
+                        nb_mbuf = gen_rx_buf_from_file("./pikachu.jpg", rt_buf,
+                            RT_BUF_SIZE, mbuf_pool, 1500, &tail_size);
+                        RTE_LOG(INFO, TEST,
+                            "Delay for generate mbufs from file:%.8f ms\n",
+                            get_delay_tsc_ms(rte_get_tsc_cycles() - last_tsc));
+                        RTE_LOG(INFO, TEST,
+                            "[SLAVE] %d mbufs are allocated. Tail size:%d.\n",
+                            nb_mbuf, tail_size);
 
-                /* Add current TSC */
-                load_vec = mvec_new(load_buf, nb_mbuf);
-                last_tsc = rte_get_tsc_cycles();
+                        /* Enqueue all mbufs in rt_buf into l2v_que ring */
+                        tx_vec = mvec_new(rt_buf, nb_mbuf);
+                        if (rte_mempool_get(mbuf_pool, &meta_data) < 0)
+                                rte_panic("Failed to get message buffer\n");
+                        *(uint16_t*)(meta_data) = nb_mbuf;
+                        last_tsc = rte_get_tsc_cycles();
+                        rte_ring_enqueue(l2v_que, meta_data);
+                        rte_ring_enqueue_bulk(
+                            l2v_que, (void**)(tx_vec->head), nb_mbuf, NULL);
 
-                /* Enqueue first the number of mbufs, then all mbufs */
-                if (rte_mempool_get(mbuf_pool, &meta_data) < 0)
-                        rte_panic("Failed to get message buffer\n");
-                *(uint16_t*)(meta_data) = nb_mbuf;
-                rte_ring_enqueue(l2v_que, meta_data);
-                rte_ring_enqueue_bulk(l2v_que, (void**)load_buf, nb_mbuf, NULL);
+                        /* Wait until slave return processed mbufs in v2l_que
+                         * ring */
+                        while (rte_ring_dequeue(v2l_que, &meta_data) < 0) {
+                                rte_delay_us_block(DEQUEUE_SLEEP);
+                        }
+                        nb_mbuf = *((uint16_t*)meta_data);
+                        RTE_LOG(INFO, FASTIO_USER,
+                            "[SLAVE] %d mbufs are in the v2l_que.\n", nb_mbuf);
+                        rte_mempool_put(mbuf_pool, meta_data);
+                        rte_ring_dequeue_bulk(
+                            v2l_que, (void**)rt_buf, nb_mbuf, NULL);
+                        rx_vec = mvec_new(rt_buf, nb_mbuf);
 
-                /* Dequeue metadata packet */
-                while (rte_ring_dequeue(v2l_que, &meta_data) < 0) {
-                        usleep(50);
+                        mvec_pull_u64(rx_vec, proc_tscs);
+
+                        /* Total time including enqueue/dequeue */
+                        total_tsc_list[img_idx]
+                            = rte_get_tsc_cycles() - last_tsc;
+                        total_delay_ms_list[img_idx]
+                            = get_delay_tsc_ms(total_tsc_list[img_idx]);
+
+                        proc_tsc_list[img_idx] = proc_tscs[img_idx];
+                        proc_delay_ms_list[img_idx]
+                            = get_delay_tsc_ms(proc_tsc_list[img_idx]);
+
+                        RTE_LOG(INFO, FASTIO_USER,
+                            "Image index:%u, the total latency is %lu cycles = "
+                            "%.8f "
+                            "ms, "
+                            "the processing latency is %lu cycles = %0.8f "
+                            "ms.\n",
+                            img_idx, total_tsc_list[img_idx],
+                            total_delay_ms_list[img_idx],
+                            proc_tsc_list[img_idx],
+                            proc_delay_ms_list[img_idx]);
+
+                        mvec_free(tx_vec);
                 }
-                nb_mbuf = *((uint16_t*)meta_data);
-                RTE_LOG(INFO, FASTIO_USER,
-                    "[SLAVE] %d mbufs are in the v2l_que.\n", nb_mbuf);
-                rte_mempool_put(mbuf_pool, meta_data);
-                rte_ring_dequeue_bulk(v2l_que, (void**)rx_buf, nb_mbuf, NULL);
-
-                rx_vec = mvec_new(rx_buf, nb_mbuf);
-                ret = mvec_datacmp(rx_vec, load_vec);
-                if (ret != 0) {
-                        rte_panic("ERROR! Received data is different from the "
-                                  "sent data.\n");
-                }
-
-                total_tsc_avg[img_idx] = rte_get_tsc_cycles() - last_tsc;
-                total_delay_ms_avg[img_idx]
-                    = get_delay_tsc_ms(total_tsc_avg[img_idx]);
-
-                RTE_LOG(INFO, FASTIO_USER,
-                    "Image index:%u, the average total latency is %.5f ms; TSC "
-                    "cycles:%lu\n",
-                    img_idx, total_delay_ms_avg[img_idx],
-                    total_tsc_avg[img_idx]);
-
-                mvec_free(load_vec);
-                mvec_free(rx_vec);
+                save_double_list_csv(
+                    "./proc_delay_ms.csv", proc_delay_ms_list, IMAGE_FRAME_NUM);
+                save_double_list_csv("./total_delay_ms.csv", proc_delay_ms_list,
+                    IMAGE_FRAME_NUM);
+                save_u64_list_csv(
+                    "./proc_tsc.csv", proc_tsc_list, IMAGE_FRAME_NUM);
+                save_u64_list_csv(
+                    "./total_tsc.csv", total_tsc_list, IMAGE_FRAME_NUM);
         }
-
-        /* Dump results in CSV */
 
         return 0;
 }
@@ -245,8 +282,8 @@ int main(int argc, char* argv[])
         }
         print_lcore_infos();
 
-        // rte_log_set_global_level(RTE_LOG_EMERG);
-        rte_log_set_global_level(RTE_LOG_INFO);
+        rte_log_set_global_level(RTE_LOG_EMERG);
+        // rte_log_set_global_level(RTE_LOG_INFO);
 
         RTE_LOG(INFO, TEST, "Launch task on slave cores.\n");
         RTE_LCORE_FOREACH_SLAVE(lcore_id)

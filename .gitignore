@@ -1,11 +1,45 @@
--------------
--  General  -
--------------
-
 lib_src
 .vagrant/
 build/
 vm_share/
+rsc/
+dataset/
+model/
+
+*.pcap
+*.mbuf
+*.csv
+
+fastio_user/**/*.csv
+fastio_user/docs/html
+fastio_user/docs/latex
+
+evaluation/*.png
+evaluation/*.pdf
+evaluation/one_way_delay/results/
+evaluation/round_trip_time/*.png
+evaluation/round_trip_time/*.pdf
+
+vnf_prototype/low_congestion_object_detection/**/*.csv
+
+app/distributed_rcnn/*.png
+app/distributed_rcnn/*.jpg
+app/distributed_rcnn/*.csv
+app/yolo/*.jpg
+app/yolo/*.png
+app/yolo/*.csv
+app/yolo/*.bin
+app/yolo/massif.*
+app/yolo/*.pdf
+app/yolo/*.weights
+vnf_debug/pedestrian_detection/yolo_pp/*.csv
+
+paper/.build
+doc/build
+doc/.build
+placement/system_model/*.pdf
+placement/system_model/helpers/*
+placement/system_model/figures/*
 
 -------
 -  C  -
@@ -177,60 +211,3 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-
-----------------
--  Monitoring  -
-----------------
-
-*.pcap
-resource_monitor/*.csv
-delay_timer/*.csv
-perf/*.csv
-
-----------------
--  Evaluation  -
-----------------
-
-/evaluation/*.png
-/evaluation/*.pdf
-evaluation/one_way_delay/results/
-rsc/
-/evaluation/round_trip_time/*.png
-/evaluation/round_trip_time/*.pdf
-
-----------------
--  Large Data  -
-----------------
-
-dataset/
-model/
-app/distributed_rcnn/*.png
-app/distributed_rcnn/*.jpg
-app/distributed_rcnn/*.csv
-app/yolo/*.jpg
-app/yolo/*.png
-app/yolo/*.csv
-app/yolo/*.bin
-app/yolo/massif.*
-app/yolo/*.pdf
-app/yolo/*.weights
-vnf_debug/pedestrian_detection/yolo_pp/*.csv
-
-----------
--  DPDK  -
-----------
-
-*.mbuf
-
-----------
--  Docs  -
-----------
-
-paper/.build
-doc/build
-doc/.build
-placement/system_model/*.pdf
-placement/system_model/helpers/*
-placement/system_model/figures/*
-fastio_user/docs/html
-fastio_user/docs/latex
