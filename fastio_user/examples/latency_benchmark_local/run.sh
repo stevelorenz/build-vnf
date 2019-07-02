@@ -34,11 +34,16 @@ if [[ $opt == "-c" ]]; then
     echo "* Do not run ./uds_server.py "
     latency_benchmark_local
 else
+    # Launch uds_server with core affinity
     python3 ./uds_server.py > /dev/null 2>&1 &
+    pid=$(pgrep -u root -f 'python3\s\./uds_server\.py')
+    taskset -p 0x2 $pid
+    echo "* After core pinning."
+    taskset -cp $pid
     sleep 3
     latency_benchmark_local
-    sleep 1
-    pgrep -u root 'python3' | xargs kill
+    sleep 3
+    kill $pid
 fi
 
 echo "--------------------------------------------------------------------------"

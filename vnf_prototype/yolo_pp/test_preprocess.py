@@ -31,7 +31,7 @@ if __name__ == "__main__":
     img_names = sorted(os.listdir(imgs_path))
     img_paths = [os.path.join(imgs_path, img_name) for img_name in img_names]
 
-    for i, img_name in enumerate(img_paths[:10]):
+    for i, img_name in enumerate(img_paths[:3]):
         img = cv2.imread(img_name)
         img = cv2.resize(img, (608, 608))
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]

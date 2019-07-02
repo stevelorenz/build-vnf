@@ -19,6 +19,7 @@ evaluation/*.pdf
 evaluation/one_way_delay/results/
 evaluation/round_trip_time/*.png
 evaluation/round_trip_time/*.pdf
+evaluation/**/*.pdf
 
 vnf_prototype/low_congestion_object_detection/**/*.csv
 

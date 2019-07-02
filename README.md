@@ -26,12 +26,11 @@ compressed sensing. The processing ability and delay performance of the tool sho
 VNFs.  This includes common-used (e.g. DPDK) and also my own (e.g. fastio user) libraries, traffic generators,
 benchmark/perf frameworks etc. Some VNF Dockerfiles in prototype and release folder use these base images.
 1. [evaluation](./evaluation/): Scripts to plot evaluation results.
-1. [fastio_user](./fastio_user/): A C library for packet IO and processing in user space.
+1. [fastio_user](./fastio_user/): A low-level C library for packet IO and processing in user space.
+1. [nff](./nff/): Tests and examples built on top of popular NF/VNF frameworks.
 1. [scripts](./scripts/): Utility shell scripts to install, setup, configure tools used in this project.
-1. [vnf_prototype/](./vnf_prototype/): VNFs under prototyping (Try new ideas). **Not stable** and the performance is not fine tuned.
+1. [vnf_prototype](./vnf_prototype/): VNFs under prototyping (Try new ideas). **Not stable** and the performance is not fine tuned.
 1. [vnf_release](./vnf_release/): Tested and performance-optimized VNFs.
-
-
 
 ## Documentation ##
 

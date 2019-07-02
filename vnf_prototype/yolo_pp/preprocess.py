@@ -11,6 +11,7 @@ Original source: https://github.com/zrbzrb1106/yolov2/blob/master/client/preproc
 
 import copy
 import os
+import sys
 import socket
 import struct
 import time
@@ -196,20 +197,32 @@ def main():
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(server_address)
     preprocessor = Preprocessor()
-
+    inference_delay_ms = list()
     # main loop
     sock.listen(1)
     print("Waiting for connections")
     connection, client_address = sock.accept()
-    while(1):
-        img_bytes = preprocessor.read_buffer(connection)
-        # jpeg
-        # res_bytes = preprocessor.inference(0, img_bytes, 70)
-        # webp
-        res_bytes = preprocessor.inference(1, img_bytes, 70)
-        preprocessor.fill_buffer(res_bytes, connection)
-        # print(len(img_bytes), len(res_bytes))
-        connection.recv(0)
+    try:
+        while(1):
+            img_bytes = preprocessor.read_buffer(connection)
+            # jpeg
+            # res_bytes = preprocessor.inference(0, img_bytes, 70)
+            # webp
+            last = time.time()
+            res_bytes = preprocessor.inference(1, img_bytes, 70)
+            inference_delay_ms.append(1000.0 * (time.time() - last))
+            preprocessor.fill_buffer(res_bytes, connection)
+            print(len(img_bytes), len(res_bytes))
+            connection.recv(0)
+
+    except Exception as e:
+        print("Dump results")
+        with open("./inference_delay_ms.csv", "a+") as f:
+            for d in inference_delay_ms[:-1]:
+                f.write("%f," % d)
+            f.write("%f\n" % inference_delay_ms[-1])
+        print(e)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

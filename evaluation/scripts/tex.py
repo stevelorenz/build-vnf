@@ -3,6 +3,7 @@ from math import sqrt
 
 
 def setup(width=1, *, height=None, span=False, l=0.15, r=0.98, t=0.98, b=0.17, params={}):
+    """Setup RC parameters for figures used in papers."""
     if span:
         fig_width = 529.22128 / 72  # IEEE text width
     else:
