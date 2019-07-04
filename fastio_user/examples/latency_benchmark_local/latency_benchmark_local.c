@@ -223,10 +223,8 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
 
                         RTE_LOG(INFO, FASTIO_USER,
                             "Image index:%u, the total latency is %lu cycles = "
-                            "%.8f "
-                            "ms, "
-                            "the processing latency is %lu cycles = %0.8f "
-                            "ms.\n",
+                            "%.8f ms, the processing latency is %lu cycles = "
+                            "%0.8f ms.\n",
                             img_idx, total_tsc_list[img_idx],
                             total_delay_ms_list[img_idx],
                             proc_tsc_list[img_idx],
