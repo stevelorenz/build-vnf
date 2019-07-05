@@ -28,8 +28,8 @@ DOCKER_RUN_ARGS = {
 
 RUN_CMD_FMT = "sudo docker run {opts} {vols} {extra_opts} {image} {cmd}"
 
-IFACE_NAME_DPDK = "test_dpdk"
-IFACE_NAME_LOADGEN = "test_loadgen"
+IFACE_NAME_DPDK_IN = "test_dpdk_in"
+IFACE_NAME_LOADGEN_IN = "test_loadgen_in"
 
 
 def build_image():
@@ -89,12 +89,13 @@ def setup_test_ifaces(cname):
         "sudo mkdir -p /var/run/netns",
         "sudo ln -s /proc/{}/ns/net /var/run/netns/{}".format(pid_c, pid_c),
         "sudo ip link add {} type veth peer name {}".format(
-            IFACE_NAME_LOADGEN, IFACE_NAME_DPDK),
-        "sudo ip link set {} up".format(IFACE_NAME_DPDK),
-        "sudo ip link set {} up".format(IFACE_NAME_LOADGEN),
-        "sudo ip addr add 192.168.1.17/24 dev {}".format(IFACE_NAME_LOADGEN),
-        "sudo ip link set {} netns {}".format(IFACE_NAME_DPDK, pid_c),
-        "sudo docker exec {} ip link set {} up".format(cname, IFACE_NAME_DPDK)
+            IFACE_NAME_LOADGEN_IN, IFACE_NAME_DPDK_IN),
+        "sudo ip link set {} up".format(IFACE_NAME_DPDK_IN),
+        "sudo ip link set {} up".format(IFACE_NAME_LOADGEN_IN),
+        "sudo ip addr add 192.168.1.17/24 dev {}".format(IFACE_NAME_LOADGEN_IN),
+        "sudo ip link set {} netns {}".format(IFACE_NAME_DPDK_IN, pid_c),
+        "sudo docker exec {} ip link set {} up".format(
+            cname, IFACE_NAME_DPDK_IN)
     ]
     for c in cmds:
         run(split(c), check=True)
@@ -103,7 +104,7 @@ def setup_test_ifaces(cname):
 def cleanup_test_ifaces():
     print("* Cleanup test ifaces")
     cmds = [
-        "sudo ip link delete {}".format(IFACE_NAME_LOADGEN)
+        "sudo ip link delete {}".format(IFACE_NAME_LOADGEN_IN)
     ]
     for c in cmds:
         run(split(c), check=False)

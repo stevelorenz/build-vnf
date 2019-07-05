@@ -2,29 +2,25 @@
 
 This library is developed for **low-level prototyping** and **teaching** innovative and high-performance Virtualized
 Network Functions (VNFs) with data plane frameworks in the Linux's **user space**. Since this library is used for my PhD
-research and teaching purposes, it focus on the **simplicity**. Different from high performance virtual switch/router
-frameworks like [BESS](https://github.com/NetSys/bess) or [VPP](https://github.com/FDio/vpp), this library is target at
-building the virtual network function program running normally INSIDE a container or VM. According to the SDN/NFV
-design, this network function is responsible to handle ONLY a subset of flows that are filtered and redirected by the
-virtual switches. Compared to the filtering/routing/redirecting functions provided by virtual switch, these VNFs perform
-more complex tasks that require more computational power like DPI, NAT, video transcoding or payload compression etc.
-The FastIO User supported VNFs should only handle **virtual** network interfaces (like virtio-user, vhost, veth, tun/tap
-etc.).
+research and teaching purposes, it focus on the **simplicity**.  According to the SDN/NFV design, this network function
+is responsible to handle ONLY a subset of flows that are filtered and redirected by the virtual switches. Compared to
+the filtering/routing/redirecting functions provided by virtual switch, these VNFs perform more complex tasks that
+require more computational power like DPI, NAT, video transcoding or payload compression etc.  The FastIO User supported
+VNFs should only handle **virtual** network interfaces (like virtio-user, vhost, veth, tun/tap etc.).
 
 FastIO User currently focuses on providing DPDK C wrappers that can be used to speed up packet I/O and processing with
 more programmer friendly APIs and utility functions. It is designed for evaluating/benchmarking latest features of DPDK,
-and prototyping novelty VNF ideas in a virtualized environment. It is not developed for production usage, use good
-frameworks like [NFF-GO](https://github.com/intel-go/nff-go), [libmoon](https://github.com/libmoon/libmoon) or
-[Netbricks](https://github.com/NetSys/NetBricks) instead.
+and fast prototyping novelty VNF ideas in a virtualized environment. It is not developed for complex VNFs or production
+usage, use good frameworks like [NFF-GO](https://github.com/intel-go/nff-go),
+[libmoon](https://github.com/libmoon/libmoon) or [Netbricks](https://github.com/NetSys/NetBricks) instead.
 
 ## Build Shared Library ##
 
 In order to simplify and the build process on different platforms. The Docker container is suggested to build the
-library (To avoid "I could not build this on my laptop due to dependency errors etc"). There is a
-[Dockerfile](./Dockerfile) and a [Python3 script](./util/run_dev_container.py) to automate the build process. Make sure
-you have Docker CE installed. The container image and shared library (.so file) can be built with following steps.
-(Because the DPDK is compiled from the source code, the step of build the container image takes time, -j can be modified
-in the Dockerfile to speed up the compiling time.)
+library. There is a [Dockerfile](./Dockerfile) and a [Python3 script](./util/run_dev_container.py) to automate the build
+process. Make sure you have Docker CE installed. The container image and shared library (.so file) can be built with
+following steps.  (Because the DPDK is compiled from the source code, the step of build the container image takes time,
+-j can be modified in the Dockerfile to speed up the compiling time.)
 
 ```bash
 $ cd ./util/
@@ -71,7 +67,7 @@ $ xdg-open docs/html/index.html
 
 ## Reference Frameworks ##
 
->  TODO:  <28-06-19, Zuo> Put reference section into a separate file > 
+>  TODO:  <28-06-19, Zuo> Put reference section into a separate file >
 
 Some tricks and low level optimizations are learned from several high-performance packet I/O and processing frameworks
 and integrated into fastio_user. These frameworks are awesome, but are relative too heavy, hide many tunable parameters

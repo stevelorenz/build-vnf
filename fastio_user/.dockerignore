@@ -1,0 +1,4 @@
+# Ignore all files by default
+*
+
+# Whitelist can be added with !file_path
