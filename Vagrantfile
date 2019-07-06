@@ -127,7 +127,9 @@ Vagrant.configure("2") do |config|
         bash ./run_dev_container.sh -b
     SHELL
     # Always run this when use `vagrant up`
+    # - Drop the system caches to allocate hugepages
     vnf.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
+        echo 3 | sudo tee /proc/sys/vm/drop_caches
         cd $HOME/build-vnf/fastio_user/util || exit
         sudo bash ./setup_hugepage.sh
     SHELL
