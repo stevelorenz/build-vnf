@@ -84,7 +84,7 @@ void test_mvec_helpers(struct mvec* v)
         check_pull_values(tmp_u64, v->len);
 }
 
-static int proc_loop_master(__attribute__((unused)) void* dummy)
+static int proc_loop_slave(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* rx_buf[RX_BUF_SIZE];
         struct rte_mbuf* read_buf[RX_BUF_SIZE];
@@ -135,11 +135,7 @@ static int proc_loop_master(__attribute__((unused)) void* dummy)
         return 0;
 }
 
-/**
- * Main loop of the slave thread
- *
- */
-static int proc_loop_slave(__attribute__((unused)) void* dummy)
+static int proc_loop_master(__attribute__((unused)) void* dummy)
 {
         struct rte_mbuf* tx_buf[RX_BUF_SIZE];
         uint16_t i;

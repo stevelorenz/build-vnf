@@ -35,16 +35,14 @@
  * Socket buffer reference: http://vger.kernel.org/~davem/skb_data.html
  */
 struct mvec {
-        uint16_t id; /**< The unique ID */
         struct rte_mbuf** head;
-        struct rte_mbuf** tail;
-        uint16_t len;
+        uint16_t len; /**< Number of mbufs in the vector */
 
         uint16_t mbuf_payload_off; /**< Offset of the paload */
 } __rte_cache_aligned;
 
 /**
- * mvec_new() - Initialize a mbuf vector.
+ * mvec_new() - Create a new mbuf vector.
  *
  * @param mbuf_arr: An array of pointers to mbufs.
  * @param len: The length of the array.

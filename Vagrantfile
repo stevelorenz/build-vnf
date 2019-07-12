@@ -88,21 +88,20 @@ Vagrant.configure("2") do |config|
     trafficgen.vm.box_version = BOX_VER
     trafficgen.vm.hostname = "trafficgen"
 
-    trafficgen.vm.network "private_network", ip: "192.168.10.11", mac: "0800271e2d13",
+    trafficgen.vm.network "private_network", ip: "192.168.10.11", mac:"080027601711",
       nic_type: "82540EM"
-    trafficgen.vm.network "private_network", ip: "192.168.10.12", mac: "0800271e2d14",
+    trafficgen.vm.network "private_network", ip: "192.168.10.12", mac:"080027601712",
       nic_type: "82540EM"
     trafficgen.vm.provision :shell, inline: $bootstrap_apt, privileged: false
 
     trafficgen.vm.provider "virtualbox" do |vb|
-      # Set easy to remember VM name
-      vb.name = "build-vnf-trafficgen"
+      vb.name = "trafficgen"
       vb.memory = RAM
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      # vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
-      # vb.customize ["modifyvm", :id, "--nictype3", "virtio"]
+      vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+      vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
     end
   end
 
@@ -168,6 +167,45 @@ Vagrant.configure("2") do |config|
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
       vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+  end
+
+  # --- VM for OpenNetVM development: A high performance container-based NFV platform from GW and UCR. ---
+  config.vm.define "opennetvm" do |opennetvm|
+    opennetvm.vm.box = BOX
+    opennetvm.vm.box_version = BOX_VER
+    opennetvm.vm.hostname = "opennetvm"
+
+    opennetvm.vm.network "private_network", ip: "192.168.10.17", mac:"080027601717",
+      nic_type: "82540EM"
+    opennetvm.vm.network "private_network", ip: "192.168.10.18", mac:"080027601718",
+      nic_type: "82540EM"
+    opennetvm.vm.provision :shell, inline: $bootstrap_apt, privileged: false
+    opennetvm.vm.provision :shell, path: "./script/install_opennetvm.sh", privileged: false
+    opennetvm.vm.provision :shell, path: "./script/install_docker.sh", privileged: false
+
+    # Always run this when use `vagrant up`
+    # Setup opennetvm environment: hugepages, bind interface to DPDK etc.
+    # - The PCI address of the interface can be checked with `lspci`, here the eth1 of the Vagrant VM will be bind to DPDK
+    opennetvm.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
+        echo 3 | sudo tee /proc/sys/vm/drop_caches
+        export ONVM_HOME=$HOME/openNetVM
+        export RTE_SDK=$ONVM_HOME/dpdk
+        export RTE_TARGET=x86_64-native-linuxapp-gcc
+        sudo ip link set eth1 down
+        export ONVM_NIC_PCI=" 00:08.0 "
+        cd $HOME/openNetVM/scripts || exit
+        bash ./setup_environment.sh
+    SHELL
+
+    opennetvm.vm.provider "virtualbox" do |vb|
+      vb.name = "opennetvm"
+      vb.memory = RAM
+      vb.cpus = CPUS
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+      vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+      vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
     end
   end
 

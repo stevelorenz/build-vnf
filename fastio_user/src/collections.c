@@ -14,17 +14,13 @@
 
 struct mvec* mvec_new(struct rte_mbuf** mbuf_arr, uint16_t len)
 {
-        static volatile uint16_t mvec_id = 0;
         struct mvec* vec
             = (struct mvec*)(rte_zmalloc("mvec", sizeof(struct mvec), 0));
 
-        vec->id = mvec_id;
         vec->head = mbuf_arr;
-        vec->tail = mbuf_arr + len;
         vec->len = len;
         vec->mbuf_payload_off = RTE_PKTMBUF_HEADROOM;
 
-        __sync_fetch_and_add(&mvec_id, 1);
         return vec;
 }
 
@@ -42,7 +38,6 @@ void mvec_free(struct mvec* vec) { mvec_free_part(vec, 0); }
 
 void print_mvec(struct mvec* vec)
 {
-        printf("Mbuf vector ID: %u\n", vec->id);
         printf("Vector length: %u\n", vec->len);
         printf("Mbuf head offset: %d\n", rte_pktmbuf_headroom(*(vec->head)));
         printf("Mbuf data offset: %d\n", vec->mbuf_payload_off);
