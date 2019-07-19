@@ -1,5 +1,5 @@
 #
-# Makefile for FastIO User project
+# Makefile for FastIO User library
 #
 
 SRCS-y := $(shell find ./src/ -name '*.c')
@@ -11,8 +11,12 @@ EXAMPLES := $(shell find ./examples/ -name '*.c')
 TESTS := $(shell find ./tests/ -name '*.c')
 ALL_SRCS_CH := $(SRCS-y) $(HEADERS) $(EXAMPLES) $(TESTS)
 
+# Release version
 lib: $(SRCS-y) $(HEADERS)
 	@make -f ./lib.mk all
+
+lib_debug: $(SRCS-y) $(HEADERS)
+	@make DEBUG=1 -f ./lib.mk all
 
 .PHONY: test mem_check flawfinder clean
 

@@ -206,6 +206,9 @@ Vagrant.configure("2") do |config|
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
       vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
       vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
+      # By default, OpenNetVM's main components run in busy-polling mode.
+      # no matter how much CPU is used in the VM, no more than 50% would be used on the host machine.
+      vb.customize ["modifyvm", :id, "--cpuexecutioncap", "50"]
     end
   end
 

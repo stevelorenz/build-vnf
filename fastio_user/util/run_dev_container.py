@@ -48,6 +48,15 @@ def build_lib():
     run(split(run_cmd))
 
 
+def build_lib_debug():
+    DOCKER_RUN_ARGS["vols"] = " ".join((DOCKER_RUN_ARGS["dpdk_vols"],
+                                        DOCKER_RUN_ARGS["extra_vols"]))
+    DOCKER_RUN_ARGS["cmd"] = "bash -c \"make clean && make lib_debug \""
+    DOCKER_RUN_ARGS["extra_opts"] = ""
+    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
+    run(split(run_cmd))
+
+
 def run_interactive():
     # Avoid conflict with other non-interactive actions
     cname = "fastio_user_interactive"
@@ -65,7 +74,7 @@ def run_interactive():
 def run_test():
     DOCKER_RUN_ARGS["vols"] = " ".join((DOCKER_RUN_ARGS["dpdk_vols"],
                                         DOCKER_RUN_ARGS["extra_vols"]))
-    DOCKER_RUN_ARGS["cmd"] = "bash -c \"make clean && make lib && make test \""
+    DOCKER_RUN_ARGS["cmd"] = "bash -c \"make clean && make lib_debug && make test \""
     DOCKER_RUN_ARGS["extra_opts"] = ""
     run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
     run(split(run_cmd))
@@ -74,7 +83,7 @@ def run_test():
 def run_memcheck():
     DOCKER_RUN_ARGS["vols"] = " ".join((DOCKER_RUN_ARGS["dpdk_vols"],
                                         DOCKER_RUN_ARGS["extra_vols"]))
-    DOCKER_RUN_ARGS["cmd"] = "bash -c \"make clean && make lib && make mem_check \""
+    DOCKER_RUN_ARGS["cmd"] = "bash -c \"make clean && make lib_debug && make mem_check \""
     DOCKER_RUN_ARGS["extra_opts"] = ""
     run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
     run(split(run_cmd))
@@ -117,10 +126,14 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument(
     'action', type=str,
-    choices=["build_image", "build_lib", "run", "run_test", "run_memcheck"],
+    choices=[
+        "build_image", "build_lib", "build_lib_debug",
+        "run", "run_test", "run_memcheck"
+    ],
     help='To be performed action.\n'
     "\tbuild_image: Build docker image.\n"
     "\tbuild_lib: Build the shared library (libfastio_user.so).\n"
+    "\tbuild_lib_debug: Build the shared library in debug mode(-g and -O0).\n"
     "\trun: Run docker container in interactive mode.\n"
     "\trun_test: Run tests in the docker container without interaction.\n"
     "\trun_memcheck: Run memory leak checking in the docker container without interaction.\n"
@@ -131,6 +144,7 @@ args = parser.parse_args()
 dispatcher = {
     "run": run_interactive,
     "build_lib": build_lib,
+    "build_lib_debug": build_lib_debug,
     "build_image": build_image,
     "run_test": run_test,
     "run_memcheck": run_memcheck,
