@@ -1,7 +1,7 @@
 # Build VNF #
 
-This repository is under heavy development. The directories are not cleanly and clearly organized. Redundant directories
-will be removed before the beta 1.0 version. The README will also be updated.
+This repository is under heavy development. The directories are not cleanly and clearly organized.
+Redundant directories will be removed before the stable 1.0 version. The README will also be updated.
 
 This project is hosted on [GitHub](https://github.com/stevelorenz/build-vnf) and
 [BitBucket](https://bitbucket.org/comnets/build-vnf/src/master/), please create an issue or a pull request if you have
@@ -9,14 +9,13 @@ any questions or code contribution.
 
 ## Introduction ##
 
-This repository is a collection of programs/tools used for my PhD topic: Ultra Low Latency Network Softwarization.
+This repository is a **collection** of programs/libraries/script tools developed and evaluated for [my
+PhD](https://cn.ifn.et.tu-dresden.de/chair/staff/zuo-xiang/) topic: Enabling Ultra Low Latency Network Softwarization.
 
-These programs are used to build, test and evaluate different packet IO and processing tools for implementing
-Virtualized Network Function (VNFs) on virtual machines or containers. The main focus of performance here is the **low
-latency** (End-to-End service delay). Pros and cons of each tool should be studied and latter utilized for building VNF
-with different requirements.  For example, firewalls or load balancers can be built using tools that provide high IO
-speeds but limited computing power.  For compute-intensive network functions, such as data encryption, network coding or
-compressed sensing. The processing ability and delay performance of the tool should also be considered.
+These programs are used to prototype and evaluate innovation ideas and practical approaches for low latency data and
+management plane of Virtualized Network Function (VNFs) running inside virtual machines and containers on a COTS server
+or on programmable data plane switches.
+The main focus of performance here is the **low latency** (End-to-End service delay) and energy efficiency.
 
 ## Catalog ##
 
@@ -31,8 +30,11 @@ benchmark/perf frameworks etc. Some VNF Dockerfiles in prototype and release fol
 1. [scripts](./scripts/): Utility shell scripts to install, setup, configure tools used in this project.
 1. [vnf_prototype](./vnf_prototype/): VNFs under prototyping (Try new ideas). **Not stable** and the performance is not fine tuned.
 1. [vnf_release](./vnf_release/): Tested and performance-optimized VNFs.
+1. [pktgen](./pktgen/): Scripts to configure and run software packet generators for latency measurement.
 
 ## Documentation ##
+
+@TODO: Update documentation and remove unused sections.
 
 This repository contains a tutorial/Wiki like documentation whose source files (use reStructuredText format) are located
 in [./doc/source/](./doc/source/). [Sphinx](http://www.sphinx-doc.org/en/master/) is used to build the documentation.
@@ -46,6 +48,6 @@ $ xdg-open ./doc/build/html/index.html
 
 ## Contributors ##
 
-1. Zuo Xiang: Maintainer
+1. Zuo Xiang: Maintainer.
 2. Funing Xia: Add Lua scripts for latency measurement with MoonGen.
 3. Renbing Zhang: Add YOLO-based object detection pre-processing APP.

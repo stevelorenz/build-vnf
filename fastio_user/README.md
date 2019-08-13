@@ -1,18 +1,23 @@
-# Fast Packet IO library in User Space (FastIO User -> fastio_user) #
+# Fast Packet IO library in User Space #
 
 This library is developed for **low-level prototyping** and **teaching** innovative and high-performance Virtualized
 Network Functions (VNFs) with data plane frameworks in the Linux's **user space**. Since this library is used for my PhD
-research and teaching purposes, it focus on the **simplicity**.  According to the SDN/NFV design, this network function
-is responsible to handle ONLY a subset of flows that are filtered and redirected by the virtual switches. Compared to
-the filtering/routing/redirecting functions provided by virtual switch, these VNFs perform more complex tasks that
-require more computational power like DPI, NAT, video transcoding or payload compression etc.  The FastIO User supported
-VNFs should only handle **virtual** network interfaces (like virtio-user, vhost, veth, tun/tap etc.).
+research and teaching purposes, it focus on the **simplicity** and **easy-to-use**. It can be used by a container
+running inside a VM. So experiments can be perform in a lightweight container-based emulator (e.g.
+[ComNetsEmu](https://bitbucket.org/comnets/comnetsemu/src/master/)) on **single** laptop.
 
-FastIO User currently focuses on providing DPDK C wrappers that can be used to speed up packet I/O and processing with
-more programmer friendly APIs and utility functions. It is designed for evaluating/benchmarking latest features of DPDK,
-and fast prototyping novelty VNF ideas in a virtualized environment. It is not developed for complex VNFs or production
-usage, use good frameworks like [NFF-GO](https://github.com/intel-go/nff-go),
-[libmoon](https://github.com/libmoon/libmoon) or [Netbricks](https://github.com/NetSys/NetBricks) instead.
+According to the SDN/NFV design, this network function is responsible to handle ONLY a subset of flows that are filtered
+and redirected by the virtual switches. Compared to the filtering/routing/redirecting functions provided by virtual
+switch, these VNFs perform more complex tasks that require more computational power like DPI, NAT, video transcoding or
+payload compression etc.  The FastIO User supported VNFs should only handle **virtual** network interfaces (like
+virtio-user, vhost, veth, tun/tap etc.).
+
+FastIO User currently focuses on providing DPDK C wrappers (plan to add go bindings) that can be used to speed up packet
+I/O and processing with more programmer friendly APIs and utility functions. It is designed for evaluating/benchmarking
+latest features of DPDK, and fast prototyping novelty VNF ideas in a virtualized environment. It is not developed for
+complex VNFs, VNFs utilizing many hardware features, or production usage, use good frameworks like
+[NFF-GO](https://github.com/intel-go/nff-go), [libmoon](https://github.com/libmoon/libmoon) or
+[Netbricks](https://github.com/NetSys/NetBricks) instead.
 
 ## Build Shared Library ##
 
