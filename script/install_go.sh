@@ -13,7 +13,7 @@ sudo wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz
 sudo tar -xvf go1.12.6.linux-amd64.tar.gz
 sudo rm go1.12.6.linux-amd64.tar.gz
 
-echo "export GOROOT=/opt/go" >> ${HOME}/.profile
-echo "export PATH=$GOROOT/bin:$PATH" >> ${HOME}/.profile
+echo "export GOROOT=/opt/go" >>${HOME}/.profile
+echo "export PATH=$GOROOT/bin:$PATH" >>${HOME}/.profile
 
 source ${HOME}/.profile

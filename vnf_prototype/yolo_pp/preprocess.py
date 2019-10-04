@@ -35,10 +35,10 @@ class CompressorObj:
         """
         shape = (8, 16)
         fmap_images_with_info = feature_maps_to_image(
-            feature_maps, shape, is_display=0, is_save=0)
+            feature_maps, shape, is_display=0, is_save=0
+        )
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
-        result, encimg = cv2.imencode(
-            '.jpg', fmap_images_with_info[0][0], encode_param)
+        result, encimg = cv2.imencode(".jpg", fmap_images_with_info[0][0], encode_param)
         self.compressed_mem = len(encimg)
         # print(len(encimg), "length of encoded image")
         res = (encimg, fmap_images_with_info[0][1])
@@ -48,10 +48,12 @@ class CompressorObj:
         shape = (8, 16)
         data = copy.copy(x)
         fmap_images_with_info = feature_maps_to_image(
-            data, shape, is_display=0, is_save=0)
+            data, shape, is_display=0, is_save=0
+        )
         encode_param = [int(cv2.IMWRITE_WEBP_QUALITY), quality]
         result, encimg = cv2.imencode(
-            '.webp', fmap_images_with_info[0][0], encode_param)
+            ".webp", fmap_images_with_info[0][0], encode_param
+        )
         self.compressed_mem = len(encimg)
         # print(len(encimg), "length of encoded image")
         res = (encimg, fmap_images_with_info[0][1])
@@ -61,16 +63,17 @@ class CompressorObj:
 class Preprocessor:
     def __init__(self):
         # tensorflow graph
-        self.__model_path = './model/part1.pb'
-        self.__name = 'part1'
-        self.__input_tensor_name = 'input:0'
-        self.__output_tensor_name = 'Pad_5:0'
-        self.sess = self.__read_model(
-            self.__model_path, self.__name, is_onecore=False)
+        self.__model_path = "./model/part1.pb"
+        self.__name = "part1"
+        self.__input_tensor_name = "input:0"
+        self.__output_tensor_name = "Pad_5:0"
+        self.sess = self.__read_model(self.__model_path, self.__name, is_onecore=False)
         self.input1 = self.sess.graph.get_tensor_by_name(
-            '{}/{}'.format(self.__name, self.__input_tensor_name))
+            "{}/{}".format(self.__name, self.__input_tensor_name)
+        )
         self.output1 = self.sess.graph.get_tensor_by_name(
-            '{}/{}'.format(self.__name, self.__output_tensor_name))
+            "{}/{}".format(self.__name, self.__output_tensor_name)
+        )
         # compression object
         self.compressor = CompressorObj()
         self.buffer = bytearray(10000000)
@@ -86,7 +89,7 @@ class Preprocessor:
         self.header_length = self.batch_size * 2 * 2 + 1
         self.header = bytes(self.header_length)
         self.payload = bytes(self.payload_length)
-        self.results = bytes(self.header_length+self.payload_length)
+        self.results = bytes(self.header_length + self.payload_length)
 
     def __setitem__(self, k, v):
         self.k = v
@@ -101,11 +104,11 @@ class Preprocessor:
         # use one cpu core
         if is_onecore:
             session_conf = tf.ConfigProto(
-                intra_op_parallelism_threads=1,
-                inter_op_parallelism_threads=1)
+                intra_op_parallelism_threads=1, inter_op_parallelism_threads=1
+            )
             sess = tf.Session(config=session_conf)
 
-        mode = 'rb'
+        mode = "rb"
         with tf.gfile.FastGFile(path, mode) as f:
             graph_def = tf.GraphDef()
             graph_def.ParseFromString(f.read())
@@ -123,7 +126,7 @@ class Preprocessor:
         header = bytearray(4)
         connection.recv_into(header, 4)
         # # 4 bytes presents data length
-        to_read = struct.unpack('>L', header)[0]
+        to_read = struct.unpack(">L", header)[0]
         data_length = to_read
         # buf = bytearray(data_length)
         # view = memoryview(buf)
@@ -159,28 +162,27 @@ class Preprocessor:
         data = np.frombuffer(img_bytes, np.uint8)
         img = cv2.imdecode(data, 1)
         img_preprossed = self.preprocess_image(img)
-        feature_maps = self.sess.run(self.output1, feed_dict={
-                                     self.input1: img_preprossed})
+        feature_maps = self.sess.run(
+            self.output1, feed_dict={self.input1: img_preprossed}
+        )
         h_1 = bytes([self.batch_size])
         h_2 = bytes([mode])
-        header_tmp = b''
-        payload_tmp = b''
-        res_bytes = b''
+        header_tmp = b""
+        payload_tmp = b""
+        res_bytes = b""
         if mode == 0 or mode == 1:
             quality = info
             if mode == 0:
-                fmaps_bytes_with_info = self.compressor.jpeg_enc(
-                    feature_maps, quality)
+                fmaps_bytes_with_info = self.compressor.jpeg_enc(feature_maps, quality)
             if mode == 1:
-                fmaps_bytes_with_info = self.compressor.webp_enc(
-                    feature_maps, quality)
+                fmaps_bytes_with_info = self.compressor.webp_enc(feature_maps, quality)
             fmaps_data = fmaps_bytes_with_info[0]
-            header_tmp += np.array(fmaps_bytes_with_info[1],
-                                   dtype=self.dtype_header).tobytes()
-            payload_tmp += np.array(fmaps_data,
-                                    dtype=self.dtype_payload).tobytes()
-            l1 = struct.pack('<H', len(header_tmp))
-            lp = struct.pack('>I', len(payload_tmp))
+            header_tmp += np.array(
+                fmaps_bytes_with_info[1], dtype=self.dtype_header
+            ).tobytes()
+            payload_tmp += np.array(fmaps_data, dtype=self.dtype_payload).tobytes()
+            l1 = struct.pack("<H", len(header_tmp))
+            lp = struct.pack(">I", len(payload_tmp))
             res_bytes = h_1 + h_2 + l1 + lp + header_tmp + payload_tmp
 
         return res_bytes
@@ -188,7 +190,7 @@ class Preprocessor:
 
 def main():
     # socket
-    server_address = '/uds_socket'
+    server_address = "/uds_socket"
     try:
         os.unlink(server_address)
     except OSError:
@@ -203,7 +205,7 @@ def main():
     print("Waiting for connections")
     connection, client_address = sock.accept()
     try:
-        while(1):
+        while 1:
             img_bytes = preprocessor.read_buffer(connection)
             # jpeg
             # res_bytes = preprocessor.inference(0, img_bytes, 70)

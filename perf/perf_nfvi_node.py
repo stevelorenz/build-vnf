@@ -30,12 +30,11 @@ def perf_llcstats(duration, pid_list):
     cache_info = list()  # (pid, ref, miss, hit)
     print("# Perf CPU Last Level Cache (LLC)...")
     print("## PID list: %s" % ",".join(map(str, pid_list)))
-    cmd = shlex.split("sudo {} {}".format(
-        os.path.join(BCC_TOOL_PATH, "llcstat"),
-        duration
-    ))
+    cmd = shlex.split(
+        "sudo {} {}".format(os.path.join(BCC_TOOL_PATH, "llcstat"), duration)
+    )
     ret = subprocess.run(cmd, stdout=subprocess.PIPE)
-    entries = ret.stdout.decode('utf-8').splitlines()
+    entries = ret.stdout.decode("utf-8").splitlines()
     entries = [list(filter(None, x.split(" "))) for x in entries[2:-1]]
     for e in entries:
         if int(e[0]) in pid_list:
@@ -60,13 +59,11 @@ def parse_cache(duration, pid_list):
 def main():
     parser = argparse.ArgumentParser(
         description="Perf the PHYSICAL NFVI node running Linux kernel",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-p", nargs="+", type=int,
-                        help="")
+    parser.add_argument("-p", nargs="+", type=int, help="")
     parser.add_argument("--duration", type=int, default=5)
-    parser.add_argument("--bcc_tool_path", type=str,
-                        default="/usr/share/bcc/tools/")
+    parser.add_argument("--bcc_tool_path", type=str, default="/usr/share/bcc/tools/")
 
     args = parser.parse_args()
     global BCC_TOOL_PATH
@@ -76,5 +73,5 @@ def main():
     perf_llcstats(duration, pid_list)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,7 +1,5 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-# About: Vagrant file for the development and emulation VM environment
-#
 
 ###############
 #  Variables  #
@@ -37,32 +35,6 @@ tic -x /home/vagrant/termite.terminfo
 # Use zuo's tmux config
 git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
 cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
-SCRIPT
-
-$setup_dev_kernel_apt= <<-SCRIPT
-# Get source code
-git clone https://github.com/stevelorenz/linux.git $HOME/linux
-cd $HOME/linux || exit
-# Mark:
-#     - Support for AF_XDP since 4.18
-LINUX_KERNEL_VERSION=v4.18-rc4
-git fetch origin LINUX_KERNEL_VERSION
-git checkout -b LINUX_KERNEL_VERSION LINUX_KERNEL_VERSION
-
-## Build and install the kernel from source code
-## An alternative is to use compiled binaries from z.B. Ubuntu kernel mainline.
-# Install dependencies
-DEBIAN_FRONTEND=noninteractive sudo apt-get update
-DEBIAN_FRONTEND=noninteractive sudo apt-get install -y libncurses-dev bison build-essential flex
-# Configure the kernel
-#     1. Copy the configure file from current kernel
-#     zcat /proc/config.gz ./.config
-#     2. Use menuconfig
-#     make menuconfig
-# Compile and install the kernel
-# sudo make -j 2
-# sudo make modules_install
-# sudo make install
 SCRIPT
 
 $setup_dev_net= <<-SCRIPT
@@ -119,17 +91,16 @@ Vagrant.configure("2") do |config|
     vnf.vm.provision :shell, inline: $bootstrap_apt, privileged: false
     vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: false
     vnf.vm.provision :shell, privileged: false, inline: <<-SHELL
-        git clone https://github.com/stevelorenz/build-vnf $HOME/build-vnf
-        cd $HOME/build-vnf/script || exit
+        cd /vagrant/script || exit
         bash ./install_docker.sh
-        cd $HOME/build-vnf/fastio_user/util || exit
-        bash ./run_dev_container.sh -b
+        cd /vagrant/ffpp/util || exit
+        sudo python3 ./run_dev_container.py build_image
     SHELL
     # Always run this when use `vagrant up`
     # - Drop the system caches to allocate hugepages
     vnf.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
         echo 3 | sudo tee /proc/sys/vm/drop_caches
-        cd $HOME/build-vnf/fastio_user/util || exit
+        cd /vagrant/ffpp/util || exit
         sudo bash ./setup_hugepage.sh
     SHELL
 
@@ -171,6 +142,7 @@ Vagrant.configure("2") do |config|
   end
 
   # --- VM for OpenNetVM development: A high performance container-based NFV platform from GW and UCR. ---
+  # WARN: This is experimental
   config.vm.define "opennetvm" do |opennetvm|
     opennetvm.vm.box = BOX
     opennetvm.vm.box_version = BOX_VER

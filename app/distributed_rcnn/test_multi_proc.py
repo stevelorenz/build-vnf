@@ -8,7 +8,6 @@
 About: Test multiprocessing with shared memory
 """
 
-import multiprocessing
 import os
 
 from memory_profiler import profile

@@ -79,7 +79,6 @@ ovs-ofctl add-flow br0 "in_port=3 actions=mod_dl_dst:$RECV_MAC,output:2"
 
 ovs-ofctl dump-flows br0
 
-
 echo "# Setup finished."
 echo "    Run UDP sender in namespace ns1 with IP: $SEND_IP"
 echo "    Run UDP receiver in namespace ns2 with IP: $RECV_IP"

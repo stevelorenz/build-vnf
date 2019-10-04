@@ -1,6 +1,0 @@
-Serverless Computing
-====================
-
-
-Serverless NFV
---------------

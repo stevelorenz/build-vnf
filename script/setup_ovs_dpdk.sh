@@ -13,7 +13,7 @@
 sudo sysctl -w vm.nr_hugepages=512
 
 # Install and load kernel modules
-if grep -Fxq "igb_uio" /etc/modules ; then
+if grep -Fxq "igb_uio" /etc/modules; then
     echo "* Kernel modules are already loaded."
 else
     sudo modprobe uio
@@ -34,7 +34,7 @@ fi
 sudo mkdir -p /usr/local/etc/openvswitch
 sudo mkdir -p /usr/local/var/run/openvswitch
 sudo rm /usr/local/etc/openvswitch/conf.db
-sudo ovsdb-tool create /usr/local/etc/openvswitch/conf.db  /usr/local/share/openvswitch/vswitch.ovsschema
+sudo ovsdb-tool create /usr/local/etc/openvswitch/conf.db /usr/local/share/openvswitch/vswitch.ovsschema
 
 # Start OVS except for ovs-vswitchd, which require config to enable DPDK
 cd /usr/local/share/openvswitch/scripts || exit

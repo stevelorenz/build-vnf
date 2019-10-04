@@ -19,7 +19,7 @@ import cv2
 
 if __name__ == "__main__":
 
-    server_address = '/uds_socket'
+    server_address = "/uds_socket"
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.connect(server_address)
@@ -27,7 +27,7 @@ if __name__ == "__main__":
         print(msg)
         sys.exit(1)
 
-    imgs_path = './lola_yolo_testset/'
+    imgs_path = "./lola_yolo_testset/"
     img_names = sorted(os.listdir(imgs_path))
     img_paths = [os.path.join(imgs_path, img_name) for img_name in img_names]
 
@@ -35,9 +35,9 @@ if __name__ == "__main__":
         img = cv2.imread(img_name)
         img = cv2.resize(img, (608, 608))
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
-        result, encimg = cv2.imencode('.jpg', img, encode_param)
+        result, encimg = cv2.imencode(".jpg", img, encode_param)
         encimg = encimg.tobytes()
-        sock.sendall(struct.pack('>L', len(encimg)) + encimg)
+        sock.sendall(struct.pack(">L", len(encimg)) + encimg)
         print("[TX] Image index:{}, TX size:{} bytes".format(i, len(encimg)))
 
         time.sleep(2)

@@ -8,10 +8,8 @@ About: Try to compress the feature maps (output of middle layers of the YOLOv2's
 Email: xianglinks@gmail.com
 """
 
-import os
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
 
 
 def get_feature_map(feature_map, is_display=0, is_save=0):
@@ -21,7 +19,7 @@ def get_feature_map(feature_map, is_display=0, is_save=0):
     """
     m, n, c = feature_map.shape
     a = int(np.sqrt(c))
-    while c % a is not 0:
+    while c % a != 0:
         a = a - 1
     b = int(c / a)
     imgs = []
@@ -32,7 +30,8 @@ def get_feature_map(feature_map, is_display=0, is_save=0):
             tmp = np.zeros(shape=(feature_map.shape[0], feature_map.shape[1]))
 
             f_tmp = cv2.normalize(
-                feature_map[:, :, i * j], tmp, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
+                feature_map[:, :, i * j], tmp, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1
+            )
 
             cur.append(f_tmp)
         f_tmp = np.hstack(cur)
@@ -56,9 +55,7 @@ def main():
     fm_arr = np.zeros(fm_shape, dtype=np.float32)
     step = fm_shape[0] * fm_shape[1]
     for i in range(128):
-        fm_arr[:, :, i] = raw_data[
-            i * step:(i+1) * step
-        ].reshape(fm_shape[:2])
+        fm_arr[:, :, i] = raw_data[i * step : (i + 1) * step].reshape(fm_shape[:2])
     # TODO: Use DCT or wavelet to make the feature maps sparse then use random
     # matrix for sampling (compressed sensing)
     get_feature_map(fm_arr, 1)
@@ -68,5 +65,5 @@ def main():
     raw_data.tofile("./29_output_compd.bin")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

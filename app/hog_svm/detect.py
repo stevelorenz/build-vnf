@@ -38,17 +38,15 @@ if __name__ == "__main__":
     (rects, weights) = hog.detectMultiScale(
         image, winStride=(4, 4), padding=(8, 8), scale=1.05
     )
-    print("# Time for HOG detection: {}ms".format(
-        (time.time() - start) * 1000.0))
+    print("# Time for HOG detection: {}ms".format((time.time() - start) * 1000.0))
 
     # Draw the original bounding boxes
     for (x, y, w, h) in rects:
-        cv2.rectangle(orig, (x, y), (x+w, y+h), (0, 0, 255), 2)
+        cv2.rectangle(orig, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
     # Apply non-maxima suppression to the bounding boxes
     rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
-    pick = non_max_suppression(
-        rects, probs=None, overlapThresh=0.65)
+    pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)
 
     # draw the final bounding boxes
     for (xA, yA, xB, yB) in pick:

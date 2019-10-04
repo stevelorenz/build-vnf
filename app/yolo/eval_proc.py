@@ -3,9 +3,6 @@
 # vim:fenc=utf-8
 #
 
-import argparse
-import csv
-import os
 import sys
 import time
 import multiprocessing
@@ -29,11 +26,15 @@ Email: xianglinks@gmail.com
 
 VOLUMES = {
     "/vagrant/dataset": {"bind": "/dataset", "mode": "rw"},
-    "/vagrant/app": {"bind": "/app", "mode": "rw"}
+    "/vagrant/app": {"bind": "/app", "mode": "rw"},
 }
 # Required for runnning DPDK inside container
-for v in ["/sys/bus/pci/drivers", "/sys/kernel/mm/hugepages",
-          "/sys/devices/system/node", "/dev"]:
+for v in [
+    "/sys/bus/pci/drivers",
+    "/sys/kernel/mm/hugepages",
+    "/sys/devices/system/node",
+    "/dev",
+]:
     VOLUMES[v] = {"bind": v, "mode": "rw"}
 
 IMAGE_ST = 25
@@ -49,10 +50,12 @@ def calculate_cpu_percent(d):
     """
     cpu_count = len(d["cpu_stats"]["cpu_usage"]["percpu_usage"])
     cpu_percent = 0.0
-    cpu_delta = float(d["cpu_stats"]["cpu_usage"]["total_usage"]) - \
-        float(d["precpu_stats"]["cpu_usage"]["total_usage"])
-    system_delta = float(d["cpu_stats"]["system_cpu_usage"]) - \
-        float(d["precpu_stats"]["system_cpu_usage"])
+    cpu_delta = float(d["cpu_stats"]["cpu_usage"]["total_usage"]) - float(
+        d["precpu_stats"]["cpu_usage"]["total_usage"]
+    )
+    system_delta = float(d["cpu_stats"]["system_cpu_usage"]) - float(
+        d["precpu_stats"]["system_cpu_usage"]
+    )
     if system_delta > 0.0:
         cpu_percent = cpu_delta / system_delta * 100.0 * cpu_count
 
@@ -62,8 +65,7 @@ def calculate_cpu_percent(d):
     return cpu_percent
 
 
-def run_test_container(cmd, cpuset_cpus, detach=True,
-                       working_dir="/app/yolo"):
+def run_test_container(cmd, cpuset_cpus, detach=True, working_dir="/app/yolo"):
     client = docker.from_env()
     c_run = client.containers.run(
         "darknet",
@@ -74,7 +76,7 @@ def run_test_container(cmd, cpuset_cpus, detach=True,
         detach=detach,
         auto_remove=True,
         working_dir=working_dir,
-        command=cmd
+        command=cmd,
     )
     return c_run
 
@@ -86,12 +88,15 @@ def compile_yolov2_pp():
 def debug_yolov2_pp():
     run_test_container(
         "./yolo_v2_pp.out -- -m 1 -s 29 -n 1 -c./cfg/yolov2_f8.cfg -o",
-        CPUSET_CPUS_ALL, False)
+        CPUSET_CPUS_ALL,
+        False,
+    )
 
 
 def prof_yolov2_pp():
-    c = run_test_container("./yolo_v2_pp.out -- -m 1 -s 0 -n 10 -k",
-                           CPUSET_CPUS_ALL, True)
+    c = run_test_container(
+        "./yolo_v2_pp.out -- -m 1 -s 0 -n 10 -k", CPUSET_CPUS_ALL, True
+    )
     run = True
     try:
         while run:
@@ -105,8 +110,7 @@ def prof_yolov2_pp():
 
 def run_pf_0():
     run_test_container(
-        "./yolo_v2_pp.out -- -m 0 -s %d -n %d" % (
-            IMAGE_ST, IMAGE_NUM), "0", False
+        "./yolo_v2_pp.out -- -m 0 -s %d -n %d" % (IMAGE_ST, IMAGE_NUM), "0", False
     )
 
 
@@ -119,11 +123,16 @@ def run_pf_1(max_ct_num, cpu_set, sched_algo, round_num):
 
     for i in range(max_ct_num):
         for r in range(round_num):
-            print("Run %d container" % (i+1))
-            print("Current test round: %d" % (r+1))
-            for j in range(i+1):
+            print("Run %d container" % (i + 1))
+            print("Current test round: %d" % (r + 1))
+            for j in range(i + 1):
                 cmd = "./yolo_v2_pp.out -- -m 1 -s %d -n %d -p %s_%s_%s " % (
-                    IMAGE_ST, IMAGE_NUM, (i+1), (j+1), (r+1))
+                    IMAGE_ST,
+                    IMAGE_NUM,
+                    (i + 1),
+                    (j + 1),
+                    (r + 1),
+                )
                 cmd = cmd + "-c ./cfg/yolov2_f8.cfg"
 
                 if sched_algo == "round_robin":
@@ -155,19 +164,22 @@ def run_pf_2():
 def eval_yolov2_pp(profile=0):
     """Evaluate the YOLOv2 preprocessing with different profiles
     """
-    cmd_suffix = ""
     print("[EVAL] Current profile %d" % profile)
 
     if profile == 0:
-        print("""[EVAL] Monitor the processing delay of each layer in the YOLOv2
-              and YOLOv2 tiny model. Run only one container""")
+        print(
+            """[EVAL] Monitor the processing delay of each layer in the YOLOv2
+              and YOLOv2 tiny model. Run only one container"""
+        )
         run_pf_0()
         return
 
     elif profile == 1:
-        print("""[EVAL] Monitor the processing delay of YOLOv2 pre-processing.
+        print(
+            """[EVAL] Monitor the processing delay of YOLOv2 pre-processing.
               The scalability is simulated for different number of CPUs and
-              different scheduling algorithms""")
+              different scheduling algorithms"""
+        )
         # TODO: Extend the simulation to more scheduling
         run_pf_1(2, [0, 1], "round_robin", 1)
         run_pf_1(2, [0, 1], "let_kernel_do_it", 1)
@@ -272,7 +284,6 @@ if __name__ == "__main__":
                 print("Invalid evaluation profile!")
                 print_help()
                 sys.exit(1)
-            print("* Running evaluation measurements with profile %d..." %
-                  profile)
+            print("* Running evaluation measurements with profile %d..." % profile)
             compile_yolov2_pp()
             eval_yolov2_pp(profile)

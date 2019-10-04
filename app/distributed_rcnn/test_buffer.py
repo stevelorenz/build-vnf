@@ -8,7 +8,6 @@ About: Test python buffer operations to avoid unnecessary data copies
        numpy. The numpy array is used by OpenCV.
 """
 
-import multiprocessing
 from collections import deque
 
 import cv2 as cv
@@ -21,8 +20,6 @@ def test_buffer():
 
     print("# Test memoryview on bytesarray")
     # MARK: Slicing bytes object creates a additional copy
-    a = b"a" * 1024 ** 2 * 10
-    b = a[1024:]
     size = 1000
     buffer = bytearray(size)  # bytes array are pre-allocated
     mv_buffer = memoryview(buffer)
@@ -37,7 +34,6 @@ def test_buffer():
 
     print("# Test OpenCV methods on numpy.ndarray")
     shape = (432, 320, 3)
-    metadata = bytearray(1024)
     buffer = bytearray(65000)
     mv_buffer = memoryview(buffer)
     with open("../../dataset/pedestrian_walking/01-20170320211730-24.jpg", "rb") as f:

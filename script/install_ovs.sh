@@ -6,7 +6,6 @@
 OVS_DEV_VERSION="v2.11.0"
 OVS_DPDK_VERSION="v2.11.0"
 DPDK_VERSION="18.11"
-NUM_CPUS=$(cat /proc/cpuinfo  | grep "processor\\s: " | wc -l)
 
 function bootstrap() {
     # Remove installed OVS
@@ -27,12 +26,12 @@ function install_ovs_dpdk() {
     wget http://fast.dpdk.org/rel/"dpdk-$DPDK_VERSION.tar.xz"
     tar xf "dpdk-$DPDK_VERSION.tar.xz"
     export DPDK_DIR=$HOME/"dpdk-$DPDK_VERSION"
-    echo "export DPDK_DIR=${DPDK_DIR}" >> ${HOME}/.profile
+    echo "export DPDK_DIR=${DPDK_DIR}" >>${HOME}/.profile
     cd $DPDK_DIR || exit
 
     export DPDK_TARGET=x86_64-native-linuxapp-gcc
     export DPDK_BUILD=$DPDK_DIR/$DPDK_TARGET
-    echo "export DPDK_BUILD=${DPDK_BUILD}" >> ${HOME}/.profile
+    echo "export DPDK_BUILD=${DPDK_BUILD}" >>${HOME}/.profile
     make install T=$DPDK_TARGET DESTDIR=install
 
     # Install OVS

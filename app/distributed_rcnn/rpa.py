@@ -34,11 +34,7 @@ Email : xianglinks@gmail.com
 """
 
 import logging
-import multiprocessing
 import os
-import random
-import socket
-import struct
 import sys
 import time
 from pathlib import Path
@@ -67,9 +63,7 @@ class RPA_EB(object):
     usage, namely avoid too much object creation and copying in Python.
     """
 
-    def __init__(self, model_path, shape, buf_size,
-                 max_boxes_num=1,
-                 keep_order=False):
+    def __init__(self, model_path, shape, buf_size, max_boxes_num=1, keep_order=False):
         """__init__
 
         :param model_path (str):
@@ -108,8 +102,7 @@ class RPA_EB(object):
         self._decoded_buf = np.zeros((1, 1, 1))
 
         # Detectors
-        self._edge_detector = cv.ximgproc.createStructuredEdgeDetection(
-            model_path)
+        self._edge_detector = cv.ximgproc.createStructuredEdgeDetection(model_path)
         self._edge_boxes = cv.ximgproc.createEdgeBoxes()
         self._edge_boxes.setMaxBoxes(self._max_boxes_num)
 
@@ -118,8 +111,7 @@ class RPA_EB(object):
     def _check_prop(self):
         """Check properties to avoid conflicts"""
         if self._output_to_file and self._multi_process:
-            raise RuntimeError(
-                "Multiprocessing mode do not support writing to file!")
+            raise RuntimeError("Multiprocessing mode do not support writing to file!")
         if self._multi_process and self._verbose:
             raise RuntimeError("Multiprocessing mode do not support verbose!")
 
@@ -134,27 +126,30 @@ class RPA_EB(object):
             # TODO: To be optimized, working code...
             metadata_arr[0] = boxes[:, 0].min()
             metadata_arr[1] = boxes[:, 1].min()
-            metadata_arr[2] = (boxes[:, 0] + boxes[:, 2]
-                               ).max() - metadata_arr[0]
-            metadata_arr[3] = (boxes[:, 1] + boxes[:, 3]
-                               ).max() - metadata_arr[1]
+            metadata_arr[2] = (boxes[:, 0] + boxes[:, 2]).max() - metadata_arr[0]
+            metadata_arr[3] = (boxes[:, 1] + boxes[:, 3]).max() - metadata_arr[1]
         elif method == "nms":
             pass
         else:
             raise RuntimeError("Unknown BBox merge method!")
 
         if self._output_to_file:
-            cv.rectangle(frame, (metadata_arr[0], metadata_arr[1]),
-                         (metadata_arr[0] + metadata_arr[2],
-                             metadata_arr[1] + metadata_arr[3]),
-                         (0, 0, 255), 2, cv.LINE_AA)
+            cv.rectangle(
+                frame,
+                (metadata_arr[0], metadata_arr[1]),
+                (metadata_arr[0] + metadata_arr[2], metadata_arr[1] + metadata_arr[3]),
+                (0, 0, 255),
+                2,
+                cv.LINE_AA,
+            )
 
         if self._verbose:
             print(metadata_arr)
             # TODO: Calculate the compression ratio = Uncompressed / Compressed
 
-        compress_ratio = (
-            self._shape[0] * self._shape[1]) / (metadata_arr[2] * metadata_arr[3])
+        compress_ratio = (self._shape[0] * self._shape[1]) / (
+            metadata_arr[2] * metadata_arr[3]
+        )
 
         return compress_ratio
 
@@ -168,8 +163,7 @@ class RPA_EB(object):
         elif self._shape[-1] == 3:
             frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
         # Get bounding boxes
-        edges = self._edge_detector.detectEdges(
-            np.float32(frame) * (1.0 / 255.0))
+        edges = self._edge_detector.detectEdges(np.float32(frame) * (1.0 / 255.0))
         orimap = self._edge_detector.computeOrientation(edges)
         edges = self._edge_detector.edgesNms(edges, orimap)
         boxes = self._edge_boxes.getBoundingBoxes(edges, orimap)
@@ -184,8 +178,7 @@ class RPA_EB(object):
         if self._output_to_file:
             for box in boxes:
                 x, y, w, h = box
-                cv.rectangle(frame, (x, y), (x+w, y+h),
-                             (0, 255, 0), 1, cv.LINE_AA)
+                cv.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 1, cv.LINE_AA)
             cv.imwrite("./{}_b.jpg".format(self._img_ctr), frame)
             self._img_ctr += 1
 
@@ -262,19 +255,23 @@ class RPA_EB(object):
         cr_std = np.std([x[1] for x in self._proc_stats])
         print("### Processing statistics ###")
         print("--- Number of bounding boxes: {}".format(self._max_boxes_num))
-        print(
-            "* Frame processing duration: avg: {}, std: {}".format(
-                dur_avg, dur_std))
-        print("* Compression ration: avg: {}, std:{}".format(
-            cr_avg, cr_std
-        ))
+        print("* Frame processing duration: avg: {}, std: {}".format(dur_avg, dur_std))
+        print("* Compression ration: avg: {}, std:{}".format(cr_avg, cr_std))
 
     def _run_usock(self):
         """Mark"""
         pass
 
-    def run(self, frame_batch=3, multi_process=True, log_total_proc_lat=False,
-            test=False, frame_num=0, output_to_file=False, verbose=False):
+    def run(
+        self,
+        frame_batch=3,
+        multi_process=True,
+        log_total_proc_lat=False,
+        test=False,
+        frame_num=0,
+        output_to_file=False,
+        verbose=False,
+    ):
         self._frame_batch = frame_batch
         self._multi_process = multi_process
         self._log_total_proc_lat = log_total_proc_lat
@@ -305,33 +302,40 @@ MAX_BOXES_NUM = 5
 
 def set_logger_debug():
 
-    fmt_str = '%(asctime)s %(levelname)-6s %(processName)s %(message)s'
-    logging.basicConfig(level=logging.DEBUG,
-                        handlers=[logging.StreamHandler()],
-                        format=fmt_str)
+    fmt_str = "%(asctime)s %(levelname)-6s %(processName)s %(message)s"
+    logging.basicConfig(
+        level=logging.DEBUG, handlers=[logging.StreamHandler()], format=fmt_str
+    )
 
 
 def just_debug():
     """Just make it work"""
     rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE, max_boxes_num=MAX_BOXES_NUM)
-    rpa_eb.run(test=True, multi_process=False, frame_num=10,
-               output_to_file=True, verbose=True)
+    rpa_eb.run(
+        test=True, multi_process=False, frame_num=10, output_to_file=True, verbose=True
+    )
 
 
 def run_local_test():
     for boxes_num in (5, 50):
-        rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE,
-                        max_boxes_num=boxes_num)
-        rpa_eb.run(test=True, multi_process=False, frame_num=100,
-                   output_to_file=False, verbose=False)
+        rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE, max_boxes_num=boxes_num)
+        rpa_eb.run(
+            test=True,
+            multi_process=False,
+            frame_num=100,
+            output_to_file=False,
+            verbose=False,
+        )
 
 
 # Try to make it work better...
+
 
 def profile_memory():
     """Profile the memory usage of the Python program with memory_profiler"""
     from memory_profiler import profile
     from memory_profiler import memory_usage
+
     set_logger_debug()
 
     rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
@@ -350,6 +354,7 @@ def profile_memory():
 
 def profile_latency():
     import cProfile
+
     cp = cProfile.Profile()
 
     print("* Run with single process")
@@ -359,18 +364,14 @@ def profile_latency():
     rpa_eb.run(test=True, multi_process=False, frame_num=FRAME_NUM)
     cp.disable()
     dur = time.time() - st
-    print("** Latency per frame of single process:{}".format(
-        dur / FRAME_NUM
-    ))
+    print("** Latency per frame of single process:{}".format(dur / FRAME_NUM))
 
     print("* Run with multiple process")
     rpa_eb = RPA_EB(MODEL_PATH, SHAPE, BUF_SIZE)
     st = time.time()
     rpa_eb.run(test=True, multi_process=True, frame_num=FRAME_NUM)
     dur = time.time() - st
-    print("** Latency of multiple processes:{}".format(
-        dur / FRAME_NUM
-    ))
+    print("** Latency of multiple processes:{}".format(dur / FRAME_NUM))
 
     cp.print_stats(sort="time")
 
@@ -379,15 +380,15 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Error, specify the option!")
     else:
-        if sys.argv[1] == '-m':
+        if sys.argv[1] == "-m":
             print("Run in memory profiling mode")
             profile_memory()
-        elif sys.argv[1] == '-l':
+        elif sys.argv[1] == "-l":
             print("Run in latency profiling mode")
             profile_latency()
-        elif sys.argv[1] == '-d':
+        elif sys.argv[1] == "-d":
             print("Run in debugging mode")
             just_debug()
-        elif sys.argv[1] == '-t':
+        elif sys.argv[1] == "-t":
             print("Run local tests...")
             run_local_test()

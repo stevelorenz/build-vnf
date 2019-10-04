@@ -3,7 +3,6 @@
 # About: Build Linux kernel from source
 #
 
-
 KERNEL_RELEASE="v4.18-rc4"
 
 if [[ ! -d $HOME/linux ]]; then
@@ -21,4 +20,4 @@ sudo apt install -y libncurses5-dev gcc make git exuberant-ctags bc libssl-dev
 cd "$HOME/linux/" || exit
 
 # Duplicate current config
-cp /boot/config-`uname -r`* .config
+cp /boot/config-$(uname -r)* .config

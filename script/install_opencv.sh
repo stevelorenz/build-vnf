@@ -48,7 +48,7 @@ git checkout -b "$OPENCV_VERSION"
 cd ~ || exit
 
 git clone https://github.com/opencv/opencv_contrib.git
-cd opencv_contrib
+cd opencv_contrib || exit
 git checkout -b "$OPENCV_VERSION"
 cd ~ || exit
 

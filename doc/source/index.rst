@@ -6,16 +6,13 @@
 Welcome to Build-VNF's documentation!
 =====================================
 
-This documentation includes details about all algorithms, technologies, systems, tools and also hypes (^_^) related to
-Build-VNF project.
-
 .. toctree::
-   :maxdepth: 1
-   :caption: Concepts:
+    :numbered:
+    :maxdepth: 2
+    :caption: Table of Contents
 
-   ./nfv
-   ./serverless
-
+    ./nfv_power_consumption
+    ./related_works
 
 
 Indices and tables

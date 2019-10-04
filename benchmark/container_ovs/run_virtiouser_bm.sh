@@ -27,7 +27,6 @@ function bind_interface() {
     python ./dpdk-devbind.py --status
 }
 
-
 function create_ovs_bridge() {
     echo "# Create OVS-DPDK bridge with vhost-user interface"
     sudo ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
