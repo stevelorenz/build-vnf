@@ -14,7 +14,7 @@ int dpdk_init_device(struct dpdk_device_config *cfg)
 	struct rte_eth_dev_info dev_info;
 	struct rte_eth_rxconf rxq_conf;
 	struct rte_eth_txconf txq_conf;
-	struct ether_addr port_eth_addr;
+	struct rte_ether_addr port_eth_addr;
 
 	/* TODO: Add support for multiple RX TX queues using flow director
          * <01-03-19, Zuo> */

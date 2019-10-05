@@ -26,7 +26,7 @@ DOCKER_RUN_ARGS = {
     "extra_vols": "-v %s:/ffpp" % PARENT_DIR,
 }
 
-RUN_CMD_FMT = "sudo docker run {opts} {vols} {extra_opts} {image} {cmd}"
+RUN_CMD_FMT = "docker run {opts} {vols} {extra_opts} {image} {cmd}"
 
 IFACE_NAME_DPDK_IN = "test_dpdk_in"
 IFACE_NAME_LOADGEN_IN = "test_loadgen_in"
@@ -34,7 +34,7 @@ IFACE_NAME_LOADGEN_IN = "test_loadgen_in"
 
 def build_image():
     os.chdir("../")
-    run_cmd = "sudo docker build --compress --rm -t {}:{} --file ./Dockerfile .".format(
+    run_cmd = "docker build --compress --rm -t {}:{} --file ./Dockerfile .".format(
         DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"]
     )
     run(split(run_cmd))
@@ -71,7 +71,7 @@ def run_interactive():
     run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
     run(split(run_cmd))
     setup_test_ifaces(cname)
-    run(split("sudo docker attach {}".format(cname)))
+    run(split("docker attach {}".format(cname)))
     cleanup_test_ifaces()
 
 
@@ -98,23 +98,23 @@ def run_memcheck():
 def setup_test_ifaces(cname):
     print("* Setup test ifaces")
     ret = run(
-        r"sudo docker inspect -f '{{.State.Pid}}' %s" % cname,
+        r"docker inspect -f '{{.State.Pid}}' %s" % cname,
         check=True,
         shell=True,
         stdout=PIPE,
     )
     pid_c = ret.stdout.decode().strip()
     cmds = [
-        "sudo mkdir -p /var/run/netns",
-        "sudo ln -s /proc/{}/ns/net /var/run/netns/{}".format(pid_c, pid_c),
-        "sudo ip link add {} type veth peer name {}".format(
+        "mkdir -p /var/run/netns",
+        "ln -s /proc/{}/ns/net /var/run/netns/{}".format(pid_c, pid_c),
+        "ip link add {} type veth peer name {}".format(
             IFACE_NAME_LOADGEN_IN, IFACE_NAME_DPDK_IN
         ),
-        "sudo ip link set {} up".format(IFACE_NAME_DPDK_IN),
-        "sudo ip link set {} up".format(IFACE_NAME_LOADGEN_IN),
-        "sudo ip addr add 192.168.1.17/24 dev {}".format(IFACE_NAME_LOADGEN_IN),
-        "sudo ip link set {} netns {}".format(IFACE_NAME_DPDK_IN, pid_c),
-        "sudo docker exec {} ip link set {} up".format(cname, IFACE_NAME_DPDK_IN),
+        "ip link set {} up".format(IFACE_NAME_DPDK_IN),
+        "ip link set {} up".format(IFACE_NAME_LOADGEN_IN),
+        "ip addr add 192.168.1.17/24 dev {}".format(IFACE_NAME_LOADGEN_IN),
+        "ip link set {} netns {}".format(IFACE_NAME_DPDK_IN, pid_c),
+        "docker exec {} ip link set {} up".format(cname, IFACE_NAME_DPDK_IN),
     ]
     for c in cmds:
         run(split(c), check=True)
@@ -122,7 +122,7 @@ def setup_test_ifaces(cname):
 
 def cleanup_test_ifaces():
     print("* Cleanup test ifaces")
-    cmds = ["sudo ip link delete {}".format(IFACE_NAME_LOADGEN_IN)]
+    cmds = ["ip link delete {}".format(IFACE_NAME_LOADGEN_IN)]
     for c in cmds:
         run(split(c), check=False)
 

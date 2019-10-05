@@ -25,7 +25,7 @@ RTE_TARGET ?= x86_64-native-linuxapp-gcc
 CFLAGS += -O3
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -I/ffpp/include/ffpp/
-CFLAGS += -I/usr/local/include
+CFLAGS += -I$(RTE_SDK)/include
 
 OPTS=-O3
 ifeq ($(DEBUG), 1)

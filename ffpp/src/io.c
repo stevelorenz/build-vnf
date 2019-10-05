@@ -8,7 +8,6 @@
 #include <rte_config.h>
 #include <rte_cycles.h>
 #include <rte_debug.h>
-#include <rte_eth_ctrl.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
 #include <rte_ip.h>

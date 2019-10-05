@@ -5,7 +5,7 @@
 This library is developed for **fast prototyping** and **teaching** high performance packet processing inside Linux containers.
 To be utilized low-level technologies including:
 
--   [DPDK](https://www.dpdk.org/): Fast packet processing in user space.
+-   [DPDK](https://www.dpdk.org/) (v19.08): Fast packet processing in user space.
 -   [XDP](https://www.iovisor.org/technology/xdp): Fast network data path in the Linux kernel.
 
 FFPP currently focuses on providing DPDK C wrappers (plan to add Rust bindings) that can be used to speed up packet I/O
@@ -36,9 +36,9 @@ Make sure you have Docker CE installed. The container image and shared library (
 ```bash
 $ cd ./util/
 # Build the development Docker image with all dependencies installed.
-$ ./run_dev_container.py build_image
+$ sudo python3 ./run_dev_container.py build_image
 # Build the shared lib INSIDE the development container.
-$ ./run_dev_container.py build_lib
+$ sudo python3 ./run_dev_container.py build_lib
 ```
 By default, when image is built, all files in the source directory are copied into Docker container under /ffpp directory.
 So the built image with name ffpp:latest contains the version of source files when image is built.

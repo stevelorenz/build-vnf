@@ -2,41 +2,44 @@
 # Dockerfile ONLY used for the development and tests of FFPP library.
 #
 # - Installed dependencies:
-#   - DPDK: v18.11 LTS
+#   - DPDK: v19.08
 #
 
 FROM ubuntu:18.04
 
-ENV FFPP_DIR /ffpp
-ARG DPDK_VERSION=v18.11
+ARG DPDK_VERSION=v19.08
 
-# Build DPDK
-
-ENV RTE_SDK=/root/dpdk
+#
+# Build DPDK from source
+#
+ENV RTE_SDK=/opt/dpdk
 ENV RTE_TARGET=x86_64-native-linuxapp-gcc
-# Disable RDRAND, conflict with valgrind memory checker
-ENV EXTRA_CFLAGS="-mno-rdrnd"
 
-RUN apt-get update && apt-get install -y net-tools \
-    build-essential automake python-pip libcap-ng-dev gawk pciutils kmod \
-    linux-headers-$(uname -a | awk '{print $3}') \
-    git hugepages clang doxygen \
+# Disable RDRAND, conflict with valgrind memory checker
+ENV EXTRA_CFLAGS="-g3 -Wno-error=maybe-uninitialized -fPIC -mno-rdrnd"
+
+# Build essentials for DPDK
+RUN apt-get update && apt-get install -y git build-essential \
+    pciutils kmod linux-headers-$(uname -a | awk '{print $3}') hugepages \
     libnuma-dev libpcap-dev
 
-WORKDIR /root
+# Test utilities
+RUN apt-get install -y gdb valgrind iputils-ping iproute2 python3
 
+RUN mkdir -p ${RTE_SDK}
+WORKDIR ${RTE_SDK}
 RUN git clone https://dpdk.org/git/dpdk "${RTE_SDK}" && \
-    cd dpdk && \
-    git checkout -b lts "${DPDK_VERSION}" && \
-    make config T=${RTE_TARGET} && \
-    make -j $(nproc) && make install && \
+    git checkout -b dev "${DPDK_VERSION}" && \
+    make config T=${RTE_TARGET}
+
+# Modify config file here
+
+RUN make -j $(nproc) && \
     ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
-
-
-# Install utils/debug/perf tools for DPDK applications
-RUN apt-get install -y gdb linux-tools-$(uname -r) lldb valgrind iputils-ping iproute2 tcpdump
-
+#
 # Build FFPP library
+#
+ENV FFPP_DIR /ffpp
 RUN mkdir -p ${FFPP_DIR}
 COPY . ${FFPP_DIR}
 WORKDIR ${FFPP_DIR}
