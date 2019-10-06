@@ -10,9 +10,9 @@ model/
 *.mbuf
 *.csv
 
-fastio_user/**/*.csv
-fastio_user/docs/html
-fastio_user/docs/latex
+ffpp/**/*.csv
+ffpp/docs/html
+ffpp/docs/latex
 
 evaluation/*.png
 evaluation/*.pdf
