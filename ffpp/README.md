@@ -2,11 +2,13 @@
 
 ## Introduction ##
 
-This library is developed for **fast prototyping** and **teaching** high performance packet processing inside Linux containers.
+This library is developed for **fast prototyping** and **teaching** fast fast packet processing inside Linux containers.
 To be utilized low-level technologies including:
 
 -   [DPDK](https://www.dpdk.org/) (v19.08): Fast packet processing in user space.
 -   [XDP](https://www.iovisor.org/technology/xdp): Fast network data path in the Linux kernel.
+
+Therefore, the "Fast Fast" (Double F) here means fast in Linux kernel space as well as user space.
 
 FFPP currently focuses on providing DPDK C wrappers (plan to add Rust bindings) that can be used to speed up packet I/O
 and processing with more programmer-friendly APIs and utility functions.
@@ -30,7 +32,17 @@ So it is not stable and experimental.
 In order to simplify and the build process on different platforms.
 The Docker container is suggested and used in this project to build the shared library.
 There is a [Dockerfile](./Dockerfile) and a [Python3 script](./util/run_dev_container.py) to automate the build process.
-Make sure you have Docker CE installed. The container image and shared library (.so file) can be built with following steps:
+
+In order to test the latest version, libraries are compiled directly from source code.
+To reduce the dev image size, unnecessary PMDs and some built-in DPDK applications are not compiled.
+The compile-time configuration uses this [config file](./config).
+It is copied to ${RTE_SDK}/build/.config into the Docker image.
+The built `ffpp:latest` image has size of about **1.8GB** size (the default build takes about 5GB size).
+This image includes some test utilities like gdb, valgrind, tcpdump.
+The Dockerfile and config can be further customized to reduce the image size.
+
+Make sure you have Docker CE (17.05 or higher) installed.
+The container image and shared library (.so file) can be built with following steps:
 (Because DPDK is compiled from the source code, the step of build the container image takes time.)
 
 ```bash

@@ -1,5 +1,7 @@
 #
 # Dockerfile ONLY used for the development and tests of FFPP library.
+# This image includes test and debug utilities and has a relative big size. (1.8GB)
+# It is not suitable for deployment usage.
 #
 # - Installed dependencies:
 #   - DPDK: v19.08
@@ -7,39 +9,43 @@
 
 FROM ubuntu:18.04
 
-ARG DPDK_VERSION=v19.08
-
 #
 # Build DPDK from source
 #
-ENV RTE_SDK=/opt/dpdk
+ENV DPDK_VER=19.08
+ENV RTE_SDK=/opt/dpdk-${DPDK_VER}
 ENV RTE_TARGET=x86_64-native-linuxapp-gcc
-
 # Disable RDRAND, conflict with valgrind memory checker
 ENV EXTRA_CFLAGS="-g3 -Wno-error=maybe-uninitialized -fPIC -mno-rdrnd"
 
-# Build essentials for DPDK
-RUN apt-get update && apt-get install -y git build-essential \
+# Install build essentials for DPDK
+RUN apt-get update && apt-get install -y wget build-essential \
     pciutils kmod linux-headers-$(uname -a | awk '{print $3}') hugepages \
-    libnuma-dev libpcap-dev
+    libnuma-dev libpcap-dev xz-utils
 
-# Test utilities
-RUN apt-get install -y gdb valgrind iputils-ping iproute2 python3
 
 RUN mkdir -p ${RTE_SDK}
-WORKDIR ${RTE_SDK}
-RUN git clone https://dpdk.org/git/dpdk "${RTE_SDK}" && \
-    git checkout -b dev "${DPDK_VERSION}" && \
-    make config T=${RTE_TARGET}
+WORKDIR /opt/
+RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz && \
+    tar -xpvf dpdk-${DPDK_VER}.tar.xz
 
-# Modify config file here
+WORKDIR ${RTE_SDK}
+
+RUN make config T=${RTE_TARGET}
+# Use customized compile-time DPDK configuration
+# The goal here is to reduce the image size
+COPY config ${RTE_SDK}/build/.config
 
 RUN make -j $(nproc) && \
     ln -sf "${RTE_SDK}/build" "${RTE_SDK}/${RTE_TARGET}"
+
 #
 # Build FFPP library
 #
 ENV FFPP_DIR /ffpp
+# Install test utilities
+RUN apt-get install -y gdb valgrind iputils-ping iproute2 python3 tcpdump
+
 RUN mkdir -p ${FFPP_DIR}
 COPY . ${FFPP_DIR}
 WORKDIR ${FFPP_DIR}

@@ -47,7 +47,7 @@ technologies including DPDK, eBPF/XDP; Containerization, Serverless computation 
 1.  [benchmark](./benchmark/): Performance benchmarks' setups and utility scripts.
 1.  [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
 1.  [evaluation](./evaluation/): Scripts to analyze and plot evaluation results.
-1.  [fpp](./fastio_user/): A simple research-oriented library to build Fast Packet Processing (FPP) VNFs.
+1.  [ffpp](./ffpp): A simple research-oriented library to build Fast Fast Packet Processing (FFPP) VNFs.
 1.  [nff](./nff/): Tests and examples built on top of popular Network Function (NF) frameworks.
 1.  [perf](./perf/): A collection of tools to monitor and profiling the underlying physical or virtual systems running VNFs.
 1.  [pktgen](./pktgen/): Scripts to configure and run software packet generators for latency measurement.

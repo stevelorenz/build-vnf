@@ -4,6 +4,8 @@ Some tricks and low level optimizations are learned from several high-performanc
 These frameworks are awesome, but are relative too heavy, hide many tunable parameters or have some limitations to simply integrated with data processing frameworks (e.g. Using OpenCV's python bindings to
 process images easily).
 
+-   [Libmoon](https://github.com/libmoon/libmoon): libmoon is a library for fast and flexible packet processing with DPDK and LuaJIT.
+
 -   [VPP](https://wiki.fd.io/view/VPP/What_is_VPP%3F): The VPP platform is an extensible framework that provides out-of-the-box production quality switch/router functionality.
 
     1. Vectorized processing to avoid L1 cache misses and use a efficient prefetch mechanism.
