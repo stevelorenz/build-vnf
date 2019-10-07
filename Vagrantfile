@@ -16,10 +16,10 @@ BOX_VER = "201906.18.0"
 #  Provision Scripts  #
 #######################
 
-# MARK: By default, the provision script runs with privileged user (use sudo
-# for all commands) If the provision script requires to switch back to vagrant
-# user, the practical solution is to set privileged to false and use sudo for
-# root privileges.
+# MARK: By default, the provision script runs with privileged user (use sudo for all commands).
+# If the provision script requires to switch back to vagrant user, one
+# practical solution is to set privileged to false and use sudo for root
+# privileges.
 
 # Common bootstrap
 $bootstrap_apt= <<-SCRIPT
@@ -92,10 +92,9 @@ Vagrant.configure("2") do |config|
     vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: false
     vnf.vm.provision :shell, privileged: false, inline: <<-SHELL
         cd /vagrant/script || exit
-        bash ./install_docker.sh
-        cd /vagrant/ffpp/util || exit
-        sudo python3 ./run_dev_container.py build_image
+        sudo bash ./install_docker.sh
     SHELL
+
     # Always run this when use `vagrant up`
     # - Drop the system caches to allocate hugepages
     vnf.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
