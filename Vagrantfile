@@ -16,13 +16,8 @@ BOX_VER = "201906.18.0"
 #  Provision Scripts  #
 #######################
 
-# MARK: By default, the provision script runs with privileged user (use sudo for all commands).
-# If the provision script requires to switch back to vagrant user, one
-# practical solution is to set privileged to false and use sudo for root
-# privileges.
-
 # Common bootstrap
-$bootstrap_apt= <<-SCRIPT
+$bootstrap= <<-SCRIPT
 # Install dependencies
 DEBIAN_FRONTEND=noninteractive sudo apt-get update
 DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y
@@ -54,7 +49,7 @@ SCRIPT
 Vagrant.configure("2") do |config|
 
   # --- VM to test Software Traffic Generators ---
-  # MARK: To be tested: MoonGen, Trex, wrap17
+  # MARK: To be tested: MoonGen and Trex
   config.vm.define "trafficgen" do |trafficgen|
     trafficgen.vm.box = BOX
     trafficgen.vm.box_version = BOX_VER
@@ -64,7 +59,7 @@ Vagrant.configure("2") do |config|
       nic_type: "82540EM"
     trafficgen.vm.network "private_network", ip: "192.168.10.12", mac:"080027601712",
       nic_type: "82540EM"
-    trafficgen.vm.provision :shell, inline: $bootstrap_apt, privileged: false
+    trafficgen.vm.provision :shell, inline: $bootstrap, privileged: false
 
     trafficgen.vm.provider "virtualbox" do |vb|
       vb.name = "trafficgen"
@@ -88,12 +83,12 @@ Vagrant.configure("2") do |config|
     vnf.vm.network "private_network", ip: "192.168.10.14", nic_type: "82540EM"
     # Web access to the controller
     vnf.vm.network :forwarded_port, guest: 8181, host: 18181
-    vnf.vm.provision :shell, inline: $bootstrap_apt, privileged: false
+    vnf.vm.provision :shell, inline: $bootstrap, privileged: false
     vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: false
-    vnf.vm.provision :shell, privileged: false, inline: <<-SHELL
-        cd /vagrant/script || exit
-        sudo bash ./install_docker.sh
-    SHELL
+    vnf.vm.provision :shell, path: "./script/install_docker.sh", privileged: false
+    vnf.vm.provision :shell, path: "./script/install_comnetsemu.sh", privileged: false
+    # Command line tool to install Linux kernel
+    vnf.vm.provision :shell, path: "./script/install_ukuu.sh", privileged: false
 
     # Always run this when use `vagrant up`
     # - Drop the system caches to allocate hugepages
@@ -112,31 +107,6 @@ Vagrant.configure("2") do |config|
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      # vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
-    end
-  end
-
-  # --- VM for VNF-Next development. Try latest kernels/framworks/technologies ---
-  config.vm.define "vnfnext" do |vnfnext|
-    vnfnext.vm.box = BOX
-    vnfnext.vm.box_version = BOX_VER
-    vnfnext.vm.hostname = "vnfnext"
-
-    vnfnext.vm.network "private_network", ip: "192.168.10.15", nic_type: "82540EM"
-    vnfnext.vm.network "private_network", ip: "192.168.10.16", nic_type: "82540EM"
-    vnfnext.vm.provision :shell, inline: $bootstrap_apt, privileged: false
-    vnfnext.vm.provision :shell, inline: $setup_x11_server_apt, privileged: false
-    # Enable X11 forwarding
-    vnfnext.ssh.forward_agent = true
-    vnfnext.ssh.forward_x11 = true
-
-    vnfnext.vm.provider "virtualbox" do |vb|
-      vb.name = "vnfnext"
-      vb.memory = RAM
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
     end
   end
 
@@ -151,7 +121,7 @@ Vagrant.configure("2") do |config|
       nic_type: "82540EM"
     opennetvm.vm.network "private_network", ip: "192.168.10.18", mac:"080027601718",
       nic_type: "82540EM"
-    opennetvm.vm.provision :shell, inline: $bootstrap_apt, privileged: false
+    opennetvm.vm.provision :shell, inline: $bootstrap, privileged: false
     opennetvm.vm.provision :shell, path: "./script/install_opennetvm.sh", privileged: false
     opennetvm.vm.provision :shell, path: "./script/install_docker.sh", privileged: false
 

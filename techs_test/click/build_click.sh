@@ -4,8 +4,7 @@
 
 COMPILE_ELEMENT_PATH="$HOME/click/elements/local/"
 
-if [[ -d "./elements" ]]
-then
+if [[ -d "./elements" ]]; then
     echo "Copy custom elements to $COMPILE_ELEMENT_PATH."
     cp ./elements/* "$COMPILE_ELEMENT_PATH"
 fi

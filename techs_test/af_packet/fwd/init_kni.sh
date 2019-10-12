@@ -13,13 +13,13 @@ SRC_MAC="08:00:27:1e:2d:b3"
 DST_IP="10.0.0.14"
 DST_MAC="08:00:27:e1:f1:7d"
 
-while  true ; do
+while true; do
     if sudo ip link set "$IN_IFCE" up; then
         break
     fi
 done
 
-while  true ; do
+while true; do
     if sudo ip link set "$OUT_IFCE" up; then
         break
     fi

@@ -2,7 +2,7 @@
 
 ## Compile the kernel module ##
 
-Fail to compile Click Linux module on Vagarant VM with Ubuntu 16.04 (Kernel version 4.4.0-87-generic)
+Fail to compile Click Linux module on Vagrant VM with Ubuntu 16.04 (Kernel version 4.4.0-87-generic)
 
 ### Error Log
 

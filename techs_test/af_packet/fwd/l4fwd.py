@@ -20,34 +20,27 @@ BUFFER_SIZE = 8192  # bytes
 #  Logging  #
 #############
 
-fmt_str = '%(asctime)s %(levelname)-8s %(processName)s %(message)s'
-level = {
-    'INFO': logging.INFO,
-    'DEBUG': logging.DEBUG,
-    'ERROR': logging.ERROR
-}
+fmt_str = "%(asctime)s %(levelname)-8s %(processName)s %(message)s"
+level = {"INFO": logging.INFO, "DEBUG": logging.DEBUG, "ERROR": logging.ERROR}
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 formatter = logging.Formatter(fmt_str)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-logger.setLevel(level['INFO'])
+logger.setLevel(level["INFO"])
 
 
 #####################
 #  Forward Program  #
 #####################
 
+
 def bind_raw_sock_pair(in_iface, out_iface):
     """Create and bind raw socket pairs"""
     try:
-        recv_sock = socket.socket(
-            socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3)
-        )
-        send_sock = socket.socket(
-            socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3)
-        )
+        recv_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3))
+        send_sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3))
     except socket.error as error:
         logger.error(error)
         sys.exit(1)
@@ -83,23 +76,22 @@ def backwards_forward(ifce_a, ifce_b):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='L4 forwarding with AF_PACKET')
+    parser = argparse.ArgumentParser(description="L4 forwarding with AF_PACKET")
     parser.add_argument("ingress", type=str, help="Ingress interface")
     parser.add_argument("egress", type=str, help="Egress interface")
     parser.add_argument("--log", type=str, default="INFO", help="logging level")
-    parser.add_argument("--backwards", action="store_true",
-                        help="Enable backwards forwarding.")
+    parser.add_argument(
+        "--backwards", action="store_true", help="Enable backwards forwarding."
+    )
 
     args = parser.parse_args()
     logger.setLevel(level[args.log])
 
     fw_proc = multiprocessing.Process(
-        target=forwards_forward,
-        args=(args.ingress, args.egress)
+        target=forwards_forward, args=(args.ingress, args.egress)
     )
     bw_proc = multiprocessing.Process(
-        target=backwards_forward,
-        args=(args.egress, args.ingress)
+        target=backwards_forward, args=(args.egress, args.ingress)
     )
 
     fw_proc.start()

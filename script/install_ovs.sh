@@ -71,9 +71,9 @@ function install_ovs_dev() {
 }
 
 if [[ "$1" == "-dpdk" ]]; then
-    echo "Install OVS with DPDK support"
+    echo "Build and install OVS with DPDK support."
     install_ovs_dpdk
 elif [[ "$1" == "-dev" ]]; then
-    echo "Install OVS $OVS_DEV_VERSION for development"
+    echo "Build and install OVS $OVS_DEV_VERSION for development."
     install_ovs_dev
 fi

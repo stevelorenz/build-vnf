@@ -14,7 +14,8 @@ from subprocess import run, PIPE
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
 
 DOCKER_RUN_ARGS = {
-    # essential options
+    # Essential options
+    # I know --privileged is a bad/danger option. It is just used for tests.
     "opts": "--rm --privileged -w /ffpp",
     "dpdk_vols": "-v /sys/bus/pci/drivers:/sys/bus/pci/drivers "
     "-v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages "
