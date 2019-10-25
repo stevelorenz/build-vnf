@@ -16,7 +16,8 @@ from bcc import BPF
 
 def test_trace_block_io():
     """Test BCC block IO tracing"""
-    b = BPF(text="""
+    b = BPF(
+        text="""
     #include <uapi/linux/ptrace.h>
     #include <linux/blkdev.h>
     BPF_HISTOGRAM(dist);
@@ -25,7 +26,8 @@ def test_trace_block_io():
             dist.increment(bpf_log2l(req->__data_len / 1024));
             return 0;
     }
-    """)
+    """
+    )
 
     # header
     print("Tracing... Hit Ctrl-C to end.")
@@ -40,5 +42,5 @@ def test_trace_block_io():
     b["dist"].print_log2_hist("kbytes")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_trace_block_io()

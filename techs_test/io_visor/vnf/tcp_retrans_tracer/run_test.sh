@@ -5,11 +5,11 @@
 SERVER_IP="10.0.0.13"
 CLIENT_IP="10.0.0.15"
 
-if [[ ${1} = "-s" ]]; then
+if [[ ${1} == "-s" ]]; then
     echo "Run iperf TCP server."
     iperf3 -s -B $SERVER_IP
 
-elif [[ ${1} = "-c" ]]; then
+elif [[ ${1} == "-c" ]]; then
     echo "Run iperf TCP client."
     sudo modprobe sch_netem
     lsmod | grep sch_netem

@@ -11,9 +11,9 @@ Welcome to Build-VNF's documentation!
     :maxdepth: 2
     :caption: Table of Contents
 
-    ./nff_abstraction.rst
-    ./nfv_power_consumption
-    ./related_works
+    ./nf_design_frameworks.md
+    ./nfv_power_consumption.md
+    ./traffic_generation.md
 
 
 Indices and tables

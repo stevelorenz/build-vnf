@@ -25,10 +25,12 @@ examples = """Examples:
 parser = argparse.ArgumentParser(
     description="Trace TCP retransmits",
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    epilog=examples)
+    epilog=examples,
+)
 
-parser.add_argument("-l", "--lossprobe", action="store_true",
-                    help="Include tail loss probe attempts.")
+parser.add_argument(
+    "-l", "--lossprobe", action="store_true", help="Include tail loss probe attempts."
+)
 
 args = parser.parse_args()
 
@@ -117,6 +119,7 @@ int trace_tlp(struct pt_regs *ctx, struct sock *sk)
 
 # Event data
 
+
 class Data_ipv4(ct.Structure):
     _fields_ = [
         ("pid", ct.c_ulonglong),
@@ -126,7 +129,7 @@ class Data_ipv4(ct.Structure):
         ("lport", ct.c_ulonglong),
         ("dport", ct.c_ulonglong),
         ("state", ct.c_ulonglong),
-        ("type", ct.c_ulonglong)
+        ("type", ct.c_ulonglong),
     ]
 
 
@@ -139,52 +142,65 @@ class Data_ipv6(ct.Structure):
         ("lport", ct.c_ulonglong),
         ("dport", ct.c_ulonglong),
         ("state", ct.c_ulonglong),
-        ("type", ct.c_ulonglong)
+        ("type", ct.c_ulonglong),
     ]
 
 
 # From bpf_text:
 type = {}
-type[1] = 'R'
-type[2] = 'L'
+type[1] = "R"
+type[2] = "L"
 
 # Check net/tcp_states.h
 # Wiki: https://en.wikipedia.org/wiki/Transmission_Control_Protocol
 tcpstate = {}
-tcpstate[1] = 'ESTABLISHED'
-tcpstate[2] = 'SYN_SENT'
-tcpstate[3] = 'SYN_RECV'
-tcpstate[4] = 'FIN_WAIT1'
-tcpstate[5] = 'FIN_WAIT2'
-tcpstate[6] = 'TIME_WAIT'
-tcpstate[7] = 'CLOSE'
-tcpstate[8] = 'CLOSE_WAIT'
-tcpstate[9] = 'LAST_ACK'
-tcpstate[10] = 'LISTEN'
-tcpstate[11] = 'CLOSING'
-tcpstate[12] = 'NEW_SYN_RECV'
+tcpstate[1] = "ESTABLISHED"
+tcpstate[2] = "SYN_SENT"
+tcpstate[3] = "SYN_RECV"
+tcpstate[4] = "FIN_WAIT1"
+tcpstate[5] = "FIN_WAIT2"
+tcpstate[6] = "TIME_WAIT"
+tcpstate[7] = "CLOSE"
+tcpstate[8] = "CLOSE_WAIT"
+tcpstate[9] = "LAST_ACK"
+tcpstate[10] = "LISTEN"
+tcpstate[11] = "CLOSING"
+tcpstate[12] = "NEW_SYN_RECV"
 
 
 # Process event
 
+
 def print_ipv4_event(cpu, data, size):
     event = ct.cast(data, ct.POINTER(Data_ipv4)).contents
-    print("%-8s %-6d %-2d %-20s %1s> %-20s %s" % (
-        strftime("%H:%M:%S"), event.pid, event.ip,
-        "%s:%d" % (inet_ntop(AF_INET, pack('I', event.saddr)), event.lport),
-        type[event.type],
-        "%s:%s" % (inet_ntop(AF_INET, pack('I', event.daddr)), event.dport),
-        tcpstate[event.state]))
+    print(
+        "%-8s %-6d %-2d %-20s %1s> %-20s %s"
+        % (
+            strftime("%H:%M:%S"),
+            event.pid,
+            event.ip,
+            "%s:%d" % (inet_ntop(AF_INET, pack("I", event.saddr)), event.lport),
+            type[event.type],
+            "%s:%s" % (inet_ntop(AF_INET, pack("I", event.daddr)), event.dport),
+            tcpstate[event.state],
+        )
+    )
 
 
 def print_ipv6_event(cpu, data, size):
     event = ct.cast(data, ct.POINTER(Data_ipv6)).contents
-    print("%-8s %-6d %-2d %-20s %1s> %-20s %s" % (
-        strftime("%H:%M:%S"), event.pid, event.ip,
-        "%s:%d" % (inet_ntop(AF_INET6, event.saddr), event.lport),
-        type[event.type],
-        "%s:%d" % (inet_ntop(AF_INET6, event.daddr), event.dport),
-        tcpstate[event.state]))
+    print(
+        "%-8s %-6d %-2d %-20s %1s> %-20s %s"
+        % (
+            strftime("%H:%M:%S"),
+            event.pid,
+            event.ip,
+            "%s:%d" % (inet_ntop(AF_INET6, event.saddr), event.lport),
+            type[event.type],
+            "%s:%d" % (inet_ntop(AF_INET6, event.daddr), event.dport),
+            tcpstate[event.state],
+        )
+    )
 
 
 # Initilize the BPF
@@ -194,9 +210,10 @@ if args.lossprobe:
     b.attach_kprobe(event="tcp_send_loss_probe", fn_name="trace_tlp")
 
 # header
-print("%-8s %-6s %-2s %-20s %1s> %-20s %-4s"
-      % ("TIME", "PID", "IP",
-         "LADDR:LPORT", "T", "RADDR:RPORT", "STATE"))
+print(
+    "%-8s %-6s %-2s %-20s %1s> %-20s %-4s"
+    % ("TIME", "PID", "IP", "LADDR:LPORT", "T", "RADDR:RPORT", "STATE")
+)
 
 # Read events from perf buffer
 b["ipv4_events"].open_perf_buffer(print_ipv4_event)
