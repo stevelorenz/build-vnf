@@ -9,3 +9,5 @@ if [ -d ~/comnetsemu_dependencies ]; then sudo rm -rf ~/comnetsemu_dependencies;
 git clone https://bitbucket.org/comnets/comnetsemu/src/master/ ~/comnetsemu
 cd ~/comnetsemu/util || exit
 bash ./install.sh -nc
+cd ~/comnetsemu || exit
+sudo make develop

@@ -44,7 +44,7 @@ RUN make -j $(nproc) && \
 #
 ENV FFPP_DIR /ffpp
 # Install test utilities
-RUN apt-get install -y gdb valgrind iputils-ping iproute2 python3 tcpdump
+RUN apt-get update && apt-get install -y gdb valgrind iputils-ping iproute2 python3 tcpdump net-tools
 
 RUN mkdir -p ${FFPP_DIR}
 COPY . ${FFPP_DIR}
