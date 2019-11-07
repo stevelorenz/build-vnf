@@ -29,7 +29,7 @@ tic -x /home/vagrant/termite.terminfo
 
 # Use zuo's tmux config
 git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
-cp /home/vagrant/dotfiles/tmux/tmux.conf /home/vagrant/.tmux.conf
+cp /home/vagrant/dotfiles/not_stowable/tmux/tmux.conf /home/vagrant/.tmux.conf
 SCRIPT
 
 $setup_dev_net= <<-SCRIPT

@@ -47,7 +47,7 @@ def testTopo():
         docker_args={"cpuset_cpus": "0"},
     )
 
-    # Need addtional mounts to run DPDK application
+    # Need additional mounts to run DPDK application
     # MARK: Just used for development, never use this in production container
     # setup.
     relay = net.addDockerHost(
