@@ -9,7 +9,7 @@
 FROM bitnami/minideb:buster
 
 ENV LB_SRC /opt/latency_benchmark
-RUN install_packages wget ca-certificates iproute2 net-tools telnet tcpdump
+RUN install_packages wget ca-certificates iproute2 net-tools telnet tcpdump iputils-ping procps
 RUN mkdir -p ${LB_SRC}
 
 WORKDIR ${LB_SRC}

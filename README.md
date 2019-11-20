@@ -48,7 +48,6 @@ technologies including DPDK, eBPF/XDP; Containerization, Serverless computation 
 1.  [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
 1.  [evaluation](./evaluation/): Scripts to analyze and plot evaluation results.
 1.  [ffpp](./ffpp): A simple research-oriented library to build Fast Fast Packet Processing (FFPP) VNFs.
-1.  [nff](./nff/): Tests and examples built on top of popular Network Function (NF) frameworks.
 1.  [perf](./perf/): A collection of tools to monitor and profiling the underlying physical or virtual systems running VNFs.
 1.  [pktgen](./pktgen/): Scripts to configure and run software packet generators for latency measurement.
 1.  [scripts](./scripts/): Utility shell/python scripts to install, setup, configure tools used in this project.
@@ -83,4 +82,4 @@ The [list](./CONTRIBUTORS) of all contributors.
 
 ## Contact ##
 
-* **Zuo Xiang** - *Project Maintainer* - [Email him]((mailto:xianglinks@gmail.com?subject=[GitHub]%20Build%20VNF%20Issue))
+* **Zuo Xiang** - *Project Maintainer* - xianglinks@gmail.com
