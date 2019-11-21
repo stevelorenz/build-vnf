@@ -10,7 +10,9 @@ MARK:  The API of ComNetEmu could change in the next release, benchmark script
 """
 
 import argparse
-import sys
+import pathlib
+import signal
+import subprocess
 from shlex import split
 from subprocess import check_output
 
@@ -24,6 +26,8 @@ ADD_Relay = True
 TEST_NF = "l3fwd-power"
 ENTER_CLI = False
 DEBUG = False
+# Name of the executable for CPU energy measurement. Should in $PATH
+CPU_ENERGY_METER_BIN = "cpu-energy-meter"
 
 
 def getOFPort(sw, ifce_name):
@@ -99,9 +103,18 @@ def run_udp_latency_test(server, client):
         "[MARK] The average latency in the output is the estimated one-way"
         "path delay: The average RTT divided by two."
     )
+    p = subprocess.Popen(
+        args=[f"{CPU_ENERGY_METER_BIN}", "-r"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     client.cmdPrint(
         "sockperf under-load -i %s -t 10 --mps 50 --reply-every 1" % server.IP()
     )
+    p.send_signal(signal.SIGINT)
+    print("*** The output of CPU energy measurement.")
+    print(p.stdout.read().decode())
+    # TODO: Parse the measurement result and store it in a CSV file.
 
 
 def run_benchmark():
@@ -136,6 +149,8 @@ def run_benchmark():
 
     if ADD_Relay:
         info("*** Adding relay.\n")
+
+        ffpp_dir = pathlib.Path.cwd().parent.absolute()
         # Need additional mounts to run DPDK application
         # MARK: Just used for development, never use this in production container
         # setup.
@@ -160,7 +175,7 @@ def run_benchmark():
                         "mode": "rw",
                     },
                     "/dev": {"bind": "/dev", "mode": "rw"},
-                    "/vagrant/ffpp": {"bind": "/ffpp", "mode": "rw"},
+                    "%s" % ffpp_dir: {"bind": "/ffpp", "mode": "rw"},
                 },
             },
         )
@@ -223,19 +238,6 @@ def run_benchmark():
 
     info("*** Stopping network")
     net.stop()
-
-
-def usage():
-    print("Usage: sudo python3 chain.py [Option]")
-    print("Option:")
-    print(
-        "\t- (default without any option): Client and server are directly connected, no relay in the middle."
-    )
-    print(
-        "\t- add_relay: Add a relay in the middle running DPDK l2fwd. "
-        "Traffic is redirected via Openflow rules."
-    )
-    sys.exit(0)
 
 
 if __name__ == "__main__":

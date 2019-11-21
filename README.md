@@ -44,7 +44,6 @@ technologies including DPDK, eBPF/XDP; Containerization, Serverless computation 
 
 1.  [app](./app/): Prototypes for innovative applications/functions that can be offloaded to the network.
     They are inspired by the [Computing-In-Network](https://irtf.org/coinrg) concept.
-1.  [benchmark](./benchmark/): Performance benchmarks' setups and utility scripts.
 1.  [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
 1.  [evaluation](./evaluation/): Scripts to analyze and plot evaluation results.
 1.  [ffpp](./ffpp): A simple research-oriented library to build Fast Fast Packet Processing (FFPP) VNFs.
