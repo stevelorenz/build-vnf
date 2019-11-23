@@ -10,9 +10,11 @@ MARK:  The API of ComNetEmu could change in the next release, benchmark script
 """
 
 import argparse
+import multiprocessing
 import pathlib
 import signal
 import subprocess
+import sys
 from shlex import split
 from subprocess import check_output
 
@@ -26,6 +28,7 @@ ADD_Relay = True
 TEST_NF = "l3fwd-power"
 ENTER_CLI = False
 DEBUG = False
+ENABLE_CPU_ENERGY_METER = False
 # Name of the executable for CPU energy measurement. Should in $PATH
 CPU_ENERGY_METER_BIN = "cpu-energy-meter"
 
@@ -54,19 +57,6 @@ def run_l2fwd(relay):
 def run_l2fwd_power(relay):
     info("*** Run DPDK l2fwd-power application on the relay.\n")
     relay.cmd("cd /ffpp/modified_dpdk_samples/l2fwd-power/ && make")
-    run_l2fwd_power_cmd = " ".join(
-        [
-            "./l2fwd -l 1 -m 256 --vdev=eth_af_packet0,iface=relay-s1",
-            "--no-pci --single-file-segments",
-            "-- -p 1 --no-mac-updating",
-            "> /dev/null &",
-        ]
-    )
-    print(f"The command to run l2fwd: {run_l2fwd_power_cmd}")
-    ret = relay.cmd(
-        f"cd /ffpp/modified_dpdk_samples/l2fwd-power/build && {run_l2fwd_power_cmd}"
-    )
-    print(f"The output of l2fwd-power app:\n{ret}")
 
 
 # ISSUE: The DPDK built-in l3fwd application uses RSS by default, which is not
@@ -103,18 +93,20 @@ def run_udp_latency_test(server, client):
         "[MARK] The average latency in the output is the estimated one-way"
         "path delay: The average RTT divided by two."
     )
-    p = subprocess.Popen(
-        args=[f"{CPU_ENERGY_METER_BIN}", "-r"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    if ENABLE_CPU_ENERGY_METER:
+        p = subprocess.Popen(
+            args=[f"{CPU_ENERGY_METER_BIN}", "-r"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
     client.cmdPrint(
         "sockperf under-load -i %s -t 10 --mps 50 --reply-every 1" % server.IP()
     )
-    p.send_signal(signal.SIGINT)
-    print("*** The output of CPU energy measurement.")
-    print(p.stdout.read().decode())
-    # TODO: Parse the measurement result and store it in a CSV file.
+    if ENABLE_CPU_ENERGY_METER:
+        p.send_signal(signal.SIGINT)
+        print("*** The output of CPU energy measurement.")
+        print(p.stdout.read().decode())
+        # TODO: Parse the measurement result and store it in a CSV file.
 
 
 def run_benchmark():
@@ -148,8 +140,14 @@ def run_benchmark():
     net.addLinkNamedIfce(s1, server, delay="100ms")
 
     if ADD_Relay:
+        cpus_relay = "1"
+        if TEST_NF == "l2fwd-power":
+            print(
+                "*** [INFO] l2fwd-power application require at least one master and one slave core.\n"
+                "The master handles timers and slave core handles forwarding task."
+            )
+            cpus_relay = "0,1"
         info("*** Adding relay.\n")
-
         ffpp_dir = pathlib.Path.cwd().parent.absolute()
         # Need additional mounts to run DPDK application
         # MARK: Just used for development, never use this in production container
@@ -159,7 +157,7 @@ def run_benchmark():
             dimage="ffpp:latest",
             ip="10.0.0.101/24",
             docker_args={
-                "cpuset_cpus": "1",
+                "cpuset_cpus": cpus_relay,
                 "nano_cpus": int(0.6 * 1e9),
                 "volumes": {
                     "/sys/bus/pci/drivers": {
@@ -242,7 +240,6 @@ def run_benchmark():
 
 if __name__ == "__main__":
     setLogLevel("info")
-
     parser = argparse.ArgumentParser(
         description="Basic chain topology for benchmarking DPDK forwarding applications."
     )
@@ -250,7 +247,7 @@ if __name__ == "__main__":
         "--relay_func",
         type=str,
         default="l2fwd",
-        choices=["l2fwd", "l2fwd-power", "l3fwd"],
+        choices=["l2fwd", "l2fwd-power"],
         help="The network function running on the relay. The default is l2fwd.",
     )
     parser.add_argument(
@@ -260,6 +257,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--cli", action="store_true", help="Enter ComNetEmu CLI after latency tests."
+    )
+    parser.add_argument(
+        "--cpu_energy_meter", action="store_true", help="Enable CPU energy meter.",
     )
     parser.add_argument(
         "--debug", action="store_true", help="Run in debug mode. e.g. print more log."
@@ -276,5 +276,11 @@ if __name__ == "__main__":
         ADD_Relay = False
     else:
         print("*** Relay is added with deployed network function: %s." % TEST_NF)
+    if args.cpu_energy_meter:
+        ENABLE_CPU_ENERGY_METER = True
+        print("*** Enable CPU energy meter for latency benchmarks.")
 
+    if multiprocessing.cpu_count() < 2:
+        print("[ERROR]: This benchmark requires minimal 2 available CPU cores.")
+        sys.exit(1)
     run_benchmark()

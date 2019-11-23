@@ -4,7 +4,8 @@
  * About: A modified l2fwd sample application with following changes:
  *
  * - Add the power management algorithm implemented in l3fwd-power sample
- *   application.
+ *   application:
+ *   - Use the empty poll mode. Legacy and telemetry modes are not implemented.
  *
  * This is used to test some features with a network emulator using virtual
  * network devices.
@@ -57,6 +58,7 @@ static int mac_updating = 1;
 static int power_management = 1;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER2
+#define RTE_LOGTYPE_POWER RTE_LOGTYPE_USER3
 
 #define MAX_PKT_BURST 32
 #define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
@@ -92,12 +94,14 @@ struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
 static struct rte_eth_dev_tx_buffer *tx_buffer[RTE_MAX_ETHPORTS];
 
 static struct rte_eth_conf port_conf = {
-	.rxmode = {
-		.split_hdr_size = 0,
-	},
-	.txmode = {
-		.mq_mode = ETH_MQ_TX_NONE,
-	},
+	.rxmode =
+		{
+			.split_hdr_size = 0,
+		},
+	.txmode =
+		{
+			.mq_mode = ETH_MQ_TX_NONE,
+		},
 };
 
 struct rte_mempool *l2fwd_pktmbuf_pool = NULL;
@@ -120,6 +124,31 @@ enum freq_scale_hint_t {
 	FREQ_HIGHER = 1,
 	FREQ_HIGHEST = 2
 };
+
+// Parameters for empty poll
+static struct ep_params *ep_params;
+static struct ep_policy policy;
+static long ep_med_edpi = 0, ep_hgh_edpi = 0;
+static bool empty_poll_train;
+static bool empty_poll_stop;
+
+/*
+ * These two thresholds were decided on by running the training algorithm on
+ * a 2.5GHz Xeon. These defaults can be overridden by supplying non-zero values
+ * for the med_threshold and high_threshold parameters on the command line.
+ */
+#define EMPTY_POLL_MED_THRESHOLD 350000UL
+#define EMPTY_POLL_HGH_THRESHOLD 580000UL
+
+/*
+ * These defaults are using the max frequency index (1), a medium index (9)
+ * and a typical low frequency index (14). These can be adjusted to use
+ * different indexes using the relevant command line parameters.
+ */
+static uint8_t freq_tlb[] = { 14, 9, 1 };
+
+/* (10ms) */
+#define INTERVALS_PER_SECOND 100
 
 /* Print out statistics on packets dropped */
 __attribute__((unused)) static void print_stats(void)
@@ -214,6 +243,7 @@ static void l2fwd_main_loop(void)
 	timer_tsc = 0;
 
 	lcore_id = rte_lcore_id();
+	printf("Current lcore id in the l2fwd loop: %u\n", lcore_id);
 	qconf = &lcore_queue_conf[lcore_id];
 
 	if (qconf->n_rx_port == 0) {
@@ -258,7 +288,7 @@ static void l2fwd_main_loop(void)
 					/* do this only on master core */
 					if (lcore_id ==
 					    rte_get_master_lcore()) {
-						/* print_stats(); */
+						print_stats();
 						/* reset the timer */
 						timer_tsc = 0;
 					}
@@ -275,8 +305,15 @@ static void l2fwd_main_loop(void)
 			portid = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst(portid, 0, pkts_burst,
 						 MAX_PKT_BURST);
-
 			port_statistics[portid].rx += nb_rx;
+
+			/* Update empty-poll stats */
+			if (nb_rx == 0) {
+				rte_power_empty_poll_stat_update(lcore_id);
+				continue;
+			} else {
+				rte_power_poll_stat_update(lcore_id, nb_rx);
+			}
 
 			for (j = 0; j < nb_rx; j++) {
 				m = pkts_burst[j];
@@ -356,7 +393,55 @@ static int l2fwd_parse_timer_period(const char *q_arg)
 	return n;
 }
 
+static int l2fwd_parse_ep_config(const char *q_arg)
+{
+	char s[256];
+	const char *p = q_arg;
+	char *end;
+	int num_arg;
+
+	char *str_fld[3];
+
+	int training_flag;
+	int med_edpi;
+	int hgh_edpi;
+
+	ep_med_edpi = EMPTY_POLL_MED_THRESHOLD;
+	ep_hgh_edpi = EMPTY_POLL_MED_THRESHOLD;
+
+	strlcpy(s, p, sizeof(s));
+
+	num_arg = rte_strsplit(s, sizeof(s), str_fld, 3, ',');
+
+	empty_poll_train = false;
+
+	if (num_arg == 0)
+		return 0;
+
+	if (num_arg == 3) {
+		training_flag = strtoul(str_fld[0], &end, 0);
+		med_edpi = strtoul(str_fld[1], &end, 0);
+		hgh_edpi = strtoul(str_fld[2], &end, 0);
+
+		if (training_flag == 1)
+			RTE_LOG(DEBUG, L2FWD, "Enable training mode.\n");
+		empty_poll_train = true;
+
+		if (med_edpi > 0)
+			ep_med_edpi = med_edpi;
+
+		if (med_edpi > 0)
+			ep_hgh_edpi = hgh_edpi;
+
+	} else {
+		return -1;
+	}
+
+	return 0;
+}
+
 static const char short_options[] = "p:" /* portmask */
+				    "e:" /* empty poll mode*/
 				    "q:" /* number of queues */
 				    "T:" /* timer period */
 	;
@@ -424,6 +509,15 @@ static int l2fwd_parse_args(int argc, char **argv)
 				return -1;
 			}
 			timer_period = timer_secs;
+			break;
+
+		case 'e':
+			ret = l2fwd_parse_ep_config(optarg);
+			if (ret) {
+				printf("Invalid empty poll config.\n");
+				l2fwd_usage(prgname);
+				return -1;
+			}
 			break;
 
 		/* long options */
@@ -530,19 +624,73 @@ static int init_power_library(void)
 	return ret;
 }
 
-void print_lcore_power_caps(void)
+static void check_lcore_power_caps(void)
 {
 	int ret = 0, lcore_id = 0;
+	int cnt = 0;
 	for (lcore_id = 0; lcore_id < RTE_MAX_LCORE; lcore_id++) {
 		if (rte_lcore_is_enabled(lcore_id)) {
 			struct rte_power_core_capabilities caps;
 			ret = rte_power_get_capabilities(lcore_id, &caps);
 			if (ret == 0) {
-				printf("Lcore:%d has power capability.\n",
-				       lcore_id);
+				RTE_LOG(INFO, L2FWD,
+					"Lcore:%d has power capability.\n",
+					lcore_id);
+				cnt += 1;
 			}
 		}
 	}
+	if (cnt == 0) {
+		rte_exit(
+			EXIT_FAILURE,
+			"None of the enabled lcores has the power capability.");
+	}
+}
+
+static void empty_poll_setup_timer(void)
+{
+	int lcore_id = rte_lcore_id();
+	uint64_t hz = rte_get_timer_hz();
+
+	struct ep_params *ep_ptr = ep_params;
+
+	ep_ptr->interval_ticks = hz / INTERVALS_PER_SECOND;
+
+	rte_timer_reset_sync(&ep_ptr->timer0, ep_ptr->interval_ticks,
+			     PERIODICAL, lcore_id, rte_empty_poll_detection,
+			     (void *)ep_ptr);
+}
+
+static int launch_timer(unsigned int lcore_id)
+{
+	int64_t prev_tsc = 0, cur_tsc, diff_tsc, cycles_10ms;
+
+	RTE_SET_USED(lcore_id);
+
+	if (rte_get_master_lcore() != lcore_id) {
+		rte_panic("timer on lcore:%d which is not master core:%d\n",
+			  lcore_id, rte_get_master_lcore());
+	}
+
+	RTE_LOG(INFO, POWER, "Bring up the Timer\n");
+
+	empty_poll_setup_timer();
+
+	cycles_10ms = rte_get_timer_hz() / 100;
+
+	while (!force_quit) {
+		cur_tsc = rte_rdtsc();
+		diff_tsc = cur_tsc - prev_tsc;
+		if (diff_tsc > cycles_10ms) {
+			rte_timer_manage();
+			prev_tsc = cur_tsc;
+			cycles_10ms = rte_get_timer_hz() / 100;
+		}
+	}
+
+	RTE_LOG(INFO, POWER, "Timer_subsystem is done\n");
+
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -583,8 +731,10 @@ int main(int argc, char **argv)
 		if (init_power_library()) {
 			rte_exit(EXIT_FAILURE, "Init power library failed.\n");
 		}
-		print_lcore_power_caps();
+		check_lcore_power_caps();
 	}
+
+	printf("*** The ID of the master core: %u\n", rte_get_master_lcore());
 
 	/* convert to number of cycles */
 	timer_period *= rte_get_timer_hz();
@@ -625,7 +775,7 @@ int main(int argc, char **argv)
 		l2fwd_dst_ports[last_port] = last_port;
 	}
 
-	rx_lcore_id = 0;
+	rx_lcore_id = 1;
 	qconf = NULL;
 
 	/* Initialize the port/queue configuration of each logical core */
@@ -780,16 +930,40 @@ int main(int argc, char **argv)
 
 	check_all_ports_link_status(l2fwd_enabled_port_mask);
 
+	/* Power management with empty-poll mode:
+	 * - https://doc.dpdk.org/guides-19.08/sample_app_ug/l3_forward_power_man.html
+	 * */
+	RTE_LOG(INFO, L2FWD, "Empty-poll mode is used.\n");
+	if (empty_poll_train) {
+		policy.state = TRAINING;
+	} else {
+		policy.state = MED_NORMAL;
+		policy.med_base_edpi = ep_med_edpi;
+		policy.hgh_base_edpi = ep_hgh_edpi;
+	}
+
+	ret = rte_power_empty_poll_stat_init(&ep_params, freq_tlb, &policy);
+	if (ret < 0)
+		rte_exit(EXIT_FAILURE, "empty poll init failed");
+	empty_poll_stop = false;
+
 	ret = 0;
-	/* launch per-lcore init on every lcore */
-	rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL, CALL_MASTER);
+
+	/* launch per-lcore init on every slave lcore: SKIP_MASTER */
+	rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL, SKIP_MASTER);
+
+	launch_timer(rte_lcore_id());
+
 	RTE_LCORE_FOREACH_SLAVE(lcore_id)
 	{
+		RTE_LOG(INFO, EAL, "Wait for lcore: %u\n", lcore_id);
 		if (rte_eal_wait_lcore(lcore_id) < 0) {
 			ret = -1;
 			break;
 		}
 	}
+
+	rte_power_empty_poll_stat_free();
 
 	RTE_ETH_FOREACH_DEV(portid)
 	{
