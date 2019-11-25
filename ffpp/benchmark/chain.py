@@ -15,6 +15,7 @@ import pathlib
 import signal
 import subprocess
 import sys
+import time
 from shlex import split
 from subprocess import check_output
 
@@ -31,6 +32,10 @@ DEBUG = False
 ENABLE_CPU_ENERGY_METER = False
 # Name of the executable for CPU energy measurement. Should in $PATH
 CPU_ENERGY_METER_BIN = "cpu-energy-meter"
+# Used to check the power usage in idle
+NO_Client_Traffic = False
+# Test duration in seconds.
+TEST_DURATION = 30
 
 
 def getOFPort(sw, ifce_name):
@@ -57,6 +62,19 @@ def run_l2fwd(relay):
 def run_l2fwd_power(relay):
     info("*** Run DPDK l2fwd-power application on the relay.\n")
     relay.cmd("cd /ffpp/modified_dpdk_samples/l2fwd-power/ && make")
+    run_l2fwd_power_cmd = " ".join(
+        [
+            "./l2fwd-power -l 1 -m 256 --vdev=eth_af_packet0,iface=relay-s1",
+            "--no-pci --single-file-segments",
+            "-- -p 1 --no-mac-updating",
+            "> /dev/null &",
+        ]
+    )
+    print(f"The command to run l2fwd-power: {run_l2fwd_power_cmd}")
+    ret = relay.cmd(
+        f"cd /ffpp/modified_dpdk_samples/l2fwd-power/build && {run_l2fwd_power_cmd}"
+    )
+    print(f"The output of l2fwd-power app:\n{ret}")
 
 
 # ISSUE: The DPDK built-in l3fwd application uses RSS by default, which is not
@@ -85,28 +103,42 @@ def run_l3fwd(relay):
 
 DISPATCHER = {"l2fwd": run_l2fwd, "l2fwd-power": run_l2fwd_power, "l3fwd": run_l3fwd}
 
+FFPP_DIR = pathlib.Path.cwd().parent.absolute()
+
+
+def setup_server(server):
+    info("*** Run Sockperf UDP server on server node.\n")
+    server.cmd("sockperf server -i %s > /dev/null 2>&1 &" % server.IP())
+
 
 def run_udp_latency_test(server, client):
-    info("*** Run Sockperf UDP under-load test for 10 seconds\n")
-    server.cmd("sockperf server -i %s > /dev/null 2>&1 &" % server.IP())
-    print(
-        "[MARK] The average latency in the output is the estimated one-way"
-        "path delay: The average RTT divided by two."
-    )
     if ENABLE_CPU_ENERGY_METER:
         p = subprocess.Popen(
             args=[f"{CPU_ENERGY_METER_BIN}", "-r"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-    client.cmdPrint(
-        "sockperf under-load -i %s -t 10 --mps 50 --reply-every 1" % server.IP()
-    )
+    if not NO_Client_Traffic:
+        print(
+            "[MARK] The average latency in the output is the estimated one-way"
+            "path delay: The average RTT divided by two."
+        )
+        client.cmdPrint(
+            "sockperf under-load -i {} -t {} --mps 50 --reply-every 1".format(
+                server.IP(), TEST_DURATION
+            )
+        )
+    else:
+        print(f"No traffic is sent, wait {TEST_DURATION} seconds.")
+        time.sleep(TEST_DURATION)
     if ENABLE_CPU_ENERGY_METER:
         p.send_signal(signal.SIGINT)
         print("*** The output of CPU energy measurement.")
-        print(p.stdout.read().decode())
-        # TODO: Parse the measurement result and store it in a CSV file.
+        energy_stats = p.stdout.read().decode()
+        print(energy_stats)
+        # TODO: Parse the measurement result.
+        with open(f"./cpu_energy_{TEST_NF}.csv", "a+") as f:
+            f.write(energy_stats)
 
 
 def run_benchmark():
@@ -127,7 +159,10 @@ def run_benchmark():
         "client",
         dimage="lat_bm:latest",
         ip="10.0.0.100/24",
-        docker_args={"cpuset_cpus": "0"},
+        docker_args={
+            "cpuset_cpus": "0",
+            "volumes": {"%s" % FFPP_DIR: {"bind": "/ffpp", "mode": "ro"}},
+        },
     )
     net.addLinkNamedIfce(s1, client, delay="100ms")
 
@@ -148,7 +183,6 @@ def run_benchmark():
             )
             cpus_relay = "0,1"
         info("*** Adding relay.\n")
-        ffpp_dir = pathlib.Path.cwd().parent.absolute()
         # Need additional mounts to run DPDK application
         # MARK: Just used for development, never use this in production container
         # setup.
@@ -158,7 +192,7 @@ def run_benchmark():
             ip="10.0.0.101/24",
             docker_args={
                 "cpuset_cpus": cpus_relay,
-                "nano_cpus": int(0.6 * 1e9),
+                "nano_cpus": int(1.0 * 1e9),
                 "volumes": {
                     "/sys/bus/pci/drivers": {
                         "bind": "/sys/bus/pci/drivers",
@@ -173,7 +207,7 @@ def run_benchmark():
                         "mode": "rw",
                     },
                     "/dev": {"bind": "/dev", "mode": "rw"},
-                    "%s" % ffpp_dir: {"bind": "/ffpp", "mode": "rw"},
+                    "%s" % FFPP_DIR: {"bind": "/ffpp", "mode": "rw"},
                 },
             },
         )
@@ -227,6 +261,7 @@ def run_benchmark():
         flow_table = s1.dpctl("dump-flows")
         print(f"*** Current flow table of s1: \n {flow_table}")
 
+    setup_server(server)
     run_udp_latency_test(server, client)
 
     if ENTER_CLI:
@@ -264,6 +299,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--debug", action="store_true", help="Run in debug mode. e.g. print more log."
     )
+    parser.add_argument(
+        "--no_client_traffic",
+        action="store_true",
+        help="Client sends no traffc. Used to test the power consumption without traffic.",
+    )
     args = parser.parse_args()
     TEST_NF = args.relay_func
     ENTER_CLI = args.cli
@@ -279,6 +319,9 @@ if __name__ == "__main__":
     if args.cpu_energy_meter:
         ENABLE_CPU_ENERGY_METER = True
         print("*** Enable CPU energy meter for latency benchmarks.")
+    if args.no_client_traffic:
+        NO_Client_Traffic = True
+        print("*** Clients does not send any traffic.")
 
     if multiprocessing.cpu_count() < 2:
         print("[ERROR]: This benchmark requires minimal 2 available CPU cores.")

@@ -4,11 +4,17 @@
  * About: A modified l2fwd sample application with following changes:
  *
  * - Add the power management algorithm implemented in l3fwd-power sample
- *   application:
- *   - Use the empty poll mode. Legacy and telemetry modes are not implemented.
+ *   application: https://doc.dpdk.org/guides-19.08/sample_app_ug/l3_forward_power_man.html
  *
- * This is used to test some features with a network emulator using virtual
- * network devices.
+ * ISSUES:
+ *
+ * - Empty-poll mode does not work correcly with veth devices, need to chech the
+ *   cause of the training error.
+ *
+ * MARK: This is used to test some features with a network emulator using
+ *       virtual network devices.
+ *
+ * TODO: Add power management in ffpp.
  */
 
 #include <stdio.h>
@@ -55,10 +61,8 @@ static volatile bool force_quit;
 
 /* MAC updating enabled by default */
 static int mac_updating = 1;
-static int power_management = 1;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER2
-#define RTE_LOGTYPE_POWER RTE_LOGTYPE_USER3
 
 #define MAX_PKT_BURST 32
 #define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
@@ -82,14 +86,6 @@ static uint32_t l2fwd_enabled_port_mask = 0;
 static uint32_t l2fwd_dst_ports[RTE_MAX_ETHPORTS];
 
 static unsigned int l2fwd_rx_queue_per_lcore = 1;
-
-#define MAX_RX_QUEUE_PER_LCORE 16
-#define MAX_TX_QUEUE_PER_PORT 16
-struct lcore_queue_conf {
-	unsigned n_rx_port;
-	unsigned rx_port_list[MAX_RX_QUEUE_PER_LCORE];
-} __rte_cache_aligned;
-struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
 
 static struct rte_eth_dev_tx_buffer *tx_buffer[RTE_MAX_ETHPORTS];
 
@@ -116,7 +112,9 @@ struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 
 #define MAX_TIMER_PERIOD 86400 /* 1 day max */
 /* A tsc-based timer responsible for triggering statistics printout */
-static uint64_t timer_period = 10; /* default period is 10 seconds */
+static uint64_t port_stats_timer_period = 0;
+
+/* *** Power Management related ---------------------------------------------- */
 
 enum freq_scale_hint_t {
 	FREQ_LOWER = -1,
@@ -124,6 +122,58 @@ enum freq_scale_hint_t {
 	FREQ_HIGHER = 1,
 	FREQ_HIGHEST = 2
 };
+
+/**
+ * The power management stats of the single RX queue of each port.
+ */
+struct lcore_rx_queue {
+	enum freq_scale_hint_t freq_up_hint;
+	uint32_t zero_rx_packet_count;
+	uint32_t idle_hint;
+} __rte_cache_aligned;
+
+/**
+ * Stats of each lcore for power management.
+ */
+struct lcore_stats {
+	/* total sleep time in ms since last frequency scaling down */
+	uint32_t sleep_time;
+	/* number of long sleep recently */
+	uint32_t nb_long_sleep;
+	/* freq. scaling up trend */
+	uint32_t trend;
+	/* total packet processed recently */
+	uint64_t nb_rx_processed;
+	/* total iterations looped recently */
+	uint64_t nb_iteration_looped;
+	/*
+	 * Represents empty and non empty polls
+	 * of rte_eth_rx_burst();
+	 * ep_nep[0] holds non empty polls
+	 * i.e. 0 < nb_rx <= MAX_BURST
+	 * ep_nep[1] holds empty polls.
+	 * i.e. nb_rx == 0
+	 */
+	uint64_t ep_nep[2];
+	/*
+	 * Represents full and empty+partial
+	 * polls of rte_eth_rx_burst();
+	 * ep_nep[0] holds empty+partial polls.
+	 * i.e. 0 <= nb_rx < MAX_BURST
+	 * ep_nep[1] holds full polls
+	 * i.e. nb_rx == MAX_BURST
+	 */
+	uint64_t fp_nfp[2];
+} __rte_cache_aligned;
+
+// Parameters for legacy power management mode
+static struct lcore_stats stats[RTE_MAX_LCORE] __rte_cache_aligned;
+static struct rte_timer power_timers[RTE_MAX_LCORE];
+/* 100 ms interval */
+#define TIMER_NUMBER_PER_SECOND 10
+/* 100000 us */
+#define SCALING_PERIOD (1000000 / TIMER_NUMBER_PER_SECOND)
+#define SCALING_DOWN_TIME_RATIO_THRESHOLD 0.25
 
 // Parameters for empty poll
 static struct ep_params *ep_params;
@@ -150,6 +200,32 @@ static uint8_t freq_tlb[] = { 14, 9, 1 };
 /* (10ms) */
 #define INTERVALS_PER_SECOND 100
 
+enum appmode {
+	APP_MODE_LEGACY = 0,
+	APP_MODE_EMPTY_POLL,
+};
+enum appmode app_mode = APP_MODE_LEGACY;
+// -----------------------------------------------------------------------------
+
+#define MAX_RX_QUEUE_PER_LCORE 16
+#define MAX_TX_QUEUE_PER_PORT 16
+// The queue configuration of each lcore
+// Assumptions:
+// - One port has only one RX/TX queue.
+struct lcore_queue_conf {
+	unsigned n_rx_port;
+	unsigned rx_port_list[MAX_RX_QUEUE_PER_LCORE];
+	struct lcore_rx_queue rx_queue_list[MAX_RX_QUEUE_PER_LCORE];
+} __rte_cache_aligned;
+struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
+
+// *** Function signatures
+static inline enum freq_scale_hint_t
+power_freq_scaleup_heuristic(unsigned lcore_id, uint16_t port_id,
+			     uint16_t queue_id);
+// -----------------------------------------------------------------------------
+
+// *** Implementation
 /* Print out statistics on packets dropped */
 __attribute__((unused)) static void print_stats(void)
 {
@@ -224,23 +300,33 @@ static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 		port_statistics[dst_port].tx += sent;
 }
 
-/* main processing loop */
+/* main processing loop
+ * MARK: Does not support multiple queues per port.
+ * */
 static void l2fwd_main_loop(void)
 {
 	struct rte_mbuf *pkts_burst[MAX_PKT_BURST];
 	struct rte_mbuf *m;
 	int sent;
 	unsigned lcore_id;
-	uint64_t prev_tsc, diff_tsc, cur_tsc, timer_tsc;
+	uint64_t prev_tsc, diff_tsc, cur_tsc, period_tsc_port_stats;
+	uint64_t prev_tsc_power, cur_tsc_power, diff_tsc_power,
+		period_tsc_power_cb, hz;
 	unsigned i, j, portid, nb_rx;
 	struct lcore_queue_conf *qconf;
 	const uint64_t drain_tsc = (rte_get_tsc_hz() + US_PER_S - 1) /
 				   US_PER_S * BURST_TX_DRAIN_US;
 	struct rte_eth_dev_tx_buffer *buffer;
 	enum freq_scale_hint_t lcore_scaleup_hint;
+	uint32_t lcore_rx_idle_count = 0;
+	uint32_t lcore_idle_hint = 0;
+	struct lcore_rx_queue *rx_queue;
 
 	prev_tsc = 0;
-	timer_tsc = 0;
+	prev_tsc_power = 0;
+	period_tsc_port_stats = 0;
+	hz = rte_get_timer_hz();
+	period_tsc_power_cb = hz / TIMER_NUMBER_PER_SECOND;
 
 	lcore_id = rte_lcore_id();
 	printf("Current lcore id in the l2fwd loop: %u\n", lcore_id);
@@ -260,7 +346,10 @@ static void l2fwd_main_loop(void)
 	}
 
 	while (!force_quit) {
+		stats[lcore_id].nb_iteration_looped++;
+
 		cur_tsc = rte_rdtsc();
+		cur_tsc_power = cur_tsc;
 
 		/*
 		 * TX burst queue drain
@@ -278,19 +367,20 @@ static void l2fwd_main_loop(void)
 					port_statistics[portid].tx += sent;
 			}
 
-			/* if timer is enabled */
-			if (timer_period > 0) {
+			/* if port stats timer is enabled */
+			if (port_stats_timer_period > 0) {
 				/* advance the timer */
-				timer_tsc += diff_tsc;
+				period_tsc_port_stats += diff_tsc;
 
 				/* if timer has reached its timeout */
-				if (unlikely(timer_tsc >= timer_period)) {
+				if (unlikely(period_tsc_port_stats >=
+					     port_stats_timer_period)) {
 					/* do this only on master core */
 					if (lcore_id ==
 					    rte_get_master_lcore()) {
-						print_stats();
+						/* print_stats(); */
 						/* reset the timer */
-						timer_tsc = 0;
+						period_tsc_port_stats = 0;
 					}
 				}
 			}
@@ -298,27 +388,67 @@ static void l2fwd_main_loop(void)
 			prev_tsc = cur_tsc;
 		}
 
+		diff_tsc_power = cur_tsc_power - prev_tsc_power;
+		/* Execute scale down timer when needed. */
+		if (diff_tsc_power > period_tsc_power_cb) {
+			rte_timer_manage();
+			prev_tsc_power = cur_tsc_power;
+		}
+
 		/*
 		 * Read packet from RX queues
 		 */
+		lcore_scaleup_hint = FREQ_CURRENT;
+		lcore_rx_idle_count = 0;
 		for (i = 0; i < qconf->n_rx_port; i++) {
 			portid = qconf->rx_port_list[i];
+			rx_queue = &(qconf->rx_queue_list[i]);
+			rx_queue->idle_hint = 0;
 			nb_rx = rte_eth_rx_burst(portid, 0, pkts_burst,
 						 MAX_PKT_BURST);
 			port_statistics[portid].rx += nb_rx;
 
-			/* Update empty-poll stats */
-			if (nb_rx == 0) {
-				rte_power_empty_poll_stat_update(lcore_id);
-				continue;
+			stats[lcore_id].nb_rx_processed += nb_rx;
+			if (unlikely(nb_rx == 0)) {
+				// The IDLE heuristic for sleeping should run here.
+				// It's leider unimplemented yet.
+				rx_queue->zero_rx_packet_count++;
 			} else {
-				rte_power_poll_stat_update(lcore_id, nb_rx);
+				rx_queue->zero_rx_packet_count = 0;
+
+				/** Do not scale up frequency immediately as
+				 * user to kernel space communication is costly
+				 * which might impact packet I/O for received
+				 * packets.
+				 */
+				rx_queue->freq_up_hint =
+					power_freq_scaleup_heuristic(lcore_id,
+								     portid, 0);
+				RTE_LOG(DEBUG, POWER,
+					"Current frequency scaleup hint:%d\n",
+					rx_queue->freq_up_hint);
 			}
 
 			for (j = 0; j < nb_rx; j++) {
 				m = pkts_burst[j];
 				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
 				l2fwd_simple_forward(m, portid);
+			}
+
+			// Scale up frequency if needed.
+			if (rx_queue->freq_up_hint > lcore_scaleup_hint) {
+				lcore_scaleup_hint = rx_queue->freq_up_hint;
+			}
+			if (lcore_scaleup_hint == FREQ_HIGHEST) {
+				if (rte_power_freq_max)
+					RTE_LOG(DEBUG, POWER,
+						"Scale up to max frequency\n");
+				rte_power_freq_max(lcore_id);
+			} else if (lcore_scaleup_hint == FREQ_HIGHER) {
+				if (rte_power_freq_up)
+					RTE_LOG(DEBUG, POWER,
+						"Scale up to higher frequency\n");
+				rte_power_freq_up(lcore_id);
 			}
 		}
 	}
@@ -340,8 +470,7 @@ static void l2fwd_usage(const char *prgname)
 	       "  --[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
 	       "      When enabled:\n"
 	       "       - The source MAC address is replaced by the TX port MAC address\n"
-	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n"
-	       "  --[no-]power-management: Enable or disable power management(enabled by default)\n",
+	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n",
 	       prgname);
 }
 
@@ -448,8 +577,6 @@ static const char short_options[] = "p:" /* portmask */
 
 #define CMD_LINE_OPT_MAC_UPDATING "mac-updating"
 #define CMD_LINE_OPT_NO_MAC_UPDATING "no-mac-updating"
-#define CMD_LINE_OPT_POWER_MANAGEMENT "power-management"
-#define CMD_LINE_OPT_NO_POWER_MANAGEMENT "no-power-management"
 
 enum {
 	/* long options mapped to a short option */
@@ -462,8 +589,6 @@ enum {
 static const struct option lgopts[] = {
 	{ CMD_LINE_OPT_MAC_UPDATING, no_argument, &mac_updating, 1 },
 	{ CMD_LINE_OPT_NO_MAC_UPDATING, no_argument, &mac_updating, 0 },
-	{ CMD_LINE_OPT_POWER_MANAGEMENT, no_argument, &power_management, 1 },
-	{ CMD_LINE_OPT_NO_POWER_MANAGEMENT, no_argument, &power_management, 0 },
 	{ NULL, 0, 0, 0 }
 };
 
@@ -508,7 +633,7 @@ static int l2fwd_parse_args(int argc, char **argv)
 				l2fwd_usage(prgname);
 				return -1;
 			}
-			timer_period = timer_secs;
+			port_stats_timer_period = timer_secs;
 			break;
 
 		case 'e':
@@ -621,6 +746,8 @@ static int init_power_library(void)
 					lcore_id);
 		}
 	}
+	RTE_LOG(DEBUG, POWER, "The inited power management env is %d\n",
+		rte_power_get_env());
 	return ret;
 }
 
@@ -693,6 +820,101 @@ static int launch_timer(unsigned int lcore_id)
 	return 0;
 }
 
+/**
+ * Heuristic algorithm to scale up CPU frequency.
+ *
+ * @param lcore_id
+ * @param port_id
+ * @param queue_id
+ *
+ * @return
+ */
+static inline enum freq_scale_hint_t
+power_freq_scaleup_heuristic(unsigned lcore_id, uint16_t port_id,
+			     uint16_t queue_id)
+{
+	uint32_t rxq_count = rte_eth_rx_queue_count(port_id, queue_id);
+/**
+ * HW Rx queue size is 128 by default, Rx burst read at maximum 32 entries
+ * per iteration
+ */
+#define FREQ_GEAR1_RX_PACKET_THRESHOLD MAX_PKT_BURST
+#define FREQ_GEAR2_RX_PACKET_THRESHOLD (MAX_PKT_BURST * 2)
+#define FREQ_GEAR3_RX_PACKET_THRESHOLD (MAX_PKT_BURST * 3)
+#define FREQ_UP_TREND1_ACC 1
+#define FREQ_UP_TREND2_ACC 100
+#define FREQ_UP_THRESHOLD 10000
+
+	if (likely(rxq_count > FREQ_GEAR3_RX_PACKET_THRESHOLD)) {
+		stats[lcore_id].trend = 0;
+		return FREQ_HIGHEST;
+	} else if (likely(rxq_count > FREQ_GEAR2_RX_PACKET_THRESHOLD))
+		stats[lcore_id].trend += FREQ_UP_TREND2_ACC;
+	else if (likely(rxq_count > FREQ_GEAR1_RX_PACKET_THRESHOLD))
+		stats[lcore_id].trend += FREQ_UP_TREND1_ACC;
+
+	if (likely(stats[lcore_id].trend > FREQ_UP_THRESHOLD)) {
+		stats[lcore_id].trend = 0;
+		return FREQ_HIGHER;
+	}
+
+	return FREQ_CURRENT;
+}
+
+/*  Freqency scale down timer callback */
+static void power_timer_cb(__attribute__((unused)) struct rte_timer *tim,
+			   __attribute__((unused)) void *arg)
+{
+	uint64_t hz;
+	float sleep_time_ratio;
+	unsigned lcore_id = rte_lcore_id();
+
+	/* accumulate total execution time in us when callback is invoked */
+	sleep_time_ratio =
+		(float)(stats[lcore_id].sleep_time) / (float)SCALING_PERIOD;
+	RTE_LOG(DEBUG, POWER,
+		"Scale down timer is triggered on lcore: %u\n"
+		"Lcore stats: sleep_time_ratio: %f, iterations_looped:%lu, nb_rx_processed:%lu\n"
+		"sleep_time_ratio:%f , threshold:%f,"
+		"current frequency index:%u"
+		"\n",
+		lcore_id, sleep_time_ratio, stats[lcore_id].nb_iteration_looped,
+		stats[lcore_id].nb_rx_processed, sleep_time_ratio,
+		SCALING_DOWN_TIME_RATIO_THRESHOLD,
+		rte_power_get_freq(lcore_id));
+
+	/**
+	 * check whether need to scale down frequency a step if it sleep a lot.
+	 */
+	if (sleep_time_ratio >= SCALING_DOWN_TIME_RATIO_THRESHOLD) {
+		if (rte_power_freq_down)
+			rte_power_freq_down(lcore_id);
+	} else if ((unsigned)(stats[lcore_id].nb_rx_processed /
+			      stats[lcore_id].nb_iteration_looped) <
+		   MAX_PKT_BURST) {
+		/**
+		 * scale down a step if average packet per iteration less
+		 * than expectation.
+		 */
+		if (rte_power_freq_down)
+			rte_power_freq_down(lcore_id);
+	} else {
+		RTE_LOG(DEBUG, POWER, "Frequency is not scaled down.\n");
+	}
+	/**
+	 * initialize another timer according to current frequency to ensure
+	 * timer interval is relatively fixed.
+	 */
+	hz = rte_get_timer_hz();
+	rte_timer_reset(&power_timers[lcore_id], hz / TIMER_NUMBER_PER_SECOND,
+			SINGLE, lcore_id, power_timer_cb, NULL);
+
+	stats[lcore_id].nb_rx_processed = 0;
+	stats[lcore_id].nb_iteration_looped = 0;
+
+	stats[lcore_id].sleep_time = 0;
+}
+
 int main(int argc, char **argv)
 {
 	struct lcore_queue_conf *qconf;
@@ -700,6 +922,7 @@ int main(int argc, char **argv)
 	uint16_t nb_ports;
 	uint16_t nb_ports_available = 0;
 	uint16_t portid, last_port;
+	uint64_t hz;
 	unsigned lcore_id, rx_lcore_id;
 	unsigned nb_ports_in_mask = 0;
 	unsigned int nb_lcores = 0;
@@ -726,18 +949,17 @@ int main(int argc, char **argv)
 
 	printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
 
-	if (power_management == 1) {
-		/* Init power management library */
-		if (init_power_library()) {
-			rte_exit(EXIT_FAILURE, "Init power library failed.\n");
-		}
-		check_lcore_power_caps();
+	/* Init power management library */
+	if (init_power_library()) {
+		rte_exit(EXIT_FAILURE, "Init power library failed.\n");
 	}
+
+	check_lcore_power_caps();
 
 	printf("*** The ID of the master core: %u\n", rte_get_master_lcore());
 
 	/* convert to number of cycles */
-	timer_period *= rte_get_timer_hz();
+	port_stats_timer_period *= rte_get_timer_hz();
 
 	nb_ports = rte_eth_dev_count_avail();
 	if (nb_ports == 0)
@@ -816,6 +1038,24 @@ int main(int argc, char **argv)
 						     rte_socket_id());
 	if (l2fwd_pktmbuf_pool == NULL)
 		rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
+
+	/* Initial timer for legacy mode */
+	if (app_mode == APP_MODE_LEGACY) {
+		for (lcore_id = 0; lcore_id < RTE_MAX_LCORE; lcore_id++) {
+			if (rte_lcore_is_enabled(lcore_id)) {
+				RTE_LOG(INFO, POWER,
+					"Init frequency scaling-down callback on lcore: %u\n",
+					lcore_id);
+				/* init timer structures for each enabled lcore */
+				rte_timer_init(&power_timers[lcore_id]);
+				hz = rte_get_timer_hz();
+				rte_timer_reset(&power_timers[lcore_id],
+						hz / TIMER_NUMBER_PER_SECOND,
+						SINGLE, lcore_id,
+						power_timer_cb, NULL);
+			}
+		}
+	}
 
 	/* Initialise each port */
 	RTE_ETH_FOREACH_DEV(portid)
@@ -930,29 +1170,37 @@ int main(int argc, char **argv)
 
 	check_all_ports_link_status(l2fwd_enabled_port_mask);
 
-	/* Power management with empty-poll mode:
-	 * - https://doc.dpdk.org/guides-19.08/sample_app_ug/l3_forward_power_man.html
-	 * */
-	RTE_LOG(INFO, L2FWD, "Empty-poll mode is used.\n");
-	if (empty_poll_train) {
-		policy.state = TRAINING;
-	} else {
-		policy.state = MED_NORMAL;
-		policy.med_base_edpi = ep_med_edpi;
-		policy.hgh_base_edpi = ep_hgh_edpi;
+	if (app_mode == APP_MODE_LEGACY) {
+		ret = 0;
+		/* launch per-lcore init on every lcore */
+		rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL,
+					 CALL_MASTER);
+	} else if (app_mode == APP_MODE_EMPTY_POLL) {
+		rte_exit(EXIT_FAILURE,
+			 "Empty-poll mode is not fully implemented now.");
+		RTE_LOG(INFO, L2FWD, "Empty-poll mode is used.\n");
+		if (empty_poll_train) {
+			policy.state = TRAINING;
+		} else {
+			policy.state = MED_NORMAL;
+			policy.med_base_edpi = ep_med_edpi;
+			policy.hgh_base_edpi = ep_hgh_edpi;
+		}
+
+		ret = rte_power_empty_poll_stat_init(&ep_params, freq_tlb,
+						     &policy);
+		if (ret < 0)
+			rte_exit(EXIT_FAILURE, "empty poll init failed");
+		empty_poll_stop = false;
+
+		ret = 0;
+
+		/* launch per-lcore init on every slave lcore: SKIP_MASTER */
+		rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL,
+					 SKIP_MASTER);
+
+		launch_timer(rte_lcore_id());
 	}
-
-	ret = rte_power_empty_poll_stat_init(&ep_params, freq_tlb, &policy);
-	if (ret < 0)
-		rte_exit(EXIT_FAILURE, "empty poll init failed");
-	empty_poll_stop = false;
-
-	ret = 0;
-
-	/* launch per-lcore init on every slave lcore: SKIP_MASTER */
-	rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL, SKIP_MASTER);
-
-	launch_timer(rte_lcore_id());
 
 	RTE_LCORE_FOREACH_SLAVE(lcore_id)
 	{
@@ -963,7 +1211,20 @@ int main(int argc, char **argv)
 		}
 	}
 
-	rte_power_empty_poll_stat_free();
+	RTE_LOG(INFO, EAL, "Run resource cleanups.\n");
+	for (lcore_id = 0; lcore_id < RTE_MAX_LCORE; lcore_id++) {
+		if (rte_lcore_is_enabled(lcore_id)) {
+			ret = rte_power_exit(lcore_id);
+			if (ret)
+				RTE_LOG(ERR, L2FWD,
+					"Library initialization failed on core %u\n",
+					lcore_id);
+		}
+	}
+
+	if (app_mode == APP_MODE_EMPTY_POLL) {
+		rte_power_empty_poll_stat_free();
+	}
 
 	RTE_ETH_FOREACH_DEV(portid)
 	{

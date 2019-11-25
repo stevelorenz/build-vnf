@@ -2,7 +2,7 @@
 # Copyright(c) 2010-2014 Intel Corporation
 
 # binary name
-APP = l2fwd
+APP = l2fwd-power
 
 # all source are stored in SRCS-y
 SRCS-y := main.c
@@ -21,7 +21,7 @@ PKGCONF=pkg-config --define-prefix
 
 PC_FILE := $(shell $(PKGCONF) --path libdpdk)
 CFLAGS += -O3 $(shell $(PKGCONF) --cflags libdpdk)
-# Add flag to allow experimental API as l2fwd uses rte_ethdev_set_ptype API
+# Add flag to allow experimental API as l2fwd-power uses rte_ethdev_set_ptype API
 CFLAGS += -DALLOW_EXPERIMENTAL_API
 LDFLAGS_SHARED = $(shell $(PKGCONF) --libs libdpdk)
 LDFLAGS_STATIC = -Wl,-Bstatic $(shell $(PKGCONF) --static --libs libdpdk)
@@ -53,7 +53,7 @@ include $(RTE_SDK)/mk/rte.vars.mk
 
 CFLAGS += -O3
 CFLAGS += $(WERROR_FLAGS)
-# Add flag to allow experimental API as l2fwd uses rte_ethdev_set_ptype API
+# Add flag to allow experimental API as l2fwd-power uses rte_ethdev_set_ptype API
 CFLAGS += -DALLOW_EXPERIMENTAL_API
 
 include $(RTE_SDK)/mk/rte.extapp.mk
