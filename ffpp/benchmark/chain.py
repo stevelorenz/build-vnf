@@ -10,8 +10,8 @@ MARK:  The API of ComNetEmu could change in the next release, benchmark script
 """
 
 import argparse
-import multiprocessing
 import pathlib
+import multiprocessing
 import signal
 import subprocess
 import sys
@@ -25,17 +25,17 @@ from mininet.link import TCLink
 from mininet.log import info, setLogLevel
 from mininet.node import Controller, OVSSwitch
 
-ADD_Relay = True
-TEST_NF = "l3fwd-power"
-ENTER_CLI = False
-DEBUG = False
-ENABLE_CPU_ENERGY_METER = False
-# Name of the executable for CPU energy measurement. Should in $PATH
-CPU_ENERGY_METER_BIN = "cpu-energy-meter"
-# Used to check the power usage in idle
-NO_Client_Traffic = False
-# Test duration in seconds.
-TEST_DURATION = 30
+# Parameters for latency test running on the client.
+LAT_TEST_PARAS = {
+    "client_protocols": ["udp", "tcp"],
+    "client_mps_list": [50],
+    # Following parameters are ignored if enable_energy_monitor == False
+    "enable_energy_monitor": False,
+    "enable_powetop": True,
+    "enable_cpu_energy_meter": False,
+    "cpu_energy_meter_bin": "cpu-energy-meter",
+    "test_duration_sec": 17,
+}
 
 
 def getOFPort(sw, ifce_name):
@@ -106,43 +106,70 @@ DISPATCHER = {"l2fwd": run_l2fwd, "l2fwd-power": run_l2fwd_power, "l3fwd": run_l
 FFPP_DIR = pathlib.Path.cwd().parent.absolute()
 
 
-def setup_server(server):
-    info("*** Run Sockperf UDP server on server node.\n")
-    server.cmd("sockperf server -i %s > /dev/null 2>&1 &" % server.IP())
+def setup_server(server, proto="udp"):
+    proto_option = ""
+    if proto == "tcp":
+        proto_option = "--tcp"
+
+    info(f"*** Run Sockperf server on server node. Proto:{proto}\n")
+    server.cmd(f"sockperf server {proto_option} -i {server.IP()} > /dev/null 2>&1 &")
 
 
-def run_udp_latency_test(server, client):
-    if ENABLE_CPU_ENERGY_METER:
-        p = subprocess.Popen(
-            args=[f"{CPU_ENERGY_METER_BIN}", "-r"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-    if not NO_Client_Traffic:
+def run_latency_test(server, client, proto="udp", mps=0):
+    test_duration_sec = LAT_TEST_PARAS["test_duration_sec"]
+    proto_option = ""
+    if proto == "tcp":
+        proto_option = "--tcp"
+
+    if LAT_TEST_PARAS["enable_energy_monitor"]:
+        if LAT_TEST_PARAS["enable_cpu_energy_meter"]:
+            print("* Run cpu_energy_meter in raw mode.")
+            meter_bin = LAT_TEST_PARAS["cpu_energy_meter_bin"]
+            p = subprocess.Popen(
+                args=[f"{meter_bin}", "-r"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        if LAT_TEST_PARAS["enable_powetop"]:
+            print("* Run powertop with CSV output.")
+            csv_name = f"powertop_stats_proto_{proto}_mps_{mps}.csv"
+            subprocess.run(
+                split(f"powertop --csv={csv_name} -t {test_duration_sec + 3} &"),
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            time.sleep(3)
+    else:
+        print("* Energy monitoring is disabled.")
+
+    if mps != 0:
+        print(f"Run sockperf under-load test with l4 protocol: {proto} and mps: {mps}")
         print(
             "[MARK] The average latency in the output is the estimated one-way"
             "path delay: The average RTT divided by two."
         )
         client.cmdPrint(
-            "sockperf under-load -i {} -t {} --mps 50 --reply-every 1".format(
-                server.IP(), TEST_DURATION
+            "sockperf under-load {} -i {} -t {} --mps {} --reply-every 1".format(
+                proto_option, server.IP(), test_duration_sec, mps
             )
         )
+        # TODO: Parse output of under-load test and store the percentile 50 and
+        # 99.999 latency for further processing
     else:
-        print(f"No traffic is sent, wait {TEST_DURATION} seconds.")
-        time.sleep(TEST_DURATION)
-    if ENABLE_CPU_ENERGY_METER:
-        p.send_signal(signal.SIGINT)
-        print("*** The output of CPU energy measurement.")
-        energy_stats = p.stdout.read().decode()
-        print(energy_stats)
-        # TODO: Parse the measurement result.
-        with open(f"./cpu_energy_{TEST_NF}.csv", "a+") as f:
-            f.write(energy_stats)
+        print(f"No traffic is sent, wait {test_duration_sec} seconds.")
+        time.sleep(test_duration_sec)
+
+    if LAT_TEST_PARAS["enable_energy_monitor"]:
+        if LAT_TEST_PARAS["enable_cpu_energy_meter"]:
+            p.send_signal(signal.SIGINT)
+            print("*** The output of CPU energy measurement.")
+            energy_stats = p.stdout.read().decode()
+            print(energy_stats)
+            with open(f"./cpu_energy_{TEST_NF}.csv", "a+") as f:
+                f.write(energy_stats)
 
 
-def run_benchmark():
-
+def run_benchmark(proto):
     net = Containernet(
         controller=Controller, link=TCLink, switch=OVSSwitch, autoStaticArp=False
     )
@@ -174,7 +201,7 @@ def run_benchmark():
     )
     net.addLinkNamedIfce(s1, server, delay="100ms")
 
-    if ADD_Relay:
+    if ADD_RELAY:
         cpus_relay = "1"
         if TEST_NF == "l2fwd-power":
             print(
@@ -226,29 +253,24 @@ def run_benchmark():
 
     node_portnum_map = {n: getOFPort(s1, f"s1-{n}") for n in nodes}
 
-    if ADD_Relay:
+    if ADD_RELAY:
         info("*** Add OpenFlow rules for traffic redirection.\n")
-        check_output(
-            split(
-                'ovs-ofctl add-flow s1 "udp,in_port={},actions=output={}"'.format(
-                    node_portnum_map["client"], node_portnum_map["relay"]
+        peer_map = {"client": "relay", "relay": "server", "server": "client"}
+        for proto in ["udp", "tcp"]:
+            for peer in peer_map.keys():
+                check_output(
+                    split(
+                        'ovs-ofctl add-flow s1 "{},in_port={},actions=output={}"'.format(
+                            proto,
+                            node_portnum_map[peer],
+                            node_portnum_map[peer_map[peer]],
+                        )
+                    )
                 )
-            )
-        )
-        check_output(
-            split(
-                'ovs-ofctl add-flow s1 "udp,in_port={},actions=output={}"'.format(
-                    node_portnum_map["relay"], node_portnum_map["server"]
-                )
-            )
-        )
-        check_output(
-            split(
-                'ovs-ofctl add-flow s1 "udp,in_port={},actions=output={}"'.format(
-                    node_portnum_map["server"], node_portnum_map["client"]
-                )
-            )
-        )
+
+        if DEBUG:
+            flow_table = s1.dpctl("dump-flows")
+            print(f"*** Current flow table of s1: \n {flow_table}")
 
         info("*** Run DPDK helloworld\n")
         relay.cmd("cd $RTE_SDK/examples/helloworld && make")
@@ -257,12 +279,11 @@ def run_benchmark():
 
         DISPATCHER[TEST_NF](relay)
 
-    if DEBUG:
-        flow_table = s1.dpctl("dump-flows")
-        print(f"*** Current flow table of s1: \n {flow_table}")
-
-    setup_server(server)
-    run_udp_latency_test(server, client)
+        server.cmd("pkill sockperf")
+        setup_server(server, proto)
+        for mps in LAT_TEST_PARAS["client_mps_list"]:
+            run_latency_test(server, client, proto, mps)
+            time.sleep(3)
 
     if ENTER_CLI:
         info("*** Enter CLI\n")
@@ -275,6 +296,7 @@ def run_benchmark():
 
 if __name__ == "__main__":
     setLogLevel("info")
+
     parser = argparse.ArgumentParser(
         description="Basic chain topology for benchmarking DPDK forwarding applications."
     )
@@ -286,44 +308,46 @@ if __name__ == "__main__":
         help="The network function running on the relay. The default is l2fwd.",
     )
     parser.add_argument(
-        "--no_relay",
-        action="store_true",
-        help="No relay in the middle. No OF rules are added. For debugging.",
-    )
-    parser.add_argument(
         "--cli", action="store_true", help="Enter ComNetEmu CLI after latency tests."
-    )
-    parser.add_argument(
-        "--cpu_energy_meter", action="store_true", help="Enable CPU energy meter.",
     )
     parser.add_argument(
         "--debug", action="store_true", help="Run in debug mode. e.g. print more log."
     )
     parser.add_argument(
-        "--no_client_traffic",
+        "--no_relay",
         action="store_true",
-        help="Client sends no traffc. Used to test the power consumption without traffic.",
+        help="No relay in the middle. No OF rules are added. For debugging.",
     )
+    parser.add_argument(
+        "--enable_energy_monitor",
+        action="store_true",
+        help="Enable energy monitoring for latency tests.",
+    )
+
     args = parser.parse_args()
     TEST_NF = args.relay_func
     ENTER_CLI = args.cli
+    ADD_RELAY = True
+    DEBUG = False
+
     if args.debug:
         DEBUG = True
         setLogLevel("debug")
+
     if args.no_relay:
         print("*** No relay in the middle. No OF rules are added.")
         print("The value of relay_func argument is ignored.")
-        ADD_Relay = False
+        ADD_RELAY = False
     else:
         print("*** Relay is added with deployed network function: %s." % TEST_NF)
-    if args.cpu_energy_meter:
-        ENABLE_CPU_ENERGY_METER = True
-        print("*** Enable CPU energy meter for latency benchmarks.")
-    if args.no_client_traffic:
-        NO_Client_Traffic = True
-        print("*** Clients does not send any traffic.")
+
+    if args.enable_energy_monitor:
+        print("*** Enable energy monitoring for latency tests")
+        LAT_TEST_PARAS["enable_energy_monitor"] = True
 
     if multiprocessing.cpu_count() < 2:
         print("[ERROR]: This benchmark requires minimal 2 available CPU cores.")
         sys.exit(1)
-    run_benchmark()
+
+    for proto in LAT_TEST_PARAS["client_protocols"]:
+        run_benchmark(proto)

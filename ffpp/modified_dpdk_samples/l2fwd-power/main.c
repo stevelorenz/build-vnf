@@ -61,6 +61,7 @@ static volatile bool force_quit;
 
 /* MAC updating enabled by default */
 static int mac_updating = 1;
+static int enable_c_state_heuristic = 0;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER2
 
@@ -175,6 +176,9 @@ static struct rte_timer power_timers[RTE_MAX_LCORE];
 #define SCALING_PERIOD (1000000 / TIMER_NUMBER_PER_SECOND)
 #define SCALING_DOWN_TIME_RATIO_THRESHOLD 0.25
 
+#define MINIMUM_SLEEP_TIME 1
+#define SUSPEND_THRESHOLD 300
+
 // Parameters for empty poll
 static struct ep_params *ep_params;
 static struct ep_policy policy;
@@ -223,6 +227,7 @@ struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
 static inline enum freq_scale_hint_t
 power_freq_scaleup_heuristic(unsigned lcore_id, uint16_t port_id,
 			     uint16_t queue_id);
+static inline uint32_t power_idle_heuristic(uint32_t zero_rx_packet_count);
 // -----------------------------------------------------------------------------
 
 // *** Implementation
@@ -319,7 +324,6 @@ static void l2fwd_main_loop(void)
 	struct rte_eth_dev_tx_buffer *buffer;
 	enum freq_scale_hint_t lcore_scaleup_hint;
 	uint32_t lcore_rx_idle_count = 0;
-	uint32_t lcore_idle_hint = 0;
 	struct lcore_rx_queue *rx_queue;
 
 	prev_tsc = 0;
@@ -413,6 +417,10 @@ static void l2fwd_main_loop(void)
 				// The IDLE heuristic for sleeping should run here.
 				// It's leider unimplemented yet.
 				rx_queue->zero_rx_packet_count++;
+
+				rx_queue->idle_hint = power_idle_heuristic(
+					rx_queue->zero_rx_packet_count);
+				lcore_rx_idle_count++;
 			} else {
 				rx_queue->zero_rx_packet_count = 0;
 
@@ -449,6 +457,20 @@ static void l2fwd_main_loop(void)
 					RTE_LOG(DEBUG, POWER,
 						"Scale up to higher frequency\n");
 				rte_power_freq_up(lcore_id);
+			}
+
+			if (enable_c_state_heuristic == 1) {
+				// Sleep to enter C state if needed.
+				if (lcore_rx_idle_count >= 1) {
+					if (rx_queue->idle_hint <
+					    SUSPEND_THRESHOLD) {
+						rte_delay_us(
+							rx_queue->idle_hint);
+					} else {
+						stats[lcore_id].sleep_time +=
+							rx_queue->idle_hint;
+					}
+				}
 			}
 		}
 	}
@@ -859,6 +881,14 @@ power_freq_scaleup_heuristic(unsigned lcore_id, uint16_t port_id,
 	}
 
 	return FREQ_CURRENT;
+}
+
+static inline uint32_t power_idle_heuristic(uint32_t zero_rx_packet_count)
+{
+	if (zero_rx_packet_count < SUSPEND_THRESHOLD)
+		return MINIMUM_SLEEP_TIME;
+	else
+		return SUSPEND_THRESHOLD;
 }
 
 /*  Freqency scale down timer callback */
