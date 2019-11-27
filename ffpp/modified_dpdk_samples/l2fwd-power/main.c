@@ -61,7 +61,8 @@ static volatile bool force_quit;
 
 /* MAC updating enabled by default */
 static int mac_updating = 1;
-static int enable_c_state_heuristic = 0;
+/* Enable C-state sleep heuristics for power management, disabled by default.*/
+static int enable_c_state = 0;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER2
 
@@ -209,6 +210,8 @@ enum appmode {
 	APP_MODE_EMPTY_POLL,
 };
 enum appmode app_mode = APP_MODE_LEGACY;
+
+static rte_spinlock_t locks[RTE_MAX_ETHPORTS];
 // -----------------------------------------------------------------------------
 
 #define MAX_RX_QUEUE_PER_LCORE 16
@@ -305,6 +308,68 @@ static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned portid)
 		port_statistics[dst_port].tx += sent;
 }
 
+static int sleep_until_rx_interrupt(int num)
+{
+	struct rte_epoll_event event[num];
+	int n, i;
+	uint16_t port_id;
+	uint8_t queue_id;
+	void *data;
+
+	RTE_LOG(INFO, POWER, "lcore %u sleeps until interrupt triggers\n",
+		rte_lcore_id());
+
+	n = rte_epoll_wait(RTE_EPOLL_PER_THREAD, event, num, -1);
+	for (i = 0; i < n; i++) {
+		data = event[i].epdata.data;
+		port_id = ((uintptr_t)data) >> CHAR_BIT;
+		queue_id = ((uintptr_t)data) & RTE_LEN2MASK(CHAR_BIT, uint8_t);
+		rte_eth_dev_rx_intr_disable(port_id, queue_id);
+		RTE_LOG(INFO, POWER,
+			"lcore %u is waked up from rx interrupt on"
+			" port %d queue %d\n",
+			rte_lcore_id(), port_id, queue_id);
+	}
+
+	return 0;
+}
+
+static void turn_on_intr(struct lcore_queue_conf *qconf)
+{
+	uint32_t i;
+	uint16_t port_id;
+
+	for (i = 0; i < qconf->n_rx_port; ++i) {
+		port_id = qconf->rx_port_list[i];
+
+		rte_spinlock_lock(&(locks[port_id]));
+		// Enable RX interrupt to be triggered when RX packet arrives
+		rte_eth_dev_rx_intr_enable(port_id, 0);
+		rte_spinlock_unlock(&(locks[port_id]));
+	}
+}
+
+static int event_register(struct lcore_queue_conf *qconf)
+{
+	uint16_t portid;
+	uint32_t data;
+	uint32_t i;
+	int ret;
+
+	for (i = 0; i < qconf->n_rx_port; i++) {
+		portid = qconf->rx_port_list[i];
+		data = portid << CHAR_BIT | 0;
+		ret = rte_eth_dev_rx_intr_ctl_q(portid, 0, RTE_EPOLL_PER_THREAD,
+						RTE_INTR_EVENT_ADD,
+						(void *)((uintptr_t)data));
+		if (ret)
+			return ret;
+	}
+
+	// RX interrupt control works successfully.
+	return 0;
+}
+
 /* main processing loop
  * MARK: Does not support multiple queues per port.
  * */
@@ -325,6 +390,7 @@ static void l2fwd_main_loop(void)
 	enum freq_scale_hint_t lcore_scaleup_hint;
 	uint32_t lcore_rx_idle_count = 0;
 	struct lcore_rx_queue *rx_queue;
+	int intr_en = 0;
 
 	prev_tsc = 0;
 	prev_tsc_power = 0;
@@ -347,6 +413,16 @@ static void l2fwd_main_loop(void)
 		portid = qconf->rx_port_list[i];
 		RTE_LOG(INFO, L2FWD, " -- lcoreid=%u portid=%u\n", lcore_id,
 			portid);
+	}
+
+	if (enable_c_state) {
+		RTE_LOG(INFO, POWER,
+			"C-State is enabled, try to register interrupt event.\n");
+		if (event_register(qconf) == 0)
+			intr_en = 1;
+		else
+			RTE_LOG(INFO, POWER,
+				"RX interrupt can not be enabled.\n");
 	}
 
 	while (!force_quit) {
@@ -459,7 +535,7 @@ static void l2fwd_main_loop(void)
 				rte_power_freq_up(lcore_id);
 			}
 
-			if (enable_c_state_heuristic == 1) {
+			if (enable_c_state == 1) {
 				// Sleep to enter C state if needed.
 				if (lcore_rx_idle_count >= 1) {
 					if (rx_queue->idle_hint <
@@ -467,9 +543,14 @@ static void l2fwd_main_loop(void)
 						rte_delay_us(
 							rx_queue->idle_hint);
 					} else {
-						stats[lcore_id].sleep_time +=
-							rx_queue->idle_hint;
+						if (intr_en == 1) {
+							turn_on_intr(qconf);
+							sleep_until_rx_interrupt(
+								1);
+						}
 					}
+					stats[lcore_id].sleep_time +=
+						rx_queue->idle_hint;
 				}
 			}
 		}
@@ -492,7 +573,8 @@ static void l2fwd_usage(const char *prgname)
 	       "  --[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
 	       "      When enabled:\n"
 	       "       - The source MAC address is replaced by the TX port MAC address\n"
-	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n",
+	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n"
+	       "  --[no-]enable-c-state: Enable or disable C-state heuristic for power manegement.(disabled by default)\n",
 	       prgname);
 }
 
@@ -599,6 +681,8 @@ static const char short_options[] = "p:" /* portmask */
 
 #define CMD_LINE_OPT_MAC_UPDATING "mac-updating"
 #define CMD_LINE_OPT_NO_MAC_UPDATING "no-mac-updating"
+#define CMD_LINE_OPT_ENABLE_C_STATE "enable-c-state"
+#define CMD_LINE_OPT_NO_ENABLE_C_STATE "no-enable-c-state"
 
 enum {
 	/* long options mapped to a short option */
@@ -611,6 +695,8 @@ enum {
 static const struct option lgopts[] = {
 	{ CMD_LINE_OPT_MAC_UPDATING, no_argument, &mac_updating, 1 },
 	{ CMD_LINE_OPT_NO_MAC_UPDATING, no_argument, &mac_updating, 0 },
+	{ CMD_LINE_OPT_ENABLE_C_STATE, no_argument, &enable_c_state, 1 },
+	{ CMD_LINE_OPT_NO_ENABLE_C_STATE, no_argument, &enable_c_state, 0 },
 	{ NULL, 0, 0, 0 }
 };
 
@@ -1190,6 +1276,11 @@ int main(int argc, char **argv)
 
 		/* initialize port stats */
 		memset(&port_statistics, 0, sizeof(port_statistics));
+
+		if (enable_c_state) {
+			/* initialize spinlock for each port */
+			rte_spinlock_init(&(locks[portid]));
+		}
 	}
 
 	if (!nb_ports_available) {
