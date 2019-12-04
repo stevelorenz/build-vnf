@@ -19,27 +19,23 @@ BOX_VER = "201906.18.0"
 # Common bootstrap
 $bootstrap= <<-SCRIPT
 # Install dependencies
-DEBIAN_FRONTEND=noninteractive sudo apt-get update
-DEBIAN_FRONTEND=noninteractive sudo apt-get upgrade -y
-DEBIAN_FRONTEND=noninteractive sudo apt-get install -y git pkg-config gdb bash-completion htop dfc iperf iperf3 tcpdump
+DEBIAN_FRONTEND=noninteractive apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config gdb bash-completion htop dfc iperf iperf3 tcpdump
 
 # Add termite terminal infos
 wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
 tic -x /home/vagrant/termite.terminfo
-
-# Use zuo's tmux config
-git clone https://github.com/stevelorenz/dotfiles.git /home/vagrant/dotfiles
-cp /home/vagrant/dotfiles/not_stowable/tmux/tmux.conf /home/vagrant/.tmux.conf
 SCRIPT
 
 $setup_dev_net= <<-SCRIPT
 # Enable IP forwarding
-sudo sysctl -w net.ipv4.ip_forward=1
+sysctl -w net.ipv4.ip_forward=1
 SCRIPT
 
 $setup_x11_server_apt= <<-SCRIPT
-DEBIAN_FRONTEND=noninteractive sudo apt-get update
-DEBIAN_FRONTEND=noninteractive sudo apt-get install -y xorg openbox xterm
+DEBIAN_FRONTEND=noninteractive apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox xterm
 SCRIPT
 
 ####################
@@ -48,31 +44,7 @@ SCRIPT
 
 Vagrant.configure("2") do |config|
 
-  # --- VM to test Software Traffic Generators ---
-  # MARK: To be tested: MoonGen and Trex
-  config.vm.define "trafficgen" do |trafficgen|
-    trafficgen.vm.box = BOX
-    trafficgen.vm.box_version = BOX_VER
-    trafficgen.vm.hostname = "trafficgen"
-
-    trafficgen.vm.network "private_network", ip: "192.168.10.11", mac:"080027601711",
-      nic_type: "82540EM"
-    trafficgen.vm.network "private_network", ip: "192.168.10.12", mac:"080027601712",
-      nic_type: "82540EM"
-    trafficgen.vm.provision :shell, inline: $bootstrap, privileged: false
-
-    trafficgen.vm.provider "virtualbox" do |vb|
-      vb.name = "trafficgen"
-      vb.memory = RAM
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
-      vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
-    end
-  end
-
-  # --- VM for VNF development ---
+  # --- VM for Network Function development/test/benchmarking ---
   config.vm.define "vnf" do |vnf|
     vnf.vm.box = BOX
     vnf.vm.box_version = BOX_VER
@@ -83,12 +55,10 @@ Vagrant.configure("2") do |config|
     vnf.vm.network "private_network", ip: "192.168.10.14", nic_type: "82540EM"
     # Web access to the controller
     vnf.vm.network :forwarded_port, guest: 8181, host: 18181
-    vnf.vm.provision :shell, inline: $bootstrap, privileged: false
-    vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: false
-    vnf.vm.provision :shell, path: "./script/install_docker.sh", privileged: false
-    vnf.vm.provision :shell, path: "./script/install_comnetsemu.sh", privileged: false
+    vnf.vm.provision :shell, inline: $bootstrap, privileged: true
+    vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: true
     # Command line tool to install Linux kernel
-    vnf.vm.provision :shell, path: "./script/install_ukuu.sh", privileged: false
+    vnf.vm.provision :shell, path: "./script/install_ukuu.sh", privileged: true
 
     # Always run this when use `vagrant up`
     # - Drop the system caches to allocate hugepages
@@ -107,49 +77,6 @@ Vagrant.configure("2") do |config|
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-    end
-  end
-
-  # --- VM for OpenNetVM development: A high performance container-based NFV platform from GW and UCR. ---
-  # WARN: This is experimental
-  config.vm.define "opennetvm" do |opennetvm|
-    opennetvm.vm.box = BOX
-    opennetvm.vm.box_version = BOX_VER
-    opennetvm.vm.hostname = "opennetvm"
-
-    opennetvm.vm.network "private_network", ip: "192.168.10.17", mac:"080027601717",
-      nic_type: "82540EM"
-    opennetvm.vm.network "private_network", ip: "192.168.10.18", mac:"080027601718",
-      nic_type: "82540EM"
-    opennetvm.vm.provision :shell, inline: $bootstrap, privileged: false
-    opennetvm.vm.provision :shell, path: "./script/install_opennetvm.sh", privileged: false
-    opennetvm.vm.provision :shell, path: "./script/install_docker.sh", privileged: false
-
-    # Always run this when use `vagrant up`
-    # Setup opennetvm environment: hugepages, bind interface to DPDK etc.
-    # - The PCI address of the interface can be checked with `lspci`, here the eth1 of the Vagrant VM will be bind to DPDK
-    opennetvm.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
-        echo 3 | sudo tee /proc/sys/vm/drop_caches
-        export ONVM_HOME=$HOME/openNetVM
-        export RTE_SDK=$ONVM_HOME/dpdk
-        export RTE_TARGET=x86_64-native-linuxapp-gcc
-        sudo ip link set eth1 down
-        export ONVM_NIC_PCI=" 00:08.0 "
-        cd $HOME/openNetVM/scripts || exit
-        bash ./setup_environment.sh
-    SHELL
-
-    opennetvm.vm.provider "virtualbox" do |vb|
-      vb.name = "opennetvm"
-      vb.memory = RAM
-      vb.cpus = CPUS
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
-      vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
-      vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
-      vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
-      # By default, OpenNetVM's main components run in busy-polling mode.
-      # no matter how much CPU is used in the VM, no more than 50% would be used on the host machine.
-      vb.customize ["modifyvm", :id, "--cpuexecutioncap", "50"]
     end
   end
 

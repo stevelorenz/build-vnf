@@ -76,4 +76,4 @@ $ xdg-open docs/html/index.html
 
 ## Contact ##
 
-* **Zuo Xiang** - *Project Maintainer* - [Email]((mailto:xianglinks@gmail.com?subject=[GitHub]%20FFPP%20Issue))
+* **Zuo Xiang** - *Project Maintainer* - Email: xianglinks@gmail.com

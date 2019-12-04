@@ -25,6 +25,7 @@ ffpp/docs/html
 ffpp/docs/latex
 ffpp/docs/build
 ffpp/docs/.build
+ffpp/MoonGen
 lib_src
 model/
 paper/.build

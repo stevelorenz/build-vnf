@@ -74,6 +74,33 @@ $ make doc-html
 $ xdg-open ./doc/build/html/index.html
 ```
 
+### Development Virtual Machine ###
+
+The development, test and basic benchmarks of VNFs, libraries are performed on a pre-configured VM managed by the
+Vagrant. The receipt to build the VM is in the [Vagrantfile](./Vagrantfile).
+
+Recommended setup:
+
+- Vagrant: v2.2.5 and beyond ([Download Link](https://www.vagrantup.com/downloads.html))
+- Virtualbox: v6.0 and beyond ([Download Link](https://www.virtualbox.org/wiki/Downloads))
+
+Once the Vagrant and Virtualbox are installed, you can open a terminal (or CMD/powershell on Windows) on your host OS
+and change the current working directory to the build-vnf source directory which contains the Vagrantfile.
+Fowllowing commands can be used to manage the VM
+
+```bash
+# Print current machine states
+$ vagrant status
+
+# Create the VM for VNF development
+$ vagrant up vnf
+
+# Log into the VM via SSH
+$ vagrant ssh vnf
+```
+All tests and benchmarks should run **inside** the VM. And the path of files in READMEs are also paths **inside** the
+VM. A guide to run basic benchmarks of ffpp library can be found [here](./ffpp/benchmark/README.md).
+
 ## Contribution ##
 
 This project exists thanks to all people who contribute.

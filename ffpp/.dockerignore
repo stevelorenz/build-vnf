@@ -1,4 +1,7 @@
+*/*.o
+*/*.out
 build
-**/*.o
-**/*.out
-modified_dpdk_samples/**/build
+tests
+modified_dpdk_samples
+examples/*/build
+examples/*/*/build
