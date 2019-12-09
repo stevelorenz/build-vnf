@@ -31,14 +31,16 @@ int dpdk_init_device(struct dpdk_device_config *cfg)
 
 	// Use a generic port_conf by default
 	struct rte_eth_conf port_conf = {
-                .rxmode = {
-                        .max_rx_pkt_len = 9000,
-                },
-                .txmode = {
-                        .mq_mode = ETH_MQ_TX_NONE,
-                },
+		.rxmode =
+			{
+				.max_rx_pkt_len = 9000,
+			},
+		.txmode =
+			{
+				.mq_mode = ETH_MQ_TX_NONE,
+			},
 
-        };
+	};
 	if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE) {
 		RTE_LOG(INFO, PORT,
 			"[PORT INFO] Port ID: %d support fast mbuf free.\n",

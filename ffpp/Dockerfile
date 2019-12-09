@@ -1,10 +1,9 @@
 #
 # Dockerfile ONLY used for the development and tests of FFPP library.
-# This image includes test and debug utilities and has a relative big size. (1.8GB)
-# It is not suitable for deployment usage.
 #
-# - Installed dependencies:
-#   - DPDK: v19.08
+# This image includes also test and debug utilities and has a relative big size. (about 1.0GB)
+# Most DPDK PMDs and features are disabled to reduce image size.
+# It is not designed/suitable for deployment usage.
 #
 
 FROM ubuntu:18.04
@@ -20,7 +19,7 @@ ENV EXTRA_CFLAGS="-g3 -Wno-error=maybe-uninitialized -fPIC -mno-rdrnd"
 
 # Install build essentials for DPDK
 RUN apt-get update && apt-get install -y wget build-essential \
-    pciutils kmod linux-headers-$(uname -a | awk '{print $3}') hugepages \
+    pciutils hugepages \
     libnuma-dev libpcap-dev xz-utils
 
 
@@ -44,7 +43,8 @@ RUN make -j $(nproc) && \
 #
 ENV FFPP_DIR /ffpp
 # Install test utilities
-RUN apt-get update && apt-get install -y gdb valgrind iputils-ping iproute2 python3 tcpdump net-tools
+RUN apt-get update && apt-get install -y gdb valgrind iputils-ping iproute2 python3 tcpdump net-tools && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives
 
 RUN mkdir -p ${FFPP_DIR}
 COPY . ${FFPP_DIR}

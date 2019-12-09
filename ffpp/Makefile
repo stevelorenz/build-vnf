@@ -18,23 +18,23 @@ lib: $(SRCS-y) $(HEADERS)
 lib_debug: $(SRCS-y) $(HEADERS)
 	@make DEBUG=1 -f ./lib.mk all
 
-.PHONY: test mem_check flawfinder clean
+.PHONY: test memcheck flawcheck codecheck format clean
 
 test: $(SRCS-y) $(HEADERS)
 	@echo "* Run core tests of ffpp..."
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
 	@cd ./tests/ && ./run_tests.py
 
-mem_check: $(SRCS-y) $(HEADERS)
+memcheck: $(SRCS-y) $(HEADERS)
 	@echo "* Run core tests with memory leak checking... (WARN: it takes time...)"
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
 	@cd ./tests/ && ./run_tests.py --mem_check
 
-flaw_check: $(ALL_SRCS_CH)
+flawcheck: $(ALL_SRCS_CH)
 	@echo "* Check torrential flaws and vulnerabilities with static checker..."
 	@flawfinder $(ALL_SRCS_CH)
 
-code_check: $(ALL_SRCS_CH)
+codecheck: $(ALL_SRCS_CH)
 	@echo "* Run static checkers..."
 	@echo "- Run cppcheck all: "
 	@cppcheck --enable=all $(ALL_SRCS_CH)

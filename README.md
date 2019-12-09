@@ -76,6 +76,8 @@ $ xdg-open ./doc/build/html/index.html
 
 ### Development Virtual Machine ###
 
+#### Use Virtualbox as the Provider
+
 The development, test and basic benchmarks of VNFs, libraries are performed on a pre-configured VM managed by the
 Vagrant. The receipt to build the VM is in the [Vagrantfile](./Vagrantfile).
 
@@ -86,7 +88,7 @@ Recommended setup:
 
 Once the Vagrant and Virtualbox are installed, you can open a terminal (or CMD/powershell on Windows) on your host OS
 and change the current working directory to the build-vnf source directory which contains the Vagrantfile.
-Fowllowing commands can be used to manage the VM
+Following commands can be used to manage the VM
 
 ```bash
 # Print current machine states
@@ -99,7 +101,28 @@ $ vagrant up vnf
 $ vagrant ssh vnf
 ```
 All tests and benchmarks should run **inside** the VM. And the path of files in READMEs are also paths **inside** the
-VM. A guide to run basic benchmarks of ffpp library can be found [here](./ffpp/benchmark/README.md).
+VM. A guide to run basic benchmarks of FFPP library can be found [here](./ffpp/benchmark/README.md).
+
+#### Use KVM as the Provider
+
+On a host OS with Linux kernel (e.g. GNU/Linux distributions), KVM can be used as the VM hypervisor.
+Compared to the Virtualbox, KVM (as the native para-virtualization technology provided by the Linux kernel), generally
+provides better performance, time accuracy and hardware-access.
+For example, the VM could access the physical CPU directly to control its frequency states.
+
+Vagrant uses Libvirt to manage KVM powered VMs. The Libvirt plugin of Vagrant with its dependencies (e.g. qemu, kvm
+etc.) must be installed correctly.
+To create the VM with Libvirt provider.
+Check the [guide](https://github.com/vagrant-libvirt/vagrant-libvirt#installation) to install the plugin and its
+dependencies.
+After successful installation, run the following command in the build-vnf's source directory:
+
+```bash
+$ vagrant up --provider libvirt vnf
+# Remove the VM managed by libvirt, the default provider is Virtualbox. Use VAGRANT_DEFAULT_PROVIDER to force vagrant to
+# use libvirt.
+$ VAGRANT_DEFAULT_PROVIDER=libvirt vagrant destroy vnf
+```
 
 ## Contribution ##
 

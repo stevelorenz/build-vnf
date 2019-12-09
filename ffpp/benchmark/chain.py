@@ -27,14 +27,16 @@ from mininet.node import Controller, OVSSwitch
 
 # Parameters for latency test running on the client.
 LAT_TEST_PARAS = {
-    "client_protocols": ["udp", "tcp"],
-    "client_mps_list": [0, 50],
+    "client_protocols": ["udp"],
+    # "client_protocols": ["udp", "tcp"],
+    "client_mps_list": [50],
+    # "client_mps_list": range(0, 60, 10),
     # Following parameters are ignored if enable_energy_monitor == False
     "enable_energy_monitor": False,
     "enable_powertop": True,
     "enable_cpu_energy_meter": False,
     "cpu_energy_meter_bin": "cpu-energy-meter",
-    "test_duration_sec": 30,
+    "test_duration_sec": 10,
 }
 
 
@@ -261,7 +263,7 @@ def run_benchmark(proto):
                 check_output(
                     split(
                         'ovs-ofctl add-flow s1 "{},in_port={},actions=output={}"'.format(
-                            p, node_portnum_map[peer], node_portnum_map[peer_map[peer]],
+                            p, node_portnum_map[peer], node_portnum_map[peer_map[peer]]
                         )
                     )
                 )
