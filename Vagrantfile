@@ -85,14 +85,16 @@ Vagrant.configure("2") do |config|
     if provider == "virtualbox"
       vnf.vm.box = BOX
       vnf.vm.box_version = BOX_VER
+      vnf.vm.synced_folder ".", "/vagrant"
     elsif provider == "libvirt"
       vnf.vm.box = BOX_LIBVIRT
       vnf.vm.box_version = BOX_LIBVIRT_VER
+      # This option does not invoke vagrant rsync automatically.
+      vnf.vm.synced_folder ".", "/vagrant", type:'rsync'
     end
 
     vnf.vm.hostname="vnf"
     vnf.vm.box_check_update= true
-    vnf.vm.synced_folder ".", "/vagrant"
 
     # vnf.vm.network "private_network", ip: "192.168.10.13", nic_type: "82540EM"
     # vnf.vm.network "private_network", ip: "192.168.10.14", nic_type: "82540EM"

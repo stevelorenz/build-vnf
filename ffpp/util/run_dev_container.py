@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 
 """
-About: Run the development docker container for FFPP library
+About: Build/Run the development Docker container for FFPP library.
 """
 
 import argparse
@@ -39,6 +39,8 @@ def build_image():
         DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"]
     )
     run(split(run_cmd))
+    clean_cmd = "docker image prune -f"
+    run(split(clean_cmd))
 
 
 def build_lib():

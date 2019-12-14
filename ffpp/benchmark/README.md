@@ -25,6 +25,9 @@ Change the current directory to `/vagrant/ffpp/benchmark` before following steps
 
 ### Benchmark 1: Per-Packet Latency in the Simple Chain Topology ###
 
+Please run `bash ./setup.sh` for initial setups for DPDK, power monitors before running the application.
+This setup is **not persistent** after rebooting, so run it again after each new rebooting.
+
 -  Source code: [chain.py](./chain.py) for topology and performed tests.
 
 -  Topology: Client --- Relay --- Server. Nodes are connected via OVS and redirect rules are added in OVS's flow table.

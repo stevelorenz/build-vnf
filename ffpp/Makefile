@@ -1,5 +1,5 @@
 #
-# Makefile for FFPP library development
+# Makefile for FFPP library development.
 #
 
 SRCS-y := $(shell find ./src/ -name '*.c')

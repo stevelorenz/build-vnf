@@ -1,5 +1,5 @@
 #
-# About: Makefile for the FFPP library
+# About: Makefile for the FFPP library.
 #
 # WARN: This is a temporary build solution, SHOULD be improved with a better solution when I figure out how to ...
 #
