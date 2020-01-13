@@ -22,14 +22,17 @@
 
 #include <stdint.h>
 
+/* A vector of mbufs e.g. belonging to one APU */
+
 /**
  * Macro to interate over all mbufs in a vector
  */
 #define MVEC_FOREACH_MBUF(i, vec) for (i = 0; (uint16_t)i < vec->len; i = i + 1)
 
 /**
- * struct mvec - DPDK Mbuf vector
+ * struct mvec - DPDK Mbuf vector.
  *
+ * For performance, this data structure should always be allocated on the stack.
  * To operate headers and payload like a Linux-like socket buffer.
  *
  * Socket buffer reference: http://vger.kernel.org/~davem/skb_data.html

@@ -21,8 +21,13 @@ lib_debug: $(SRCS-y) $(HEADERS)
 .PHONY: test memcheck flawcheck codecheck format clean
 
 test: $(SRCS-y) $(HEADERS)
-	@echo "* Run core tests of ffpp..."
+	@echo "* Run all tests of ffpp..."
 	@cd ./tests/ && make clean > /dev/null && make > /dev/null
+	@cd ./tests/ && ./run_tests.py
+
+test_strict: $(SRCS-y) $(HEADERS)
+	@echo "* Run all tests of ffpp..."
+	@cd ./tests/ && make clean > /dev/null && make STRICT=1 > /dev/null
 	@cd ./tests/ && ./run_tests.py
 
 memcheck: $(SRCS-y) $(HEADERS)
@@ -46,7 +51,7 @@ format: $(ALL_SRCS_CH)
 clean:
 	@echo "* Run cleanups"
 	@echo "- cleanup ffpp library"
-	@make -f ./lib.mk clean
+	@make -f ./lib.mk clean > /dev/null
 	@rm -r ./build/
 
 .PHONY: docs

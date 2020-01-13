@@ -1,5 +1,5 @@
 /*
- * About: Test DPDK ring functions
+ * About: Test DPDK ring functions.
  *
  *        Can be used as a emulation for single-producer and -consumer FIFO
  *        queue based pktgen --- VNF. Namely, master core -> consumer and VNF,

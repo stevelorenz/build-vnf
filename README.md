@@ -1,4 +1,10 @@
-# Build VNF #
+# Build VNF - An explore project  #
+
+**Info**: This project (especially FFPP library) decides to use the
+[ComNetsEmu](https://git.comnets.net/public-repo/comnetsemu) network emulator as its default and main testbed for all
+its libraries and frameworks.
+Now there are some duplicated/redundant Dockerfiles in both projects.
+These will be soon removed and a detailed docs will be added in build-vnf for How-To-Use ComNetsEmu.
 
 ## Build Low Latency Virtualized Network Functions ##
 

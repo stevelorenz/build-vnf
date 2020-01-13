@@ -49,7 +49,10 @@ ENV RTE_TARGET=x86_64-native-linuxapp-gcc
 ENV EXTRA_CFLAGS="-g3 -Wno-error=maybe-uninitialized -fPIC -mno-rdrnd"
 
 RUN mkdir -p ${RTE_SDK}
-RUN apt-get update && apt-get install -y pciutils hugepages libnuma-dev libpcap-dev xz-utils && \
+RUN apt-get update && apt-get install -y build-essential pciutils hugepages libnuma-dev libpcap-dev xz-utils \
+    liblua5.3-dev lua5.3 \
+    # Debug and test utilities.
+    gdb valgrind iputils-ping iproute2 python3 tcpdump net-tools && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 COPY --from=builder /usr/local/bin /usr/local/bin
@@ -60,7 +63,6 @@ COPY --from=builder /usr/local/share/dpdk /usr/local/share/dpdk
 
 COPY --from=builder ${RTE_SDK}/mk ${RTE_SDK}/mk
 COPY --from=builder ${RTE_SDK}/buildtools ${RTE_SDK}/buildtools
-COPY --from=builder ${RTE_SDK}/examples ${RTE_SDK}/examples
 
 RUN mkdir -p ${RTE_SDK}/build \
   && ln -s /usr/local/lib/dpdk ${RTE_SDK}/build/lib \
@@ -71,9 +73,6 @@ COPY config ${RTE_SDK}/build/.config
 
 # Build FFPP library
 ENV FFPP_DIR /ffpp
-# Install test utilities
-RUN apt-get update && apt-get install -y build-essential gdb valgrind iputils-ping iproute2 python3 tcpdump net-tools && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives
 
 RUN mkdir -p ${FFPP_DIR}
 COPY . ${FFPP_DIR}

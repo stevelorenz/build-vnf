@@ -26,12 +26,12 @@ endif
 CFLAGS+=$(OPTS)
 CFLAGS+= -mno-rdrnd
 
-all: test_role.out test_ring.out
+all: distributor.out dummy_vnf.out
 
-test_ring.out: test_ring.c
+distributor.out: distributor.c
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
-test_role.out: test_role.c
+dummy_vnf.out: dummy_vnf.c
 	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 .PHONY:clean

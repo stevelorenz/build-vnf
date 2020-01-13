@@ -88,6 +88,18 @@ def run_test():
     run(split(run_cmd))
 
 
+def run_test_strict():
+    DOCKER_RUN_ARGS["vols"] = " ".join(
+        (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
+    )
+    DOCKER_RUN_ARGS[
+        "cmd"
+    ] = 'bash -c "make clean && make lib_debug && make test_strict "'
+    DOCKER_RUN_ARGS["extra_opts"] = ""
+    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
+    run(split(run_cmd))
+
+
 def run_memcheck():
     DOCKER_RUN_ARGS["vols"] = " ".join(
         (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
@@ -144,6 +156,7 @@ parser.add_argument(
         "build_lib_debug",
         "run",
         "run_test",
+        "run_test_strict",
         "run_memcheck",
     ],
     help="To be performed action.\n"
@@ -152,6 +165,7 @@ parser.add_argument(
     "\tbuild_lib_debug: Build the shared library in debug mode(-g and -O0).\n"
     "\trun: Run docker container in interactive mode.\n"
     "\trun_test: Run tests in the docker container without interaction.\n"
+    "\trun_test_strict: Run strict tests in the docker container without interaction.\n"
     "\trun_memcheck: Run memory leak checking in the docker container without interaction.\n",
 )
 
@@ -163,6 +177,7 @@ dispatcher = {
     "build_lib_debug": build_lib_debug,
     "build_image": build_image,
     "run_test": run_test,
+    "run_test_strict": run_test_strict,
     "run_memcheck": run_memcheck,
 }
 

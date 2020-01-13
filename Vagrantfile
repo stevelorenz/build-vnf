@@ -44,6 +44,14 @@ sed -i 's/#X11UseLocalhost yes/X11UseLocalhost no/g' /etc/ssh/sshd_config
 systemctl restart sshd.service
 SCRIPT
 
+$post_installation= <<-SCRIPT
+# Allow vagrant user to use Docker without sudo
+usermod -aG docker vagrant
+if [ -d /home/vagrant/.docker ]; then
+  chown -R vagrant:vagrant /home/vagrant/.docker
+fi
+SCRIPT
+
 ####################
 #  Vagrant Config  #
 ####################
@@ -103,6 +111,7 @@ Vagrant.configure("2") do |config|
     vnf.vm.network :forwarded_port, guest: 8181, host: 18181
     vnf.vm.provision :shell, inline: $bootstrap, privileged: true
     vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: true
+    vnf.vm.provision :shell, inline: $post_installation, privileged: true
     # Command line tool to install Linux kernel
     vnf.vm.provision :shell, path: "./script/install_ukuu.sh", privileged: true
 

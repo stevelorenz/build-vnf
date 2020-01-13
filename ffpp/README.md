@@ -37,7 +37,7 @@ In order to test the latest version, libraries are compiled directly from source
 To reduce the dev image size, unnecessary PMDs and some built-in DPDK applications are not compiled.
 The compile-time configuration uses this [config file](./config).
 It is copied to ${RTE_SDK}/build/.config into the Docker image.
-The built `ffpp:latest` image has size of about **1.8GB** size (the default build takes about 5GB size).
+The built `ffpp:latest` image has size of about **590MB** size (the default build takes about 5GB size).
 This image includes some test utilities like gdb, valgrind, tcpdump.
 The Dockerfile and config can be further customized to reduce the image size.
 
