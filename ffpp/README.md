@@ -10,7 +10,7 @@ To be utilized low-level technologies including:
 
 Therefore, the "Fast Fast" (Double F) here means fast in Linux kernel space as well as user space.
 
-FFPP currently focuses on providing DPDK C wrappers (plan to add Rust bindings) that can be used to speed up packet I/O
+FFPP currently focuses on providing DPDK C wrappers (plan to add Python bindings) that can be used to speed up packet I/O
 and processing with more programmer-friendly APIs and utility functions.
 C is chosen here mainly due to the fact that the DPDK library is developed in C, so it's easier to utilize all its
 functionalities and newly added features via C APIs.

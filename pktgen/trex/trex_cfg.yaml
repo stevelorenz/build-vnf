@@ -1,0 +1,15 @@
+- port_limit: 2
+  version: 2
+  # Use Linux interfaces mode for veth devices
+  interfaces: ['--vdev=net_af_packet0,iface=h1-ingress-s1', '--vdev=net_af_packet1,iface=h1-egress-s1']
+  low_end: true
+  # Loopback setup, just for testing.
+  port_info:
+            # Egress interface of h1
+          - ip: 10.0.0.2
+            # Ingress interface of h2
+            default_gw: 10.0.0.3
+            # Ingress interface of h1
+          - ip: 10.0.0.1
+            # Egress interface of h2
+            default_gw: 10.0.0.4
