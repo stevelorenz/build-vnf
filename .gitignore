@@ -1,35 +1,3 @@
-----------
--  MISC  -
-----------
-
-*.bin
-*.csv
-*.jpg
-*.jpeg
-*.mbuf
-*.pcap
-*.png
-*.pdf
-*.weights
-massif.*
-
-.vagrant/
-build/
-doc/build/
-doc/.build
-vm_share/
-rsc/
-dataset/
-evaluation/one_way_delay/results/
-ffpp/docs/html
-ffpp/docs/latex
-ffpp/docs/build
-ffpp/docs/.build
-ffpp/MoonGen
-lib_src
-model/
-paper/.build
-
 -------
 -  C  -
 -------
@@ -91,6 +59,9 @@ dkms.conf
 *.gcov
 *.gcda
 *.gcno
+
+# Meson build system
+builddir
 
 ------------
 -  Python  -
@@ -200,3 +171,31 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+----------
+-  MISC  -
+----------
+
+*.bin
+*.csv
+*.jpg
+*.jpeg
+*.mbuf
+*.pcap
+*.png
+*.pdf
+*.weights
+massif.*
+
+.vagrant/
+build/
+doc/build/
+doc/.build
+vm_share/
+dataset/
+calvin-faas/ffpp/docs/html
+calvin-fass/ffpp/docs/latex
+calvin-fass/ffpp/docs/build
+calvin-fass/ffpp/docs/.build
+calvin-fass/ffpp/MoonGen
+lib_src

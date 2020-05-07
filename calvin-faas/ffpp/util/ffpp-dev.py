@@ -1,15 +1,17 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
 
 """
-About: Build/Run the development Docker container for FFPP library.
+About: FFPP library Container development environment utility.
 """
 
 import argparse
 import os
 from shlex import split
 from subprocess import run, PIPE
+
+FFPP_VER = "0.0.1"
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
 
@@ -21,20 +23,20 @@ DOCKER_RUN_ARGS = {
     "-v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages "
     "-v /sys/devices/system/node:/sys/devices/system/node "
     "-v /dev:/dev",
-    "image": "ffpp",
-    "ver": "latest",
+    "image": "ffpp-dev",
+    "ver": FFPP_VER,
     "name": "ffpp",
     "extra_vols": "-v %s:/ffpp" % PARENT_DIR,
 }
 
-RUN_CMD_FMT = "docker run {opts} {vols} {extra_opts} {image} {cmd}"
+RUN_CMD_FMT = "docker run {opts} {vols} {extra_opts} {image}:{ver} {cmd}"
 
 IFACE_NAME_DPDK_IN = "test_dpdk_in"
 IFACE_NAME_LOADGEN_IN = "test_loadgen_in"
 
 
 def build_image():
-    os.chdir("../")
+    os.chdir("../docker/")
     run_cmd = "docker build --compress --rm -t {}:{} --file ./Dockerfile .".format(
         DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"]
     )
@@ -53,16 +55,6 @@ def build_lib():
     run(split(run_cmd))
 
 
-def build_lib_debug():
-    DOCKER_RUN_ARGS["vols"] = " ".join(
-        (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
-    )
-    DOCKER_RUN_ARGS["cmd"] = 'bash -c "make clean && make lib_debug "'
-    DOCKER_RUN_ARGS["extra_opts"] = ""
-    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
-    run(split(run_cmd))
-
-
 def run_interactive():
     # Avoid conflict with other non-interactive actions
     cname = "ffpp_interactive"
@@ -73,41 +65,9 @@ def run_interactive():
     DOCKER_RUN_ARGS["extra_opts"] = "-itd --name %s" % cname
     run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
     run(split(run_cmd))
-    setup_test_ifaces(cname)
+    # setup_test_ifaces(cname)
     run(split("docker attach {}".format(cname)))
-    cleanup_test_ifaces()
-
-
-def run_test():
-    DOCKER_RUN_ARGS["vols"] = " ".join(
-        (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
-    )
-    DOCKER_RUN_ARGS["cmd"] = 'bash -c "make clean && make lib_debug && make test "'
-    DOCKER_RUN_ARGS["extra_opts"] = ""
-    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
-    run(split(run_cmd))
-
-
-def run_test_strict():
-    DOCKER_RUN_ARGS["vols"] = " ".join(
-        (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
-    )
-    DOCKER_RUN_ARGS[
-        "cmd"
-    ] = 'bash -c "make clean && make lib_debug && make test_strict "'
-    DOCKER_RUN_ARGS["extra_opts"] = ""
-    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
-    run(split(run_cmd))
-
-
-def run_memcheck():
-    DOCKER_RUN_ARGS["vols"] = " ".join(
-        (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
-    )
-    DOCKER_RUN_ARGS["cmd"] = 'bash -c "make clean && make lib_debug && make mem_check "'
-    DOCKER_RUN_ARGS["extra_opts"] = ""
-    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
-    run(split(run_cmd))
+    # cleanup_test_ifaces()
 
 
 def setup_test_ifaces(cname):
@@ -150,35 +110,19 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "action",
     type=str,
-    choices=[
-        "build_image",
-        "build_lib",
-        "build_lib_debug",
-        "run",
-        "run_test",
-        "run_test_strict",
-        "run_memcheck",
-    ],
+    choices=["build_image", "build_lib", "run"],
     help="To be performed action.\n"
-    "\tbuild_image: Build docker image.\n"
+    "\tbuild_image: Build the Docker image for FFPP development.\n"
     "\tbuild_lib: Build the shared library (libffpp.so).\n"
-    "\tbuild_lib_debug: Build the shared library in debug mode(-g and -O0).\n"
-    "\trun: Run docker container in interactive mode.\n"
-    "\trun_test: Run tests in the docker container without interaction.\n"
-    "\trun_test_strict: Run strict tests in the docker container without interaction.\n"
-    "\trun_memcheck: Run memory leak checking in the docker container without interaction.\n",
+    "\trun: Run Docker container (with ffpp-dev image) in interactive mode.\n",
 )
 
 args = parser.parse_args()
 
 dispatcher = {
-    "run": run_interactive,
-    "build_lib": build_lib,
-    "build_lib_debug": build_lib_debug,
     "build_image": build_image,
-    "run_test": run_test,
-    "run_test_strict": run_test_strict,
-    "run_memcheck": run_memcheck,
+    "build_lib": build_lib,
+    "run": run_interactive,
 }
 
 dispatcher.get(args.action)()

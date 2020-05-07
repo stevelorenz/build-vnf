@@ -9,8 +9,8 @@ CPUS = 2
 RAM = 2048
 
 # Use Ubuntu LTS for development
-BOX = "bento/ubuntu-18.04"
-BOX_VER = "201906.18.0"
+BOX = "bento/ubuntu-20.04"
+BOX_VER = "202004.27.0"
 
 # Box for using libvirt as the provider, bento boxes do not support libvirt.
 BOX_LIBVIRT = "generic/ubuntu1804"
@@ -32,6 +32,11 @@ wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminf
 tic -x /home/vagrant/termite.terminfo
 SCRIPT
 
+$install_devtools=<<-SCRIPT
+DEBIAN_FRONTEND=noninteractive apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+SCRIPT
+
 $setup_dev_net= <<-SCRIPT
 # Enable IP forwarding
 sysctl -w net.ipv4.ip_forward=1
@@ -42,21 +47,6 @@ DEBIAN_FRONTEND=noninteractive apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox xterm
 sed -i 's/#X11UseLocalhost yes/X11UseLocalhost no/g' /etc/ssh/sshd_config
 systemctl restart sshd.service
-SCRIPT
-
-$install_kernel= <<-SCRIPT
-# Install libssl1.1 from https://packages.ubuntu.com/bionic/amd64/libssl1.1/download
-echo "deb http://cz.archive.ubuntu.com/ubuntu bionic main" | tee -a /etc/apt/sources.list > /dev/null
-apt update
-apt install -y libssl1.1
-cd /tmp || exit
-wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-headers-5.4.0-050400_5.4.0-050400.201911242031_all.deb
-wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-headers-5.4.0-050400-generic_5.4.0-050400.201911242031_amd64.deb
-wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-image-unsigned-5.4.0-050400-generic_5.4.0-050400.201911242031_amd64.deb
-wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-modules-5.4.0-050400-generic_5.4.0-050400.201911242031_amd64.deb
-dpkg -i *.deb
-update-initramfs -u -k 5.4.0-050400-generic
-update-grub
 SCRIPT
 
 $post_installation= <<-SCRIPT
@@ -125,17 +115,15 @@ Vagrant.configure("2") do |config|
     # Web access to the controller
     vnf.vm.network :forwarded_port, guest: 8181, host: 18181
     vnf.vm.provision :shell, inline: $bootstrap, privileged: true
-    vnf.vm.provision :shell, inline: $install_kernel, privileged: true
+    vnf.vm.provision :shell, inline: $install_devtools, privileged: true
     vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: true
     vnf.vm.provision :shell, inline: $post_installation, privileged: true
-    # Command line tool to install Linux kernel
-    vnf.vm.provision :shell, path: "./scripts/install_docker.sh", privileged: true
 
     # Always run this when use `vagrant up`
     # - Drop the system caches to allocate hugepages
     vnf.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
         echo 3 | sudo tee /proc/sys/vm/drop_caches
-        cd /vagrant/ffpp/util || exit
+        cd /vagrant/scripts || exit
         sudo bash ./setup_hugepage.sh
     SHELL
 
