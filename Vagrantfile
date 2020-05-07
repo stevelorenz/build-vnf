@@ -44,6 +44,21 @@ sed -i 's/#X11UseLocalhost yes/X11UseLocalhost no/g' /etc/ssh/sshd_config
 systemctl restart sshd.service
 SCRIPT
 
+$install_kernel= <<-SCRIPT
+# Install libssl1.1 from https://packages.ubuntu.com/bionic/amd64/libssl1.1/download
+echo "deb http://cz.archive.ubuntu.com/ubuntu bionic main" | tee -a /etc/apt/sources.list > /dev/null
+apt update
+apt install -y libssl1.1
+cd /tmp || exit
+wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-headers-5.4.0-050400_5.4.0-050400.201911242031_all.deb
+wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-headers-5.4.0-050400-generic_5.4.0-050400.201911242031_amd64.deb
+wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-image-unsigned-5.4.0-050400-generic_5.4.0-050400.201911242031_amd64.deb
+wget -c http://kernel.ubuntu.com/~kernel-ppa/mainline/v5.4/linux-modules-5.4.0-050400-generic_5.4.0-050400.201911242031_amd64.deb
+dpkg -i *.deb
+update-initramfs -u -k 5.4.0-050400-generic
+update-grub
+SCRIPT
+
 $post_installation= <<-SCRIPT
 # Allow vagrant user to use Docker without sudo
 usermod -aG docker vagrant
@@ -110,10 +125,11 @@ Vagrant.configure("2") do |config|
     # Web access to the controller
     vnf.vm.network :forwarded_port, guest: 8181, host: 18181
     vnf.vm.provision :shell, inline: $bootstrap, privileged: true
+    vnf.vm.provision :shell, inline: $install_kernel, privileged: true
     vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: true
     vnf.vm.provision :shell, inline: $post_installation, privileged: true
     # Command line tool to install Linux kernel
-    vnf.vm.provision :shell, path: "./script/install_ukuu.sh", privileged: true
+    vnf.vm.provision :shell, path: "./scripts/install_docker.sh", privileged: true
 
     # Always run this when use `vagrant up`
     # - Drop the system caches to allocate hugepages

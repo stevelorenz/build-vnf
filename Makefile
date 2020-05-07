@@ -5,11 +5,6 @@
 all:
 	@echo "Makefile needs your attention"
 
-.PHONY: doc-html rm-all-containers rm-dangling-images
-doc-html:
-	@echo "Build documentation in HTML with Sphinx"
-	cd ./doc && make html
-
 ## Cleanup utilities
 
 rm-all-containers:

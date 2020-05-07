@@ -22,8 +22,9 @@
  *
  * @return
  */
-struct rte_mbuf* mbuf_udp_deep_copy(
-    struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len);
+struct rte_mbuf *mbuf_udp_deep_copy(struct rte_mbuf *m,
+				    struct rte_mempool *mbuf_pool,
+				    uint16_t hdr_len);
 
 /**
  * @brief Recalculate IP and UDP checksum
@@ -31,13 +32,13 @@ struct rte_mbuf* mbuf_udp_deep_copy(
  * @param iph
  * @param udph
  */
-void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph);
+void recalc_cksum(struct ipv4_hdr *iph, struct udp_hdr *udph);
 
 /**
  * @brief Print in mbuf encapsulated UDP segment in hex format
  *
  */
-void px_mbuf_udp(struct rte_mbuf* m);
+void px_mbuf_udp(struct rte_mbuf *m);
 
 /**
  * @brief Compare data room of two mbufs
@@ -47,7 +48,7 @@ void px_mbuf_udp(struct rte_mbuf* m);
  *
  * @return
  */
-int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
+int mbuf_data_cmp(struct rte_mbuf *m1, struct rte_mbuf *m2);
 
 /**
  * @brief Compare two in mbuf encapsulated UDP segments
@@ -55,6 +56,6 @@ int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
  * @param m1
  * @param m2
  */
-int mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2);
+int mbuf_udp_cmp(struct rte_mbuf *m1, struct rte_mbuf *m2);
 
 #endif /* !DPDK_HELPER_H */

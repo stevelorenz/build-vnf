@@ -34,91 +34,92 @@
 
 #include "dpdk_helper.h"
 
-struct rte_mbuf* mbuf_udp_deep_copy(
-    struct rte_mbuf* m, struct rte_mempool* mbuf_pool, uint16_t hdr_len)
+struct rte_mbuf *mbuf_udp_deep_copy(struct rte_mbuf *m,
+				    struct rte_mempool *mbuf_pool,
+				    uint16_t hdr_len)
 {
-        if (m->nb_segs > 1) {
-                RTE_LOG(ERR, USER1,
-                    "Deep copy doest not support scattered segments.\n");
-                return NULL;
-        }
-        struct rte_mbuf* m_copy;
-        m_copy = rte_pktmbuf_alloc(mbuf_pool);
-        m_copy->data_len = m->data_len;
-        m_copy->pkt_len = m->pkt_len;
-        rte_memcpy(rte_pktmbuf_mtod(m_copy, uint8_t*),
-            rte_pktmbuf_mtod(m, uint8_t*), hdr_len);
-        return m_copy;
+	if (m->nb_segs > 1) {
+		RTE_LOG(ERR, USER1,
+			"Deep copy doest not support scattered segments.\n");
+		return NULL;
+	}
+	struct rte_mbuf *m_copy;
+	m_copy = rte_pktmbuf_alloc(mbuf_pool);
+	m_copy->data_len = m->data_len;
+	m_copy->pkt_len = m->pkt_len;
+	rte_memcpy(rte_pktmbuf_mtod(m_copy, uint8_t *),
+		   rte_pktmbuf_mtod(m, uint8_t *), hdr_len);
+	return m_copy;
 }
 
-void recalc_cksum(struct ipv4_hdr* iph, struct udp_hdr* udph)
+void recalc_cksum(struct ipv4_hdr *iph, struct udp_hdr *udph)
 {
-        udph->dgram_cksum = 0;
-        iph->hdr_checksum = 0;
-        udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
-        iph->hdr_checksum = rte_ipv4_cksum(iph);
+	udph->dgram_cksum = 0;
+	iph->hdr_checksum = 0;
+	udph->dgram_cksum = rte_ipv4_udptcp_cksum(iph, udph);
+	iph->hdr_checksum = rte_ipv4_cksum(iph);
 }
 
-void px_mbuf_udp(struct rte_mbuf* m)
+void px_mbuf_udp(struct rte_mbuf *m)
 {
-        struct ipv4_hdr* iph;
-        struct udp_hdr* udph;
-        uint8_t* pt_data;
-        uint16_t data_len;
-        size_t i;
-        printf("Dataroom len: %u\n", m->data_len);
+	struct ipv4_hdr *iph;
+	struct udp_hdr *udph;
+	uint8_t *pt_data;
+	uint16_t data_len;
+	size_t i;
+	printf("Dataroom len: %u\n", m->data_len);
 
-        printf("Header part: \n");
-        pt_data = rte_pktmbuf_mtod(m, uint8_t*);
-        for (i = 0; i < (14 + 20 + 8); ++i) {
-                printf("%02x ", *(pt_data + i));
-        }
-        printf("\n");
-        iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr*, ETHER_HDR_LEN);
-        udph = (struct udp_hdr*)((char*)iph + 20);
-        data_len = rte_be_to_cpu_16(udph->dgram_len) - 8;
-        // printf("[PRINT] UDP dgram len:%u, data len:%u\n",
-        // rte_be_to_cpu_16(udph->dgram_len), data_len);
-        pt_data = (uint8_t*)udph + 8;
-        printf("UDP data: \n");
-        for (i = 0; i < data_len; ++i) {
-                printf("%02x ", *(pt_data + i));
-        }
-        printf("\n");
+	printf("Header part: \n");
+	pt_data = rte_pktmbuf_mtod(m, uint8_t *);
+	for (i = 0; i < (14 + 20 + 8); ++i) {
+		printf("%02x ", *(pt_data + i));
+	}
+	printf("\n");
+	iph = rte_pktmbuf_mtod_offset(m, struct ipv4_hdr *, ETHER_HDR_LEN);
+	udph = (struct udp_hdr *)((char *)iph + 20);
+	data_len = rte_be_to_cpu_16(udph->dgram_len) - 8;
+	// printf("[PRINT] UDP dgram len:%u, data len:%u\n",
+	// rte_be_to_cpu_16(udph->dgram_len), data_len);
+	pt_data = (uint8_t *)udph + 8;
+	printf("UDP data: \n");
+	for (i = 0; i < data_len; ++i) {
+		printf("%02x ", *(pt_data + i));
+	}
+	printf("\n");
 }
 
-int mbuf_data_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
+int mbuf_data_cmp(struct rte_mbuf *m1, struct rte_mbuf *m2)
 {
-        uint8_t* pt_m1;
-        uint8_t* pt_m2;
-        size_t i;
+	uint8_t *pt_m1;
+	uint8_t *pt_m2;
+	size_t i;
 
-        pt_m1 = rte_pktmbuf_mtod(m1, uint8_t*);
-        pt_m2 = rte_pktmbuf_mtod(m2, uint8_t*);
-        if (m1->data_len != m2->data_len) {
-                RTE_LOG(INFO, USER1,
-                    "Mbufs have different data_len. m1 len: %u, m2 len: %u\n",
-                    m1->data_len, m2->data_len);
-                return -2;
-        }
+	pt_m1 = rte_pktmbuf_mtod(m1, uint8_t *);
+	pt_m2 = rte_pktmbuf_mtod(m2, uint8_t *);
+	if (m1->data_len != m2->data_len) {
+		RTE_LOG(INFO, USER1,
+			"Mbufs have different data_len. m1 len: %u, m2 len: %u\n",
+			m1->data_len, m2->data_len);
+		return -2;
+	}
 
-        for (i = 0; i < m1->data_len; ++i) {
-                if (*pt_m1 < *pt_m2) {
-                        return -1;
-                } else if (*pt_m1 > *pt_m2) {
-                        return 1;
-                }
-        }
-        return 0;
+	for (i = 0; i < m1->data_len; ++i) {
+		if (*pt_m1 < *pt_m2) {
+			return -1;
+		} else if (*pt_m1 > *pt_m2) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
-int mbuf_udp_cmp(struct rte_mbuf* m1, struct rte_mbuf* m2)
+int mbuf_udp_cmp(struct rte_mbuf *m1, struct rte_mbuf *m2)
 {
-        /*uint8_t* pt_m1;*/
-        /*uint8_t* pt_m2;*/
+	/*uint8_t* pt_m1;*/
+	/*uint8_t* pt_m2;*/
 
-        rte_pktmbuf_free(m1);
-        rte_pktmbuf_free(m2);
+	rte_pktmbuf_free(m1);
+	rte_pktmbuf_free(m2);
 
-        return 0;
+	return 0;
 }
