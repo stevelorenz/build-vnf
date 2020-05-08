@@ -8,9 +8,8 @@
 #include <rte_malloc.h>
 #include <rte_mbuf.h>
 
-#include "collections.h"
-#include "config.h"
-#include "utils.h"
+#include <ffpp/collections.h>
+#include <ffpp/utils.h>
 
 struct mvec *mvec_new(struct rte_mbuf **mbuf_arr, uint16_t len)
 {

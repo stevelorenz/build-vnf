@@ -17,9 +17,8 @@
 #include <rte_pci.h>
 #include <rte_udp.h>
 
-#include "config.h"
-#include "io.h"
-#include "utils.h"
+#include <ffpp/config.h>
+#include <ffpp/io.h>
 
 #define MAGIC_DATA 0x17
 #define MBUF_l3_HDR_LEN 20

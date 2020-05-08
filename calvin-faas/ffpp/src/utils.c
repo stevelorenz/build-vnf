@@ -27,7 +27,7 @@
 #include <rte_mempool.h>
 #include <rte_prefetch.h>
 
-#include "utils.h"
+#include <ffpp/utils.h>
 
 /* TODO: <29-06-19, Zuo> Add support for multi-segment mbuf and header
  * adjustment */

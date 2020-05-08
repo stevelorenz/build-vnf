@@ -6,7 +6,7 @@
 #include <rte_ether.h>
 #include <rte_log.h>
 
-#include "device.h"
+#include <ffpp/device.h>
 
 int dpdk_init_device(struct dpdk_device_config *cfg)
 {

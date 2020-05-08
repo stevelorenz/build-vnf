@@ -6,6 +6,9 @@
 
 echo "* Setup development tools for FFPP."
 
+echo "- Install doxygen for API documentatin."
+apt-get install -y doxygen
+
 echo "- Install static code checker..."
-apt-get install -y cppcheck clang-format
+apt-get install -y python3-pip cppcheck clang-format
 pip3 install flawfinder

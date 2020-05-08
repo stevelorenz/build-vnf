@@ -8,12 +8,27 @@ About: FFPP library Container development environment utility.
 
 import argparse
 import os
+import sys
+
+from pathlib import Path
 from shlex import split
 from subprocess import run, PIPE
 
 FFPP_VER = "0.0.1"
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
+
+
+class bcolors:
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
 
 DOCKER_RUN_ARGS = {
     # Essential options
@@ -36,7 +51,16 @@ IFACE_NAME_LOADGEN_IN = "test_loadgen_in"
 
 
 def build_image():
-    os.chdir("../docker/")
+    print(
+        bcolors.HEADER
+        + "ACTION: Build docker image for FFPP development."
+        + bcolors.ENDC
+    )
+    dockerfile = Path("../Dockerfile")
+    if not dockerfile.is_file():
+        print("Can not find the Dockerfile in path: %s." % dockerfile.as_posix())
+        sys.exit(1)
+    os.chdir("../")
     run_cmd = "docker build --compress --rm -t {}:{} --file ./Dockerfile .".format(
         DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"]
     )
@@ -45,18 +69,45 @@ def build_image():
     run(split(clean_cmd))
 
 
-def build_lib():
-    DOCKER_RUN_ARGS["vols"] = " ".join(
-        (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
-    )
-    DOCKER_RUN_ARGS["cmd"] = 'bash -c "make clean && make lib "'
-    DOCKER_RUN_ARGS["extra_opts"] = ""
-    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
-    run(split(run_cmd))
-
-
 def run_interactive():
     # Avoid conflict with other non-interactive actions
+    print(
+        bcolors.HEADER
+        + "ACTION: Run Docker image: %s:%s interactivly."
+        % (DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"])
+        + bcolors.ENDC
+    )
+    print(
+        bcolors.WARNING + "- This container will be removed after exit" + bcolors.ENDC
+    )
+    cname = "ffpp_interactive"
+    DOCKER_RUN_ARGS["vols"] = DOCKER_RUN_ARGS["dpdk_vols"]
+    # DOCKER_RUN_ARGS["vols"] = " ".join(
+    #     (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
+    # )
+    DOCKER_RUN_ARGS["cmd"] = "bash"
+    DOCKER_RUN_ARGS["extra_opts"] = "-itd --name %s" % cname
+    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
+    run(split(run_cmd))
+    run(split("docker attach {}".format(cname)))
+
+
+def run_interactive_with_ffpp_path_mount():
+    # Avoid conflict with other non-interactive actions
+    print(
+        bcolors.HEADER
+        + """ACTION: Run Docker image: %s:%s interactivly. The /ffpp path inside container is mounted by ../ path on the host."""
+        % (DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"])
+        + bcolors.ENDC
+    )
+    print(
+        bcolors.WARNING + "- This container will be removed after exit" + bcolors.ENDC
+    )
+    print(
+        bcolors.WARNING
+        + """- The /ffpp path inside the container is mounted by ../ on the host. So any changes in /ffpp is shared between container and host. It is convinient for dev and test."""
+        + bcolors.ENDC
+    )
     cname = "ffpp_interactive"
     DOCKER_RUN_ARGS["vols"] = " ".join(
         (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
@@ -65,9 +116,7 @@ def run_interactive():
     DOCKER_RUN_ARGS["extra_opts"] = "-itd --name %s" % cname
     run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
     run(split(run_cmd))
-    # setup_test_ifaces(cname)
     run(split("docker attach {}".format(cname)))
-    # cleanup_test_ifaces()
 
 
 def setup_test_ifaces(cname):
@@ -103,26 +152,26 @@ def cleanup_test_ifaces():
 
 
 parser = argparse.ArgumentParser(
-    description="Run development docker container.",
+    description="FFPP library Container development environment utility.",
     formatter_class=argparse.RawTextHelpFormatter,
 )
 
 parser.add_argument(
     "action",
     type=str,
-    choices=["build_image", "build_lib", "run"],
-    help="To be performed action.\n"
+    choices=["build_image", "run", "run_mount"],
+    help="The action to be performed.\n"
     "\tbuild_image: Build the Docker image for FFPP development.\n"
-    "\tbuild_lib: Build the shared library (libffpp.so).\n"
-    "\trun: Run Docker container (with ffpp-dev image) in interactive mode.\n",
+    "\trun: Run Docker container (with ffpp-dev image) in interactive mode.\n"
+    "\trun_mount: Like run command. The /ffpp path inside container is mounted by ../ .\n",
 )
 
 args = parser.parse_args()
 
 dispatcher = {
     "build_image": build_image,
-    "build_lib": build_lib,
     "run": run_interactive,
+    "run_mount": run_interactive_with_ffpp_path_mount,
 }
 
 dispatcher.get(args.action)()

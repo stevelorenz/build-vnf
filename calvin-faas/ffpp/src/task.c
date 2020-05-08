@@ -7,9 +7,9 @@
 #include <rte_lcore.h>
 #include <rte_log.h>
 
-#include "config.h"
-#include "device.h"
-#include "task.h"
+#include <ffpp/config.h>
+#include <ffpp/device.h>
+#include <ffpp/task.h>
 
 void print_lcore_infos(void)
 {

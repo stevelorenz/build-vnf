@@ -1,7 +1,8 @@
 */*.o
 */*.out
+
+backup
 build
-tests
+builddir
+docs
 modified_dpdk_samples
-examples/*/build
-examples/*/*/build

@@ -14,8 +14,8 @@
 #include <rte_log.h>
 #include <rte_mbuf.h>
 
-#include "collections.h"
-#include "ipc.h"
+#include <ffpp/collections.h>
+#include <ffpp/ipc.h>
 
 int init_uds_stream_cli(const char *socket_path)
 {

@@ -1,59 +1,37 @@
 #
-# Makefile for FFPP library development.
+# For FFPP library development and tests.
 #
 
-SRCS-y := $(shell find ./src/ -name '*.c')
+C_SRCS := $(shell find ./src/ -name '*.c')
 SHARED_HEADERS := $(shell find ./include/ffpp/ -name '*.h')
 PRIVATE_HEADERS := $(shell find ./src/ -name '*.h')
 HEADERS := $(SHARED_HEADERS) $(PRIVATE_HEADERS)
 DOCS_MD := $(shell find ./docs/ -name '*.md')
 EXAMPLES := $(shell find ./examples/ -name '*.c')
 TESTS := $(shell find ./tests/ -name '*.c')
-ALL_SRCS_CH := $(SRCS-y) $(HEADERS) $(EXAMPLES) $(TESTS)
+ALL_SRCS_CH := $(C_SRCS) $(HEADERS) $(EXAMPLES) $(TESTS)
 
-# Release version
-lib: $(SRCS-y) $(HEADERS)
-	@make -f ./lib.mk all
-
-lib_debug: $(SRCS-y) $(HEADERS)
-	@make DEBUG=1 -f ./lib.mk all
-
-.PHONY: test memcheck flawcheck codecheck format clean
-
-test: $(SRCS-y) $(HEADERS)
-	@echo "* Run all tests of ffpp..."
-	@cd ./tests/ && make clean > /dev/null && make > /dev/null
-	@cd ./tests/ && ./run_tests.py
-
-test_strict: $(SRCS-y) $(HEADERS)
-	@echo "* Run all tests of ffpp..."
-	@cd ./tests/ && make clean > /dev/null && make STRICT=1 > /dev/null
-	@cd ./tests/ && ./run_tests.py
-
-memcheck: $(SRCS-y) $(HEADERS)
-	@echo "* Run core tests with memory leak checking... (WARN: it takes time...)"
-	@cd ./tests/ && make clean > /dev/null && make > /dev/null
-	@cd ./tests/ && ./run_tests.py --mem_check
-
-flawcheck: $(ALL_SRCS_CH)
-	@echo "* Check torrential flaws and vulnerabilities with static checker..."
-	@flawfinder $(ALL_SRCS_CH)
+.PHONY: codecheck codecheck format
 
 codecheck: $(ALL_SRCS_CH)
 	@echo "* Run static checkers..."
 	@echo "- Run cppcheck all: "
 	@cppcheck --enable=all $(ALL_SRCS_CH)
 
+flawcheck: $(ALL_SRCS_CH)
+	@echo "* Check torrential flaws and vulnerabilities with static checker..."
+	@flawfinder --minlevel 2 $(ALL_SRCS_CH)
+
 format: $(ALL_SRCS_CH)
 	@echo "* Format all C sources with clang-format"
 	@clang-format -i $(ALL_SRCS_CH)
 
-clean:
-	@echo "* Run cleanups"
-	@echo "- cleanup ffpp library"
-	@make -f ./lib.mk clean > /dev/null
-	@rm -r ./build/
-
 .PHONY: docs
-docs: $(DOCS_MD) $(SRCS-y) $(HEADERS)
+docs: $(DOCS_MD) $(C_SRCS) $(HEADERS)
 	doxygen ./docs/Doxyfile
+
+# ONLY used for testing and debugging.
+# Assume build directory is already created by `meson build` with default options.
+
+config-tests-debug:
+	@meson configure build -Dc_args=-Og -Dtests=true -Db_coverage=true -Db_sanitize=address

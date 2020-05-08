@@ -178,6 +178,7 @@ venv.bak/
 
 *.bin
 *.csv
+!./calvin-faas/ffpp/tests/pikachu.jpg
 *.jpg
 *.jpeg
 *.mbuf
@@ -189,6 +190,7 @@ massif.*
 
 .vagrant/
 build/
+builddir/
 doc/build/
 doc/.build
 vm_share/
