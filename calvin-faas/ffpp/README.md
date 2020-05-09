@@ -2,12 +2,15 @@
 
 TODO: Add a fantastic introduction of this (maybe) novel research idea.
 
-## Build
+## Build from source
 
 **WARNING**: This library also supports GNU/Linux platform and has been tested on Ubuntu 20.02 LTS.
 
 Since FFPP utilizes latest fast packet IO technologies in both Linux kernel and user space, several dependencies must be
 installed in the development environment.
+
+Sources running in user space (located in `./user`) are built with Meson.
+Sources running in kernel space (located in `./kern`) are built with plain makefiles.
 
 The following packages and libraries are needed:
 
@@ -26,31 +29,29 @@ The following packages and libraries are needed:
     required dependencies.
 
 If all dependencies are installed correctly, then you should be able to simply run following commands to build and
-install both shared and static library of FFPP:
+install (**ONLY** user space library) both shared and static library of FFPP:
 
 ```bash
-meson build
-cd build
-ninja
-ninja install
+make
+make install
 ```
 
 ## Run tests
 
 Additional required packages to run unit tests:
 
-*   `[Cmocka](https://cmocka.org/)`: An elegant unit testing framework for C and it's written in pure C.
-*   `[gcovr](https://gcovr.com/en/stable/)`: To generate coverage report.
+*   `[Cmocka]`(https://cmocka.org/): An elegant unit testing framework for C and it's written in pure C.
+*   `[gcovr]`(https://gcovr.com/en/stable/): To generate coverage report.
 
-Assume the `build` directory is already created using the default options using `meson build`. Run following tests to
-re-configure the Meson build system and run tests and generate a coverage report:
+Assume the `build` directory is already created using the default options using `make`. Run following commands to clean
+the release build, build the debug version and run tests.
 
 ```bash
-meson configure build -Dtests=true -Db_coverage=true
-cd build
-ninja test
-ninja coverage-html
+make clean
+make debug
+make test
 ```
+HTML coverage report can be found at `./user/build/meson-logs/coveragereport/index.html`
 
 ## Build and develop in a all-in-one Docker container.
 
@@ -71,6 +72,12 @@ Run following command to build the Docker image:
 ```bash
 docker build --compress --rm -t ffpp:0.0.1 --file ./Dockerfile .
 ```
+
+## Catalog
+
+1.  user: Sources for programs running in the user space.
+
+1.  kern: Sources for eBPF and XDP programs running in the kernel space.
 
 ## Development Guide
 

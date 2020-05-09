@@ -50,6 +50,6 @@ ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
-RUN meson build && cd ./build && ninja && ninja install
+RUN make release && make install
 
 CMD ["bash"]
