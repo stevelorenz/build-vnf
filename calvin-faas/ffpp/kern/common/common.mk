@@ -57,7 +57,7 @@ all: llvm-check $(USER_TARGETS) $(XDP_OBJ) $(COPY_LOADER) $(COPY_STATS)
 
 clean:
 	$(MAKE) -C $(COMMON_DIR) clean
-	rm -f $(USER_TARGETS) $(XDP_OBJ) $(USER_OBJ)
+	rm -f $(USER_TARGETS).out $(XDP_OBJ) $(USER_OBJ)
 	rm -f *.ll
 	rm -f *~
 
@@ -88,7 +88,7 @@ $(COMMON_OBJS): %.o: %.h
 	make -C $(COMMON_DIR)
 
 $(USER_TARGETS): %: %.c  $(OBJECT_LIBBPF) Makefile $(COMMON_MK) $(COMMON_OBJS) $(KERN_USER_H) $(EXTRA_DEPS)
-	$(CC) -Wall $(CFLAGS) $(LDFLAGS) -o $@ $(COMMON_OBJS) \
+	$(CC) -Wall $(CFLAGS) $(LDFLAGS) -o $@.out $(COMMON_OBJS) \
 	 $< $(LIBS)
 
 ifeq ($(DEBUG), 1)

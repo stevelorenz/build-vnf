@@ -12,6 +12,7 @@
 *.elf
 
 # Linker output
+*.ll
 *.ilk
 *.map
 *.exp
