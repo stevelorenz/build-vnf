@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 
 """
-About: FFPP library Container development environment utility.
+About: FFPP library Docker container development environment utility.
 """
 
 import argparse
@@ -14,7 +14,10 @@ from pathlib import Path
 from shlex import split
 from subprocess import run, PIPE
 
-FFPP_VER = "0.0.1"
+import docker
+
+with open("../VERSION", "r") as vfile:
+    FFPP_VER = vfile.read().strip()
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
 
@@ -30,125 +33,61 @@ class bcolors:
     UNDERLINE = "\033[4m"
 
 
-DOCKER_RUN_ARGS = {
-    # Essential options
+FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     # I know --privileged is a bad/danger option. It is just used for tests.
-    "opts": "--rm --privileged -w /ffpp",
-    "dpdk_vols": "-v /sys/bus/pci/drivers:/sys/bus/pci/drivers "
-    "-v /sys/kernel/mm/hugepages:/sys/kernel/mm/hugepages "
-    "-v /sys/devices/system/node:/sys/devices/system/node "
-    "-v /dev:/dev",
-    "image": "ffpp-dev",
-    "ver": FFPP_VER,
-    "name": "ffpp",
-    "extra_vols": "-v %s:/ffpp" % PARENT_DIR,
+    "auto_remove": True,
+    "detach": True,  # -d
+    "init": True,
+    "privileged": True,
+    "tty": True,  # -t
+    "stdin_open": True,  # -i
+    "volumes": {
+        "/sys/bus/pci/drivers": {"bind": "/sys/bus/pci/drivers", "mode": "rw"},
+        "/sys/kernel/mm/hugepages": {"bind": "/sys/kernel/mm/hugepages", "mode": "rw"},
+        "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw"},
+        "/dev": {"bind": "/dev", "mode": "rw"},
+        PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
+    },
+    "working_dir": "/ffpp",
+    "image": "ffpp-dev:%s" % (FFPP_VER),
+    "name": "ffpp-dev-vnf",
+    "command": "bash",
 }
-
-RUN_CMD_FMT = "docker run {opts} {vols} {extra_opts} {image}:{ver} {cmd}"
-
-IFACE_NAME_DPDK_IN = "test_dpdk_in"
-IFACE_NAME_LOADGEN_IN = "test_loadgen_in"
 
 
 def build_image():
     print(
         bcolors.HEADER
-        + "ACTION: Build docker image for FFPP development."
+        + "ACTION: Build the Docker image for FFPP development."
         + bcolors.ENDC
     )
     dockerfile = Path("../Dockerfile")
     if not dockerfile.is_file():
         print("Can not find the Dockerfile in path: %s." % dockerfile.as_posix())
         sys.exit(1)
-    os.chdir("../")
-    run_cmd = "docker build --compress --rm -t {}:{} --file ./Dockerfile .".format(
-        DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"]
-    )
-    run(split(run_cmd))
-    clean_cmd = "docker image prune -f"
-    run(split(clean_cmd))
+    opts = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
+    opts["tag"] = "ffpp-dev:%s" % (FFPP_VER)
+    opts["target"] = "builder"
+    client = docker.from_env()
+    image, _ = client.images.build(path="../", quiet=False, rm=True, tag=opts["tag"])
+    print("{} image is already built.\n".format(image.attrs["RepoTags"]))
+    print("".join((bcolors.WARNING, "Remove all dangling images.", bcolors.ENDC)))
+    client.images.prune(filters={"dangling": True})
+    client.close()
 
 
 def run_interactive():
-    # Avoid conflict with other non-interactive actions
+    opts = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
     print(
         bcolors.HEADER
-        + "ACTION: Run Docker image: %s:%s interactivly."
-        % (DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"])
+        + "Run Docker container with image: {} interactively.".format(opts["image"])
         + bcolors.ENDC
     )
-    print(
-        bcolors.WARNING + "- This container will be removed after exit" + bcolors.ENDC
-    )
-    cname = "ffpp_interactive"
-    DOCKER_RUN_ARGS["vols"] = DOCKER_RUN_ARGS["dpdk_vols"]
-    # DOCKER_RUN_ARGS["vols"] = " ".join(
-    #     (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
-    # )
-    DOCKER_RUN_ARGS["cmd"] = "bash"
-    DOCKER_RUN_ARGS["extra_opts"] = "-itd --name %s" % cname
-    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
-    run(split(run_cmd))
-    run(split("docker attach {}".format(cname)))
-
-
-def run_interactive_with_ffpp_path_mount():
-    # Avoid conflict with other non-interactive actions
-    print(
-        bcolors.HEADER
-        + """ACTION: Run Docker image: %s:%s interactivly. The /ffpp path inside container is mounted by ../ path on the host."""
-        % (DOCKER_RUN_ARGS["image"], DOCKER_RUN_ARGS["ver"])
-        + bcolors.ENDC
-    )
-    print(
-        bcolors.WARNING + "- This container will be removed after exit" + bcolors.ENDC
-    )
-    print(
-        bcolors.WARNING
-        + """- The /ffpp path inside the container is mounted by ../ on the host. So any changes in /ffpp is shared between container and host. It is convinient for dev and test."""
-        + bcolors.ENDC
-    )
-    cname = "ffpp_interactive"
-    DOCKER_RUN_ARGS["vols"] = " ".join(
-        (DOCKER_RUN_ARGS["dpdk_vols"], DOCKER_RUN_ARGS["extra_vols"])
-    )
-    DOCKER_RUN_ARGS["cmd"] = "bash"
-    DOCKER_RUN_ARGS["extra_opts"] = "-itd --name %s" % cname
-    run_cmd = RUN_CMD_FMT.format(**DOCKER_RUN_ARGS)
-    run(split(run_cmd))
-    run(split("docker attach {}".format(cname)))
-
-
-def setup_test_ifaces(cname):
-    print("* Setup test ifaces")
-    ret = run(
-        r"docker inspect -f '{{.State.Pid}}' %s" % cname,
-        check=True,
-        shell=True,
-        stdout=PIPE,
-    )
-    pid_c = ret.stdout.decode().strip()
-    cmds = [
-        "mkdir -p /var/run/netns",
-        "ln -s /proc/{}/ns/net /var/run/netns/{}".format(pid_c, pid_c),
-        "ip link add {} type veth peer name {}".format(
-            IFACE_NAME_LOADGEN_IN, IFACE_NAME_DPDK_IN
-        ),
-        "ip link set {} up".format(IFACE_NAME_DPDK_IN),
-        "ip link set {} up".format(IFACE_NAME_LOADGEN_IN),
-        "ip addr add 192.168.1.17/24 dev {}".format(IFACE_NAME_LOADGEN_IN),
-        "ip link set {} netns {}".format(IFACE_NAME_DPDK_IN, pid_c),
-        "docker exec {} ip link set {} up".format(cname, IFACE_NAME_DPDK_IN),
-    ]
-    for c in cmds:
-        run(split(c), check=True)
-
-
-def cleanup_test_ifaces():
-    print("* Cleanup test ifaces")
-    cmds = ["ip link delete {}".format(IFACE_NAME_LOADGEN_IN)]
-    for c in cmds:
-        run(split(c), check=False)
+    client = docker.from_env()
+    opts["name"] = "ffpp-dev-interactive"
+    client.containers.run(**opts)
+    client.close()
+    run(split("docker attach {}".format(opts["name"])))
 
 
 parser = argparse.ArgumentParser(
@@ -159,11 +98,12 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "action",
     type=str,
-    choices=["build_image", "run", "run_mount"],
+    choices=["build_image", "run"],
     help="The action to be performed.\n"
     "\tbuild_image: Build the Docker image for FFPP development.\n"
-    "\trun: Run Docker container (with ffpp-dev image) in interactive mode.\n"
-    "\trun_mount: Like run command. The /ffpp path inside container is mounted by ../ .\n",
+    "\trun: Run Docker container (with ffpp-dev image) in interactive mode. The /ffpp path inside container is mounted by {} .\n".format(
+        PARENT_DIR
+    ),
 )
 
 args = parser.parse_args()
@@ -171,7 +111,6 @@ args = parser.parse_args()
 dispatcher = {
     "build_image": build_image,
     "run": run_interactive,
-    "run_mount": run_interactive_with_ffpp_path_mount,
 }
 
 dispatcher.get(args.action)()

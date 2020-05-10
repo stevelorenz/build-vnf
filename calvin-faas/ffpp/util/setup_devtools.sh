@@ -6,9 +6,9 @@
 
 echo "* Setup development tools for FFPP."
 apt-get install -y python3-pip
-pip3 install --user docker==4.2.0
 
 echo "- Install Docker SDK for Python."
+pip3 install --user docker==4.2.0
 
 echo "- Install doxygen for API documentatin."
 apt-get install -y doxygen

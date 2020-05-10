@@ -10,7 +10,8 @@ Since FFPP utilizes latest fast packet IO technologies in both Linux kernel and 
 installed in the development environment.
 
 Sources running in user space (located in `./user`) are built with Meson.
-Sources running in kernel space (located in `./kern`) are built with plain makefiles.
+Sources running in kernel space (located in `./kern`) are built with the makefile-based system (is modified) provided by
+the [xdp-tutorial](https://github.com/xdp-project/xdp-tutorial) project.
 
 The following packages and libraries are needed:
 
@@ -67,11 +68,31 @@ Advantages of building all dependencies inside the Container:
     rebuild a new one, everything is fine.
 *   Build and test VNFs inside container: It is required to run DPDK applications inside container any way.
 
-Run following command to build the Docker image:
+Run following command to build the Docker image (with tag 0.0.1):
 
 ```bash
 docker build --compress --rm -t ffpp:0.0.1 --file ./Dockerfile .
 ```
+
+There are some utility scripts in `./util/` directory for development and tests. Please install dependencies for these
+tools with:
+
+```bash
+cd ./util/
+sudo bash ./setup_devtools.sh
+```
+
+After the installation of dependencies, please run following commands **INSIDE** the `./util/` directory for specific
+actions:
+
+*   `./ffpp-dev.py run`: Run a Docker container (with ffpp-dev image) in interactive mode and attach to its TTY. The
+    /ffpp path inside container is mounted by the ffpp source directory of the host OS. This is useful to test any
+    changes in the code base without any copy. This script also configures Docker parameters (e.g. privilege and
+    volumes) to run DPDK and XDP programs. So you do not need to remember and configure them everytime.
+
+*   `sudo ./benchmark-two-direct.py setup` or `sudo ./benchmark-two-direct.py teardown`: Setup/teardown a minimal setup
+    to benchmark the performance of a VNF (inside a container) with a pktgen container. Two containers are directly
+    conntected using a veth pair.
 
 ## Catalog
 
@@ -89,4 +110,5 @@ TODO
 
 ## Licence
 
-This project is licensed under the MIT - see the [LICENSE](../../LICENSE) file for details
+The user space code of this project is licensed under the MIT - see the [LICENSE](../../LICENSE) file for details.
+The kernel space code of this project is licensed under GPL-2.0.

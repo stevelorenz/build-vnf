@@ -1,5 +1,5 @@
 project('ffpp', 'c',
-  version: '0.0.1',
+  version: run_command(find_program('cat', 'more'),files('../VERSION')).stdout().strip(),
   license: 'MIT',
   meson_version: '>= 0.47.1',
   default_options: ['buildtype=release'],
