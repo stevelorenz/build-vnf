@@ -19,6 +19,8 @@ import docker
 with open("../VERSION", "r") as vfile:
     FFPP_VER = vfile.read().strip()
 
+PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
+
 FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     # I know --privileged is a bad/danger option. It is just used for tests.
     "auto_remove": True,
@@ -32,6 +34,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
         "/sys/kernel/mm/hugepages": {"bind": "/sys/kernel/mm/hugepages", "mode": "rw"},
         "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw"},
         "/dev": {"bind": "/dev", "mode": "rw"},
+        PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
     "working_dir": "/ffpp",
     "image": "ffpp-dev:%s" % (FFPP_VER),
@@ -50,6 +53,7 @@ def setup_two_direct_veth(pktgen_image):
         time.sleep(0.05)
         c_vnf.reload()
     c_vnf_pid = c_vnf.attrs["State"]["Pid"]
+    c_vnf.exec_run("mount -t bpf bpf /sys/fs/bpf/")
 
     pktgen_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
     pktgen_args["name"] = "pktgen"

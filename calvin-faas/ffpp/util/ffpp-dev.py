@@ -9,6 +9,7 @@ About: FFPP library Docker container development environment utility.
 import argparse
 import os
 import sys
+import time
 
 from pathlib import Path
 from shlex import split
@@ -85,7 +86,13 @@ def run_interactive():
     )
     client = docker.from_env()
     opts["name"] = "ffpp-dev-interactive"
-    client.containers.run(**opts)
+    c_vnf = client.containers.run(**opts)
+    while not c_vnf.attrs["State"]["Running"]:
+        time.sleep(0.05)
+        c_vnf.reload()
+    # Mount BPF file system.
+    # Ref: https://github.com/xdp-project/xdp-tutorial/tree/master/basic04-pinning-maps
+    c_vnf.exec_run("mount -t bpf bpf /sys/fs/bpf/")
     client.close()
     run(split("docker attach {}".format(opts["name"])))
 

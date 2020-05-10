@@ -8,13 +8,13 @@ release:
 	cd ./user && \
 		meson -Dc_args=-O3 build && \
 		cd ./build && ninja
-	cd ./kern/xdp_pass/ && make
+	cd ./kern && make
 
 debug:
 	cd ./user && \
 		meson -Dc_args=-Og -Dtests=true -Db_coverage=true -Db_sanitize=address build \
 		&& cd ./build && ninja
-	cd ./kern/xdp_pass/ && make DEBUG=1
+	cd ./kern && make DEBUG=1
 
 test:
 	cd ./user/build && ninja test && ninja coverage-html
@@ -27,7 +27,7 @@ uninstall:
 
 clean:
 	cd ./user && rm -r ./build
-	cd ./kern/xdp_pass && make clean
+	cd ./kern && make clean
 
 docs:
 	cd ./user && doxygen ./docs/Doxyfile

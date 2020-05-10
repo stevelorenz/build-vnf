@@ -10,8 +10,8 @@ Since FFPP utilizes latest fast packet IO technologies in both Linux kernel and 
 installed in the development environment.
 
 Sources running in user space (located in `./user`) are built with Meson.
-Sources running in kernel space (located in `./kern`) are built with the makefile-based system (is modified) provided by
-the [xdp-tutorial](https://github.com/xdp-project/xdp-tutorial) project.
+Sources running in kernel space (located in `./kern`) are built with the makefile-based system provided by the
+[xdp-tools](https://github.com/xdp-project/xdp-tools) project.
 
 The following packages and libraries are needed:
 
@@ -23,11 +23,10 @@ The following packages and libraries are needed:
     `pkg-config`. DPDK's API and ABI could change in every release, so this library only supports a specific version.
     Please check DPDK's [guide](https://doc.dpdk.org/guides-20.02/linux_gsg/index.html) to build DPDK for Linux.
 
-*   `libbpf (v.0.0.8)`: [libbpf](https://github.com/libbpf/libbpf) is for development and loading of XDP programs and
-    DPDK's AF_XDP PMD deriver.
-    Besides `libbpf`, several dependencies are required to compile and load XDP programs, please check the
-    [guide](https://github.com/xdp-project/xdp-tutorial/blob/master/setup_dependencies.org#based-on-libbpf) to setup all
-    required dependencies.
+*   `xdp-tools (v0.0.3)`: [xdp-tools](https://github.com/xdp-project/xdp-tools) contains a collection of utilities and
+    example code to be used with the eXpress Data Path facility of the Linux kernel. It also contains a git submodule
+    with [libbpf](https://github.com/libbpf/libbpf). Libbpf is required (be accssible via `pkg-config`) to build the
+    AF_XDP PMD of DPDK.
 
 If all dependencies are installed correctly, then you should be able to simply run following commands to build and
 install (**ONLY** user space library) both shared and static library of FFPP:

@@ -1,3 +1,14 @@
+all: release
+
+release:
+	cd ./xdp_drop/ && make
+
+debug:
+	cd ./xdp_drop/ && make DEBUG=1
+
+clean:
+	cd ./xdp_drop/ && make clean
+
 C_XDP_SRCS := $(shell find ./ -name '*.c')
 C_XDP_SHARED_HEADERS := $(shell find ./ -name '*.h')
 C_ALL_SRCS := $(C_XDP_SRCS)

@@ -8,11 +8,12 @@
 
 FROM ubuntu:20.04 as builder
 
-ENV LIBBPF_VER="v0.0.8"
+ENV XDP_TOOLS_VER="0.0.3"
 
 ENV DPDK_VER="20.02"
 ENV RTE_SDK="/opt/dpdk"
 ENV RTE_TARGET="x86_64-native-linuxapp-gcc"
+# Do not build tests for DPDK libraries, reduce image size.
 ENV DPDK_BUILD_OPTION="-Dtests=false"
 
 # Install build essentials for DPDK and XDP.
@@ -28,12 +29,12 @@ RUN apt-get update && \
 
 WORKDIR /opt/
 
-# Download and build libbpf. It is required to build AF_XDP PMD driver for DPDK.
-ENV LIBBPF_DIR="/opt/libbpf"
-RUN mkdir -p /opt/libbpf
-RUN wget https://github.com/libbpf/libbpf/archive/${LIBBPF_VER}.tar.gz && \
-    tar -zxvf ${LIBBPF_VER}.tar.gz -C ./libbpf --strip-components 1 && \
-    cd ./libbpf/src && make && make install
+# Download and build xdp-tools. It has libbpf included which is required to build AF_XDP PMD driver for DPDK.
+ENV XDP_TOOLS_DIR="/opt/xdp-tools"
+RUN mkdir -p ${XDP_TOOLS_DIR}
+RUN wget https://github.com/xdp-project/xdp-tools/releases/download/v${XDP_TOOLS_VER}/xdp-tools-${XDP_TOOLS_VER}.tar.gz && \
+    tar -zxvf xdp-tools-${XDP_TOOLS_VER}.tar.gz -C ./xdp-tools --strip-components 1 && \
+    cd ./xdp-tools && ./configure && make && make install && cd ./lib/libbpf/src && make install
 
 RUN mkdir -p ${RTE_SDK}
 RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz && \

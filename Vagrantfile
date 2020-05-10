@@ -50,8 +50,6 @@ systemctl restart sshd.service
 SCRIPT
 
 $post_installation= <<-SCRIPT
-# Allow vagrant user to use Docker without sudo
-usermod -aG docker vagrant
 if [ -d /home/vagrant/.docker ]; then
   chown -R vagrant:vagrant /home/vagrant/.docker
 fi
