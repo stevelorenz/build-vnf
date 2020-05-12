@@ -196,9 +196,20 @@ doc/build/
 doc/.build
 vm_share/
 dataset/
+lib_src
+html/
+latex/
+
+----------
+-  FFPP  -
+----------
+
+# XDP-related userspace programs
+xdp_count_user
+xdp_count_loader
+
 calvin-faas/ffpp/docs/html
 calvin-fass/ffpp/docs/latex
 calvin-fass/ffpp/docs/build
 calvin-fass/ffpp/docs/.build
 calvin-fass/ffpp/MoonGen
-lib_src

@@ -68,7 +68,7 @@ def setup_two_direct_veth(pktgen_image):
         )
     )
 
-    print("* Connect ffpp-dev-vnf and pktgen container with veth pairs.")
+    print("* Connect vnf and pktgen container with veth pairs.")
     cmds = [
         "mkdir -p /var/run/netns",
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
@@ -87,7 +87,7 @@ def setup_two_direct_veth(pktgen_image):
         run(split(c), check=True)
 
     print(
-        "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."
+        "* Setup finished. Run 'docker attach vnf' (or pktgen) to attach to the running containers."
     )
 
 
