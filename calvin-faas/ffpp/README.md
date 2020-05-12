@@ -84,7 +84,7 @@ sudo bash ./setup_devtools.sh
 After the installation of dependencies, please run following commands **INSIDE** the `./util/` directory for specific
 actions:
 
-*   `./ffpp-dev.py run`: Run a Docker container (with ffpp-dev image) in interactive mode and attach to its TTY. The
+*   `sudo ./ffpp-dev.py run`: Run a Docker container (with ffpp-dev image) in interactive mode and attach to its TTY. The
     /ffpp path inside container is mounted by the ffpp source directory of the host OS. This is useful to test any
     changes in the code base without any copy. This script also configures Docker parameters (e.g. privilege and
     volumes) to run DPDK and XDP programs. So you do not need to remember and configure them everytime.

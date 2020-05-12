@@ -105,6 +105,16 @@ $ vagrant up --provider libvirt vnf
 $ VAGRANT_DEFAULT_PROVIDER=libvirt vagrant destroy vnf
 ```
 
+[Rsync mode](https://www.vagrantup.com/docs/synced-folders/rsync.html) is used in the Libvirt provider for
+unidirectional (host->guest) sync. 
+The syncing does **NOT** automatically start after the `vagrant up`.
+Open a terminal, enter the root directory of `build-vnf` project and run `$ vagrant rsync-auto vnf` after the VM  is
+booted to start syncing
+
+For bidirectional sync, [NFS](https://www.vagrantup.com/docs/synced-folders/nfs.html) need to be configured and used as
+the sync type.
+NFS-based sync tends to have more bugs, so rsync mode is used by default.
+
 ## Contribution ##
 
 This project exists thanks to all people who contribute.
