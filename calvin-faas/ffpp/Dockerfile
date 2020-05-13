@@ -23,7 +23,7 @@ RUN apt-get update && \
     DEBIAN_FRONTEND="noninteractive" apt-get install -y wget build-essential pkg-config python3 meson ninja-build \
     libnuma-dev libpcap-dev gcovr \
     libelf-dev clang llvm gcc-multilib linux-headers-$(uname -r) linux-tools-common linux-tools-$(uname -r) \
-    libcmocka-dev iproute2 iputils-ping \
+    libcmocka-dev iproute2 iputils-ping tcpdump \
     bash-completion cppcheck clang-tidy && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
@@ -48,7 +48,7 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
 
 # Remove unused files.
 RUN rm -rf /opt/${LIBBPF_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz \
-    /opt/dpdk
+    /opt/dpdk/build
 
 # Build FFPP library
 ENV FFPP_PATH /ffpp
@@ -56,5 +56,10 @@ RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
 RUN make release && make install
+
+# ONLY used for performance benchmarking
+RUN apt-get update && \
+    DEBIAN_FRONTEND="noninteractive" apt-get install -y sockperf && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 CMD ["bash"]

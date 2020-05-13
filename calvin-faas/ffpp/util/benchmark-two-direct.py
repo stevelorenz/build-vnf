@@ -68,26 +68,35 @@ def setup_two_direct_veth(pktgen_image):
         )
     )
 
-    print("* Connect vnf and pktgen container with veth pairs.")
+    print("* Connect ffpp-dev-vnf and pktgen container with veth pairs.")
     cmds = [
         "mkdir -p /var/run/netns",
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_pktgen_pid, c_pktgen_pid),
-        "ip link add vnf type veth peer name pktgen",
-        "ip link set vnf up",
-        "ip link set pktgen up",
-        "ip link set vnf netns {}".format(c_vnf_pid),
-        "ip link set pktgen netns {}".format(c_pktgen_pid),
-        "docker exec vnf ip link set vnf up",
-        "docker exec pktgen ip link set pktgen up",
-        "docker exec vnf ip addr add 192.168.17.1/24 dev vnf",
-        "docker exec pktgen ip addr add 192.168.17.2/24 dev pktgen",
+        "ip link add vnf-in type veth peer name pktgen-out",
+        "ip link set vnf-in up",
+        "ip link set pktgen-out up",
+        "ip link set vnf-in netns {}".format(c_vnf_pid),
+        "ip link set pktgen-out netns {}".format(c_pktgen_pid),
+        "docker exec vnf ip link set vnf-in up",
+        "docker exec pktgen ip link set pktgen-out up",
+        "docker exec vnf ip addr add 192.168.17.1/24 dev vnf-in",
+        "docker exec pktgen ip addr add 192.168.17.2/24 dev pktgen-out",
+        "ip link add vnf-out type veth peer name pktgen-in",
+        "ip link set vnf-out up",
+        "ip link set pktgen-in up",
+        "ip link set vnf-out netns {}".format(c_vnf_pid),
+        "ip link set pktgen-in netns {}".format(c_pktgen_pid),
+        "docker exec vnf ip link set vnf-out up",
+        "docker exec pktgen ip link set pktgen-in up",
+        "docker exec vnf ip addr add 192.168.18.1/24 dev vnf-out",
+        "docker exec pktgen ip addr add 192.168.18.2/24 dev pktgen-in",
     ]
     for c in cmds:
         run(split(c), check=True)
 
     print(
-        "* Setup finished. Run 'docker attach vnf' (or pktgen) to attach to the running containers."
+        "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."
     )
 
 

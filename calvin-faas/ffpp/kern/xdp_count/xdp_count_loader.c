@@ -78,8 +78,10 @@ int main(int argc, char *argv[])
 	}
 
 	struct config cfg = {
-		// Use skb mode
-		.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_SKB_MODE,
+		// Use XDP native mode
+		// For skb mode, use XDP_FLAGS_SKB_MODE instead.
+		// For hardware offloading, use XDP_FLAGS_HW_MODE instead.
+		.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE,
 		.ifindex = -1,
 		.do_unload = false,
 		.ifname = argv[1],
