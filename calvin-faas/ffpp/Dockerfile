@@ -24,8 +24,7 @@ RUN apt-get update && \
     libnuma-dev libpcap-dev gcovr \
     libelf-dev clang llvm gcc-multilib linux-headers-$(uname -r) linux-tools-common linux-tools-$(uname -r) \
     libcmocka-dev iproute2 iputils-ping tcpdump \
-    bash-completion cppcheck clang-tidy && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+    bash-completion cppcheck clang-tidy
 
 WORKDIR /opt/
 
@@ -50,6 +49,9 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
 RUN rm -rf /opt/${LIBBPF_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz \
     /opt/dpdk/build
 
+# For Rust env.
+RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y rustc
+
 # Build FFPP library
 ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
@@ -58,8 +60,9 @@ WORKDIR ${FFPP_PATH}
 RUN make release && make install
 
 # ONLY used for performance benchmarking
-RUN apt-get update && \
-    DEBIAN_FRONTEND="noninteractive" apt-get install -y sockperf && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y sockperf
+
+# APT cleanup.
+RUN rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 CMD ["bash"]

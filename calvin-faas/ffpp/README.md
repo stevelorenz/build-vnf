@@ -67,10 +67,10 @@ Advantages of building all dependencies inside the Container:
     rebuild a new one, everything is fine.
 *   Build and test VNFs inside container: It is required to run DPDK applications inside container any way.
 
-Run following command to build the Docker image (with tag 0.0.1):
+Run following command to build the Docker image (with tag 0.0.2):
 
 ```bash
-docker build --compress --rm -t ffpp:0.0.1 --file ./Dockerfile .
+docker build --compress --rm -t ffpp:0.0.2 --file ./Dockerfile .
 ```
 
 There are some utility scripts in `./util/` directory for development and tests. Please install dependencies for these

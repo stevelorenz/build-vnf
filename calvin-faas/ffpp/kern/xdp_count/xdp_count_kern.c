@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#include <linux/bpf.h>
+#include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
+
+#include <linux/bpf.h>
+
+#include <xdp/parsing_helpers.h>
 
 #include "common_kern_user.h" /* defines: struct datarec; */
 

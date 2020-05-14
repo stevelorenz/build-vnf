@@ -7,8 +7,8 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-echo "* Load ./xdp_drop_kern.o on interface lo with skb-mode."
-xdp-loader load --mode skb $1 ./xdp_drop_kern.o
+echo "* Load ./xdp_drop_kern.o on interface lo with native mode."
+xdp-loader load --mode native $1 ./xdp_drop_kern.o
 ip link show dev $1
 
 echo "* Run 'xdp-loader unload $1' to remove the loaded XDP program."
