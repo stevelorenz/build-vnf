@@ -3,10 +3,27 @@
 #include <bpf/bpf_helpers.h>
 
 #include <linux/bpf.h>
-
-#include <xdp/parsing_helpers.h>
+#include <linux/if_ether.h>
 
 #include "common_kern_user.h" /* defines: struct datarec; */
+
+struct hdr_cursor {
+	void *pos;
+};
+
+static __always_inline int parse_ethhdr(struct hdr_cursor *nh, void *data_end)
+{
+	struct ethhdr *eth = nh->pos;
+	int hdrsize = sizeof(*eth);
+	__u16 h_proto;
+
+	// Bounds check, avoid operating on invalid memory.
+	if (nh->pos + hdrsize > data_end) {
+		return -1;
+	}
+	h_proto = eth->h_proto;
+	return h_proto; // network-byte-order
+}
 
 struct bpf_map_def SEC("maps") xdp_stats_map = {
 	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
@@ -27,6 +44,15 @@ static __always_inline __u32 xdp_stats_record_action(struct xdp_md *ctx,
 {
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
+	struct hdr_cursor nh = { .pos = data };
+	int eth_type = 0;
+
+	eth_type = parse_ethhdr(&nh, data_end);
+	// Only allow ARP and IPv4 packets.
+	if ((eth_type != bpf_htons(ETH_P_ARP)) &&
+	    (eth_type != bpf_htons(ETH_P_IP))) {
+		return XDP_DROP;
+	}
 
 	if (action >= XDP_ACTION_MAX)
 		return XDP_ABORTED;

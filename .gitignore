@@ -207,6 +207,7 @@ latex/
 # XDP-related userspace programs
 xdp_count_user
 xdp_count_loader
+af_xdp_dpdk_user
 
 calvin-faas/ffpp/docs/html
 calvin-fass/ffpp/docs/latex
