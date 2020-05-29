@@ -200,7 +200,11 @@ def setup_two_veth_xdp_fwd(pktgen_image):
         run(split("make"), check=True)
     print("\t- Load xdp_fwd kernel program.")
     run(split("./xdp_fwd_loader pktgen-out-root"), check=True)
-    run(split("./xdp_fwd_loader vnf-out-root"), check=True)
+    # INFO/BUG: Currently. Ingress and egress traffic of VNF is all handled by the
+    # vnf-in interface. Because the XDP-hock is added ONLY to the RX path in the
+    # vnf, so DPDK application can not currently bind vnf-out inteface if AF_XDP
+    # PMD is used.
+    run(split("./xdp_fwd_loader vnf-in-root"), check=True)
     print("\t- Add forwarding between pktgen-out-root to vnf-in-root")
     run(
         split(
@@ -209,11 +213,11 @@ def setup_two_veth_xdp_fwd(pktgen_image):
             )
         )
     )
-    print("\t- Add forwarding between vnf-out-root to pktgen-in-root")
+    print("\t- Add forwarding between vnf-in-root to pktgen-in-root")
     run(
         split(
-            "./xdp_fwd_user -i vnf-out-root -r pktgen-in-root -s {} -d {} -w {}".format(
-                vnf_out_mac, pktgen_in_mac, pktgen_in_root_mac
+            "./xdp_fwd_user -i vnf-in-root -r pktgen-in-root -s {} -d {} -w {}".format(
+                vnf_in_mac, pktgen_in_mac, pktgen_in_root_mac
             )
         )
     )
@@ -242,7 +246,7 @@ def teardown_two_veth_xdp_fwd():
     if os.path.exists(bpf_map_dir):
         print("- Remove BPF maps directory: {}".format(bpf_map_dir))
         shutil.rmtree(bpf_map_dir)
-    bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, "vnf-out-root")
+    bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, "vnf-in-root")
     if os.path.exists(bpf_map_dir):
         print("- Remove BPF maps directory: {}".format(bpf_map_dir))
         shutil.rmtree(bpf_map_dir)

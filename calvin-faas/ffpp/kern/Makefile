@@ -4,16 +4,19 @@ release:
 	cd ./common/ && make
 	cd ./xdp_drop/ && make
 	cd ./xdp_count/ && make
+	cd ./xdp_fwd/ && make
 
 debug:
 	cd ./common/ && make DEBUG=1
 	cd ./xdp_drop/ && make DEBUG=1
 	cd ./xdp_count/ && make DEBUG=1
+	cd ./xdp_fwd/ && make DEBUG=1
 
 clean:
 	cd ./common/ && make clean
 	cd ./xdp_drop/ && make clean
 	cd ./xdp_count/ && make clean
+	cd ./xdp_fwd/ && make clean
 
 # ONLY used by the developers.
 
