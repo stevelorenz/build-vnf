@@ -12,4 +12,4 @@ fi
 
 echo "* Run l2fwd with AF_XDP PMD on interface vnf-in."
 cd /opt/dpdk/examples/l2fwd/build
-./l2fwd -l 0 --vdev net_af_xdp,iface=vnf-in --single-file-segments  -- -p 0x01
+./l2fwd -l 0 --vdev net_af_xdp,iface=vnf-in --no-pci --single-file-segments  -- -p 0x01

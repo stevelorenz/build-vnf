@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 
 """
-About: Minimal benchmark setup: Two containers connected directly via a veth pair.
+About: Minimal benchmark setups.
 """
 
 import argparse

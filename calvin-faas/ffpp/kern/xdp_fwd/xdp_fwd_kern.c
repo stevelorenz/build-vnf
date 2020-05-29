@@ -44,7 +44,7 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	int eth_type;
 	struct ethhdr *eth;
 	unsigned char *dst;
-	unsigned char *rewrited_eth_h_source;
+	unsigned char *new_eth_h_source;
 	int action = XDP_PASS;
 
 	nh.pos = data;
@@ -60,11 +60,10 @@ int xdp_fwd_func(struct xdp_md *ctx)
 
 	// Set the proper source and destination MAC address.
 	memcpy(eth->h_dest, dst, ETH_ALEN);
-	rewrited_eth_h_source =
+	new_eth_h_source =
 		bpf_map_lookup_elem(&eth_new_src_params, eth->h_source);
-	if (rewrited_eth_h_source) {
-		bpf_printk("Rewrite source MAC address.\n");
-		memcpy(eth->h_source, rewrited_eth_h_source, ETH_ALEN);
+	if (new_eth_h_source) {
+		memcpy(eth->h_source, new_eth_h_source, ETH_ALEN);
 	}
 
 	action = bpf_redirect_map(&tx_port, 0, 0);
