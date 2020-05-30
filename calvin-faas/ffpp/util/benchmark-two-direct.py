@@ -11,6 +11,7 @@ import os
 import shutil
 import sys
 import time
+import multiprocessing
 
 from shlex import split
 from subprocess import run, PIPE
@@ -66,6 +67,7 @@ def setup_common(pktgen_image):
         time.sleep(0.05)
         c_pktgen.reload()
     c_pktgen_pid = c_pktgen.attrs["State"]["Pid"]
+    c_pktgen.exec_run("mount -t bpf bpf /sys/fs/bpf/")
     print(
         "* Both VNF and Pktgen containers are running with PID: {},{}".format(
             c_vnf_pid, c_pktgen_pid
@@ -82,15 +84,15 @@ def setup_two_direct_veth(pktgen_image):
         "mkdir -p /var/run/netns",
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_pktgen_pid, c_pktgen_pid),
-        "ip link add vnf-in type veth peer name pktgen-out",
-        "ip link set vnf-in up",
+        "ip link add vnf-in-out type veth peer name pktgen-out",
+        "ip link set vnf-in-out up",
         "ip link set pktgen-out up",
-        "ip link set vnf-in netns {}".format(c_vnf_pid),
+        "ip link set vnf-in-out netns {}".format(c_vnf_pid),
         "ip link set pktgen-out netns {}".format(c_pktgen_pid),
-        "docker exec vnf ip link set vnf-in up",
+        "docker exec vnf ip link set vnf-in-out up",
         "docker exec pktgen ip link set pktgen-out up",
-        "docker exec vnf ip addr add 192.168.17.1/24 dev vnf-in",
-        "docker exec pktgen ip addr add 192.168.17.2/24 dev pktgen-out",
+        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in-out",
+        "docker exec pktgen ip addr add 192.168.17.1/24 dev pktgen-out",
         "ip link add vnf-out type veth peer name pktgen-in",
         "ip link set vnf-out up",
         "ip link set pktgen-in up",
@@ -98,10 +100,10 @@ def setup_two_direct_veth(pktgen_image):
         "ip link set pktgen-in netns {}".format(c_pktgen_pid),
         "docker exec vnf ip link set vnf-out up",
         "docker exec pktgen ip link set pktgen-in up",
-        "docker exec vnf ip addr add 192.168.18.1/24 dev vnf-out",
-        "docker exec pktgen ip addr add 192.168.18.2/24 dev pktgen-in",
-        "docker exec pktgen ping -q -c 2 192.168.17.1",
-        "docker exec pktgen ping -q -c 2 192.168.18.1",
+        "docker exec vnf ip addr add 192.168.18.2/24 dev vnf-out",
+        "docker exec pktgen ip addr add 192.168.18.1/24 dev pktgen-in",
+        "docker exec pktgen ping -q -c 2 192.168.17.2",
+        "docker exec pktgen ping -q -c 2 192.168.18.2",
     ]
     for c in cmds:
         run(split(c), check=True)
@@ -117,26 +119,26 @@ def setup_two_veth_xdp_fwd(pktgen_image):
         "mkdir -p /var/run/netns",
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_pktgen_pid, c_pktgen_pid),
-        "ip link add vnf-in type veth peer name vnf-in-root",
-        "ip link set vnf-in-root up",
-        "ip link set vnf-in netns {}".format(c_vnf_pid),
-        "docker exec vnf ip link set vnf-in up",
-        "docker exec vnf ip addr add 192.168.17.1/24 dev vnf-in",
+        "ip link add vnf-in-out type veth peer name vnf-in-out-root",
+        "ip link set vnf-in-out-root up",
+        "ip link set vnf-in-out netns {}".format(c_vnf_pid),
+        "docker exec vnf ip link set vnf-in-out up",
+        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in-out",
         "ip link add vnf-out type veth peer name vnf-out-root",
         "ip link set vnf-out-root up",
         "ip link set vnf-out netns {}".format(c_vnf_pid),
         "docker exec vnf ip link set vnf-out up",
-        "docker exec vnf ip addr add 192.168.18.1/24 dev vnf-out",
+        "docker exec vnf ip addr add 192.168.18.2/24 dev vnf-out",
         "ip link add pktgen-out type veth peer name pktgen-out-root",
         "ip link set pktgen-out-root up",
         "ip link set pktgen-out netns {}".format(c_pktgen_pid),
         "docker exec pktgen ip link set pktgen-out up",
-        "docker exec pktgen ip addr add 192.168.17.2/24 dev pktgen-out",
+        "docker exec pktgen ip addr add 192.168.17.1/24 dev pktgen-out",
         "ip link add pktgen-in type veth peer name pktgen-in-root",
         "ip link set pktgen-in-root up",
         "ip link set pktgen-in netns {}".format(c_pktgen_pid),
         "docker exec pktgen ip link set pktgen-in up",
-        "docker exec pktgen ip addr add 192.168.18.2/24 dev pktgen-in",
+        "docker exec pktgen ip addr add 192.168.18.1/24 dev pktgen-in",
     ]
     for c in cmds:
         run(split(c), check=True)
@@ -149,7 +151,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
         all=True, filters={"label": "group=ffpp-dev-benchmark", "name": "pktgen"}
     )[0]
 
-    _, out = c_vnf.exec_run(cmd="cat /sys/class/net/vnf-in/address")
+    _, out = c_vnf.exec_run(cmd="cat /sys/class/net/vnf-in-out/address")
     vnf_in_mac = out.decode("ascii").strip()
     _, out = c_vnf.exec_run(cmd="cat /sys/class/net/vnf-out/address")
     vnf_out_mac = out.decode("ascii").strip()
@@ -160,33 +162,39 @@ def setup_two_veth_xdp_fwd(pktgen_image):
 
     print("- Add permanent static ARP entries.")
     exit_code, _ = c_pktgen.exec_run(
-        cmd="ip neigh add 192.168.17.1 lladdr {} dev pktgen-out nud permanent".format(
+        cmd="ip neigh add 192.168.17.2 lladdr {} dev pktgen-out nud permanent".format(
             vnf_in_mac
         )
     )
     if exit_code != 0:
         print("ERR: Faild to add static ARP.")
     exit_code, _ = c_vnf.exec_run(
-        cmd="ip neigh add 192.168.18.2 lladdr {} dev vnf-out nud permanent".format(
+        cmd="ip neigh add 192.168.18.1 lladdr {} dev vnf-out nud permanent".format(
             pktgen_in_mac
         )
     )
     if exit_code != 0:
         print("ERR: Faild to add static ARP.")
 
+    print("* Load xdp-pass on pktgen-in interface inside pktgen.")
+    exit_code, out = c_pktgen.exec_run(cmd="make", workdir="/ffpp/kern/xdp_pass",)
+    if exit_code != 0:
+        print("ERR: Faild to compile xdp-pass program.")
+        sys.exit(1)
+
     client.close()
 
-    with open("/sys/class/net/vnf-in-root/address", "r") as f:
+    with open("/sys/class/net/vnf-in-out-root/address", "r") as f:
         vnf_in_root_mac = f.read().strip()
     with open("/sys/class/net/pktgen-in-root/address", "r") as f:
         pktgen_in_root_mac = f.read().strip()
 
-    print("- The MAC address of vnf-in in vnf: {}".format(vnf_in_mac))
+    print("- The MAC address of vnf-in-out in vnf: {}".format(vnf_in_mac))
     print("- The MAC address of vnf-out in vnf: {}".format(vnf_out_mac))
     print("- The MAC address of pktgen-in in pktgen: {}".format(pktgen_in_mac))
     print("- The MAC address of pktgen-out in pktgen: {}".format(pktgen_out_mac))
 
-    print("- The MAC address of vnf-in-root: {}".format(vnf_in_root_mac))
+    print("- The MAC address of vnf-in-out-root: {}".format(vnf_in_root_mac))
     print("- The MAC address of pktgen-in-root: {}".format(pktgen_in_root_mac))
 
     print("* Run xdp_fwd programs for interfaces in the root namespace")
@@ -201,29 +209,30 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     print("\t- Load xdp_fwd kernel program.")
     run(split("./xdp_fwd_loader pktgen-out-root"), check=True)
     # INFO/BUG: Currently. Ingress and egress traffic of VNF is all handled by the
-    # vnf-in interface. Because the XDP-hock is added ONLY to the RX path in the
+    # vnf-in-out interface. Because the XDP-hock is added ONLY to the RX path in the
     # vnf, so DPDK application can not currently bind vnf-out inteface if AF_XDP
     # PMD is used.
-    run(split("./xdp_fwd_loader vnf-in-root"), check=True)
-    print("\t- Add forwarding between pktgen-out-root to vnf-in-root")
+    run(split("./xdp_fwd_loader vnf-in-out-root"), check=True)
+    print("\t- Add forwarding between pktgen-out-root to vnf-in-out-root")
     run(
         split(
-            "./xdp_fwd_user -i pktgen-out-root -r vnf-in-root -s {} -d {} -w {}".format(
+            "./xdp_fwd_user -i pktgen-out-root -r vnf-in-out-root -s {} -d {} -w {}".format(
                 pktgen_out_mac, vnf_in_mac, vnf_in_root_mac
             )
         )
     )
-    print("\t- Add forwarding between vnf-in-root to pktgen-in-root")
+    print("\t- Add forwarding between vnf-in-out-root to pktgen-in-root")
     run(
         split(
-            "./xdp_fwd_user -i vnf-in-root -r pktgen-in-root -s {} -d {} -w {}".format(
+            "./xdp_fwd_user -i vnf-in-out-root -r pktgen-in-root -s {} -d {} -w {}".format(
                 vnf_in_mac, pktgen_in_mac, pktgen_in_root_mac
             )
         )
     )
 
-    print("* Current XDP status: ")
+    print("* Current XDP status in root namespace: ")
     run(split("xdp-loader status"), check=True)
+
     print(
         "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."
     )
@@ -246,7 +255,7 @@ def teardown_two_veth_xdp_fwd():
     if os.path.exists(bpf_map_dir):
         print("- Remove BPF maps directory: {}".format(bpf_map_dir))
         shutil.rmtree(bpf_map_dir)
-    bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, "vnf-in-root")
+    bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, "vnf-in-out-root")
     if os.path.exists(bpf_map_dir):
         print("- Remove BPF maps directory: {}".format(bpf_map_dir))
         shutil.rmtree(bpf_map_dir)
@@ -277,6 +286,12 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    cpu_count = multiprocessing.cpu_count()
+    if cpu_count < 2:
+        print("ERR: The setup needs at least 2 CPU cores.")
+        sys.exit(1)
+
     if args.action == "setup":
         print("The setup name: {}.".format(args.setup_name))
         if args.setup_name == "two_direct_veth":

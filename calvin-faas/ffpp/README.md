@@ -93,6 +93,72 @@ actions:
     to benchmark the performance of a VNF (inside a container) with a pktgen container. Two containers are directly
     conntected using a veth pair.
 
+## Run a Docker container, DPDK and XDP based benchmark topology on a single laptop
+
+### Requirements
+
+-   The test VM or host machine needs minimal 2 vCPU cores.
+-   The `ffpp-dev` container image is already built.
+-   The test VM or host machine requires some setup. You can run `./util/setup_host_os.sh` script to setup all
+    dependencies if the Vagrant VM is used.
+
+### Topology
+
+The benchmark creates two Docker containers on which a packet generator and a network function will run.
+Like the following sketch, each container has two veth interfaces.
+Their corresponded veth pair interfaces have the same name with `-root` suffix.
+The IP addresses of each interface are listed.
+The packet generator should generate traffic on `pktgen-out` interface.
+Then the traffic can be forwarded by DPDK l2fwd sample application with `AF_XDP` PMD on the interface `vnf-in-out`.
+Then the forwarded traffic is redirected by `vnf-in-out-root` interface back to the `pktgen-in` interface inside pktgen.
+This setup build a minimal Traffic Generator --- DUT (Device under Test) scenario.
+
+```
+Pktgen Container                            VNF Container (vnf-out is not used currently)
+-----------------------------------         -------------------------------------
+|    pktgen-out (IP: 192.168.17.1) |        |    vnf-in-out (IP: 192.168.17.2)   |
+|    pktgen-in  (IP: 192.168.18.1) |        |    vnf-out (IP: 192.168.18.2)      |
+---------------||------------------         ----------------||--------------------
+
+        pktgen-out-root --------------------------------->  vnf-in-out-root
+        pktgen-in-root  <---------------------------------  vnf-in-out-root
+                                  xdp_fwd program
+```
+
+### How to run
+
+Please change the current working directory to `./util/` before running following commands.
+
+1.  Setup the benchmark:
+
+```bash
+sudo ./benchmark-two-direct.py --setup_name two_veth_xdp_fwd setup
+```
+
+2.  Attach to pktgen and vnf container and start programs. This step needs multiple terminals, Tmux or Screen can be
+    used:
+
+```bash
+# Run DPDK l2fwd with AF_XDP PMD on VNF container
+terminal 1 > sudo docker attach vnf
+terminal 1 > cd ./util/ && bash ./run_dpdk_l2fwd_af_xdp.sh
+
+# Run dummpy xdp_pass on pktgen-in interface and generate simple ICMP traffic on pktgen-out.
+terminal 2 > sudo docker attach pktgen
+terminal 2 > cd ./kern/xdp_pass/ && make && xdp-loader load -m native pktgen-in ./xdp_pass_kern.o
+terminal 2 > sudo tcpdump -e -i pktgen-in
+```
+
+If everything is configured correctly, you should see ICMP packets generated from `pktgen-out` interface are dumped by
+tcpdump on `pktgen-in` interface.
+
+3.  Tear down the setup with cleanup.
+
+```bash
+sudo ./benchmark-two-direct.py --setup_name two_veth_xdp_fwd teardown
+```
+
+
 ## Catalog
 
 1.  user: Sources for programs running in the user space.
@@ -100,6 +166,10 @@ actions:
 1.  kern: Sources for eBPF and XDP programs running in the kernel space.
 
 ## Development Guide
+
+TODO
+
+## FAQ
 
 TODO
 
