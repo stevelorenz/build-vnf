@@ -11,4 +11,4 @@
             # Ingress interface of h1
           - ip: 192.168.18.1
             # Egress interface of vnf
-            default_gw: 192.168.18.2
+            default_gw: 192.168.17.2

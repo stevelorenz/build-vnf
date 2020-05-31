@@ -10,6 +10,6 @@ if [[ !  -d /opt/dpdk/examples/l2fwd/build ]]; then
     make
 fi
 
-echo "* Run l2fwd with AF_XDP PMD on interface vnf-in-out."
+echo "* Run DPDK l2fwd on interfaces vnf-in and vnf-out."
 cd /opt/dpdk/examples/l2fwd/build
-./l2fwd -l 1 --vdev net_af_xdp,iface=vnf-in-out --no-pci --single-file-segments  -- -p 0x01
+./l2fwd -l 0,1 --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out --no-pci --single-file-segments  -- -p 0x03

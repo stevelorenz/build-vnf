@@ -84,14 +84,14 @@ def setup_two_direct_veth(pktgen_image):
         "mkdir -p /var/run/netns",
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_pktgen_pid, c_pktgen_pid),
-        "ip link add vnf-in-out type veth peer name pktgen-out",
-        "ip link set vnf-in-out up",
+        "ip link add vnf-in type veth peer name pktgen-out",
+        "ip link set vnf-in up",
         "ip link set pktgen-out up",
-        "ip link set vnf-in-out netns {}".format(c_vnf_pid),
+        "ip link set vnf-in netns {}".format(c_vnf_pid),
         "ip link set pktgen-out netns {}".format(c_pktgen_pid),
-        "docker exec vnf ip link set vnf-in-out up",
+        "docker exec vnf ip link set vnf-in up",
         "docker exec pktgen ip link set pktgen-out up",
-        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in-out",
+        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in",
         "docker exec pktgen ip addr add 192.168.17.1/24 dev pktgen-out",
         "ip link add vnf-out type veth peer name pktgen-in",
         "ip link set vnf-out up",
@@ -119,11 +119,11 @@ def setup_two_veth_xdp_fwd(pktgen_image):
         "mkdir -p /var/run/netns",
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_pktgen_pid, c_pktgen_pid),
-        "ip link add vnf-in-out type veth peer name vnf-in-out-root",
-        "ip link set vnf-in-out-root up",
-        "ip link set vnf-in-out netns {}".format(c_vnf_pid),
-        "docker exec vnf ip link set vnf-in-out up",
-        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in-out",
+        "ip link add vnf-in type veth peer name vnf-in-root",
+        "ip link set vnf-in-root up",
+        "ip link set vnf-in netns {}".format(c_vnf_pid),
+        "docker exec vnf ip link set vnf-in up",
+        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in",
         "ip link add vnf-out type veth peer name vnf-out-root",
         "ip link set vnf-out-root up",
         "ip link set vnf-out netns {}".format(c_vnf_pid),
@@ -151,7 +151,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
         all=True, filters={"label": "group=ffpp-dev-benchmark", "name": "pktgen"}
     )[0]
 
-    _, out = c_vnf.exec_run(cmd="cat /sys/class/net/vnf-in-out/address")
+    _, out = c_vnf.exec_run(cmd="cat /sys/class/net/vnf-in/address")
     vnf_in_mac = out.decode("ascii").strip()
     _, out = c_vnf.exec_run(cmd="cat /sys/class/net/vnf-out/address")
     vnf_out_mac = out.decode("ascii").strip()
@@ -176,26 +176,47 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     if exit_code != 0:
         print("ERR: Faild to add static ARP.")
 
-    print("* Load xdp-pass on pktgen-in interface inside pktgen.")
-    exit_code, out = c_pktgen.exec_run(cmd="make", workdir="/ffpp/kern/xdp_pass",)
-    if exit_code != 0:
-        print("ERR: Faild to compile xdp-pass program.")
-        sys.exit(1)
+    print("* Load xdp-pass on ingress and egress interfaces inside vnf and pktgen.")
+
+    for c, c_name in zip([c_vnf, c_pktgen], ["vnf", "pktgen"]):
+        exit_code, out = c.exec_run(cmd="make", workdir="/ffpp/kern/xdp_pass",)
+        if exit_code != 0:
+            print("ERR: Faild to compile xdp-pass program in {}.".format(c_name))
+            sys.exit(1)
+        for iface_suffix in ["in", "out"]:
+            iface_name = "{}-{}".format(c_name, iface_suffix)
+            exit_code, out = c.exec_run(
+                cmd="xdp-loader load -m native {} ./xdp_pass_kern.o".format(iface_name),
+                workdir="/ffpp/kern/xdp_pass",
+            )
+            if exit_code != 0:
+                print(
+                    "ERR: Faild to load xdp-pass programs in {} on interface:{}.".format(
+                        c_name, iface_name
+                    )
+                )
+                sys.exit(1)
 
     client.close()
 
-    with open("/sys/class/net/vnf-in-out-root/address", "r") as f:
+    with open("/sys/class/net/vnf-in-root/address", "r") as f:
         vnf_in_root_mac = f.read().strip()
+    with open("/sys/class/net/vnf-out-root/address", "r") as f:
+        vnf_out_root_mac = f.read().strip()
     with open("/sys/class/net/pktgen-in-root/address", "r") as f:
         pktgen_in_root_mac = f.read().strip()
+    with open("/sys/class/net/pktgen-out-root/address", "r") as f:
+        pktgen_out_root_mac = f.read().strip()
 
-    print("- The MAC address of vnf-in-out in vnf: {}".format(vnf_in_mac))
+    print("- The MAC address of vnf-in in vnf: {}".format(vnf_in_mac))
     print("- The MAC address of vnf-out in vnf: {}".format(vnf_out_mac))
     print("- The MAC address of pktgen-in in pktgen: {}".format(pktgen_in_mac))
     print("- The MAC address of pktgen-out in pktgen: {}".format(pktgen_out_mac))
 
-    print("- The MAC address of vnf-in-out-root: {}".format(vnf_in_root_mac))
+    print("- The MAC address of vnf-in-root: {}".format(vnf_in_root_mac))
+    print("- The MAC address of vnf-out-root: {}".format(vnf_out_root_mac))
     print("- The MAC address of pktgen-in-root: {}".format(pktgen_in_root_mac))
+    print("- The MAC address of pktgen-out-root: {}".format(pktgen_out_root_mac))
 
     print("* Run xdp_fwd programs for interfaces in the root namespace")
     xdp_fwd_prog_dir = os.path.abspath("../kern/xdp_fwd/")
@@ -206,26 +227,39 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     if not os.path.exists(os.path.join(xdp_fwd_prog_dir, "./xdp_fwd_kern.o")):
         print("\tINFO: Compile programs in xdp_fwd_kern.")
         run(split("make"), check=True)
-    print("\t- Load xdp_fwd kernel program.")
+    print("\t- Load xdp_fwd kernel programs.")
+    run(split("./xdp_fwd_loader vnf-in-root"), check=True)
+    run(split("./xdp_fwd_loader vnf-out-root"), check=True)
+    run(split("./xdp_fwd_loader pktgen-in-root"), check=True)
     run(split("./xdp_fwd_loader pktgen-out-root"), check=True)
-    # INFO/BUG: Currently. Ingress and egress traffic of VNF is all handled by the
-    # vnf-in-out interface. Because the XDP-hock is added ONLY to the RX path in the
-    # vnf, so DPDK application can not currently bind vnf-out inteface if AF_XDP
-    # PMD is used.
-    run(split("./xdp_fwd_loader vnf-in-out-root"), check=True)
-    print("\t- Add forwarding between pktgen-out-root to vnf-in-out-root")
+
+    print("\t- Add forwarding between pktgen-out-root to vnf-in-root")
     run(
         split(
-            "./xdp_fwd_user -i pktgen-out-root -r vnf-in-out-root -s {} -d {} -w {}".format(
+            "./xdp_fwd_user -i pktgen-out-root -r vnf-in-root -s {} -d {} -w {}".format(
                 pktgen_out_mac, vnf_in_mac, vnf_in_root_mac
             )
         )
     )
-    print("\t- Add forwarding between vnf-in-out-root to pktgen-in-root")
     run(
         split(
-            "./xdp_fwd_user -i vnf-in-out-root -r pktgen-in-root -s {} -d {} -w {}".format(
-                vnf_in_mac, pktgen_in_mac, pktgen_in_root_mac
+            "./xdp_fwd_user -i vnf-in-root -r pktgen-out-root -s {} -d {} -w {}".format(
+                vnf_in_mac, pktgen_out_mac, pktgen_out_root_mac
+            )
+        )
+    )
+    print("\t- Add forwarding between vnf-out-root to pktgen-in-root")
+    run(
+        split(
+            "./xdp_fwd_user -i vnf-out-root -r pktgen-in-root -s {} -d {} -w {}".format(
+                vnf_out_mac, pktgen_in_mac, pktgen_in_root_mac
+            )
+        )
+    )
+    run(
+        split(
+            "./xdp_fwd_user -i pktgen-in-root -r vnf-out-root -s {} -d {} -w {}".format(
+                pktgen_in_mac, vnf_out_mac, vnf_out_root_mac
             )
         )
     )
@@ -251,14 +285,11 @@ def teardown_common():
 
 def teardown_two_veth_xdp_fwd():
     teardown_common()
-    bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, "pktgen-out-root")
-    if os.path.exists(bpf_map_dir):
-        print("- Remove BPF maps directory: {}".format(bpf_map_dir))
-        shutil.rmtree(bpf_map_dir)
-    bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, "vnf-in-out-root")
-    if os.path.exists(bpf_map_dir):
-        print("- Remove BPF maps directory: {}".format(bpf_map_dir))
-        shutil.rmtree(bpf_map_dir)
+    for d in ["vnf-in-root", "vnf-out-root", "pktgen-in-root", "pktgen-out-root"]:
+        bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, d)
+        if os.path.exists(bpf_map_dir):
+            print("- Remove BPF maps directory: {}".format(bpf_map_dir))
+            shutil.rmtree(bpf_map_dir)
 
 
 if __name__ == "__main__":
