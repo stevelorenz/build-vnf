@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 
 """
-About: Test topology for Trex traffic generator.
+About: ComNesEmu test topology for Trex traffic generator.
 """
 
 import os
@@ -123,7 +123,6 @@ def testTopo():
     disable_cksum_offload(sw_ifces)
 
     print("Add static ARPs on h1 and h2")
-
 
     print("Add Openflow rules.")
     h1_egress_port = get_ofport("s1-h1-egress")

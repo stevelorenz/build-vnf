@@ -143,10 +143,14 @@ sudo ./benchmark-two-direct.py --setup_name two_veth_xdp_fwd setup
 terminal 1 > sudo docker attach vnf
 terminal 1 > cd ./util/ && bash ./run_dpdk_l2fwd_af_xdp.sh
 
-# Run dummpy xdp_pass on pktgen-in interface and generate simple ICMP traffic on pktgen-out.
+# Generate simple ICMP traffic on pktgen-out interface.
 terminal 2 > sudo docker attach pktgen
-terminal 2 > cd ./kern/xdp_pass/ && make && xdp-loader load -m native pktgen-in ./xdp_pass_kern.o
-terminal 2 > sudo tcpdump -e -i pktgen-in
+terminal 2 > ping 192.168.17.2
+
+# Run the dummy xdp_pass program on pktgen-in interface and dump received traffic.
+terminal 3 > sudo docker exec -it pktgen bash
+terminal 3 > cd ./kern/xdp_pass/ && make && xdp-loader load -m native pktgen-in ./xdp_pass_kern.o
+terminal 3 > sudo tcpdump -e -i pktgen-in
 ```
 
 If everything is configured correctly, you should see ICMP packets generated from `pktgen-out` interface are dumped by
