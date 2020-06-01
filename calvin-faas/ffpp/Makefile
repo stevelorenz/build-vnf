@@ -12,7 +12,7 @@ release:
 
 debug:
 	cd ./user && \
-		meson -Dc_args=-Og -Dtests=true -Db_coverage=true -Db_sanitize=address build \
+		meson -Dc_args=-Og -Dtests=true -Ddebug=true -Db_coverage=true -Db_sanitize=address build \
 		&& cd ./build && ninja
 	cd ./kern && make DEBUG=1
 

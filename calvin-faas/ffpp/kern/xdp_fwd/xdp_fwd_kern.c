@@ -35,6 +35,9 @@ struct bpf_map_def SEC("maps") eth_new_src_params = {
 	.max_entries = 1,
 };
 
+/* TODO:  <01-06-20, Malte> Add traffic monitoring related eBPF maps and actions
+ * in the xdp_fwd_func. */
+
 SEC("xdp_redirect_map")
 int xdp_fwd_func(struct xdp_md *ctx)
 {

@@ -10,6 +10,7 @@ ffpp_sources = [
   'mp.c',
   'task.c',
   'utils.c',
+  'bpf_helpers_user.c',
 ]
 
 ffpplib_shared = shared_library('ffpp',

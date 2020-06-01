@@ -2,8 +2,22 @@ project('ffpp', 'c',
   version: run_command(find_program('cat', 'more'),files('../VERSION')).stdout().strip(),
   license: 'MIT',
   meson_version: '>= 0.47.1',
-  default_options: ['buildtype=release'],
+  default_options: [
+    'c_std=gnu99',
+    'buildtype=release',
+    'warning_level=3',
+    ],
 )
+
+add_project_arguments(
+	[
+		'-Wundef',
+		'-Wvla',
+	],
+	language: 'c',
+)
+
+cc = meson.get_compiler('c')
 
 # Find DPDK dependency using pkg-config (by default.)
 dpdk_dep = dependency('libdpdk')
@@ -14,13 +28,14 @@ inc = include_directories('include')
 subdir('include')
 subdir('src')
 
+if get_option('examples')
+  subdir('examples')
+endif
+
 if get_option('tests')
   subdir('tests/unit')
 endif
 
-if get_option('examples')
-  subdir('examples')
-endif
 
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(

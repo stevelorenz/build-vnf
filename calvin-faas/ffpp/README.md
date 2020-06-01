@@ -196,7 +196,16 @@ TODO
 
 ## FAQ
 
-TODO
+1.  Q: Why use C instead of higher-level or "modern" programming languages ?
+
+A: This project is research oriented and the focus is on latency performance.
+C is chosen since the libraries (DPDK and eBPF/XDP) used by this project are all written in C and provide C APIs
+directly. It is easier to adapt and test latest features introduced in this libraries.
+By the way, C is a simple and "old" language with a really small runtime, so there is not much magic there. This makes the latency performance
+evaluation results more representative and "stable" for the algorithm used instead of the magic inside the runtime of
+the programming language. C has its limitations and security issues. However, they are not the focus of this project and
+it is just a PhD work :). I plan to add Rust/Go bindings after I fully understand how to integrate the use them
+efficiently...
 
 ## Authors
 
