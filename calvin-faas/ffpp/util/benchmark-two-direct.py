@@ -23,12 +23,13 @@ with open("../VERSION", "r") as vfile:
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
 BPF_MAP_BASEDIR = "/sys/fs/bpf"
+LOCKED_IN_MEMORY_SIZE = 65536  # kbytes
 
 FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
-    # I know --privileged is a bad/danger option. It is just used for tests.
     "auto_remove": True,
     "detach": True,  # -d
     "init": True,
+    # I know --privileged is a bad/danger option. It is just used for tests.
     "privileged": True,
     "tty": True,  # -t
     "stdin_open": True,  # -i
@@ -44,6 +45,12 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "command": "bash",
     "labels": {"group": "ffpp-dev-benchmark"},
     "nano_cpus": int(5e8),  # Avoid 100% CPU usage.
+    # Ulimits, memlock should be enough to load eBPF maps.
+    "ulimits": [
+        docker.types.Ulimit(
+            name="memlock", hard=LOCKED_IN_MEMORY_SIZE, soft=LOCKED_IN_MEMORY_SIZE
+        )
+    ],
 }
 
 
@@ -160,22 +167,6 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     _, out = c_pktgen.exec_run(cmd="cat /sys/class/net/pktgen-out/address")
     pktgen_out_mac = out.decode("ascii").strip()
 
-    print("- Add permanent static ARP entries.")
-    exit_code, _ = c_pktgen.exec_run(
-        cmd="ip neigh add 192.168.17.2 lladdr {} dev pktgen-out nud permanent".format(
-            vnf_in_mac
-        )
-    )
-    if exit_code != 0:
-        print("ERR: Faild to add static ARP.")
-    exit_code, _ = c_vnf.exec_run(
-        cmd="ip neigh add 192.168.18.1 lladdr {} dev vnf-out nud permanent".format(
-            pktgen_in_mac
-        )
-    )
-    if exit_code != 0:
-        print("ERR: Faild to add static ARP.")
-
     print("* Load xdp-pass on ingress and egress interfaces inside vnf and pktgen.")
 
     for c, c_name in zip([c_vnf, c_pktgen], ["vnf", "pktgen"]):
@@ -196,8 +187,6 @@ def setup_two_veth_xdp_fwd(pktgen_image):
                     )
                 )
                 sys.exit(1)
-
-    client.close()
 
     with open("/sys/class/net/vnf-in-root/address", "r") as f:
         vnf_in_root_mac = f.read().strip()
@@ -266,6 +255,8 @@ def setup_two_veth_xdp_fwd(pktgen_image):
 
     print("* Current XDP status in root namespace: ")
     run(split("xdp-loader status"), check=True)
+
+    client.close()
 
     print(
         "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."

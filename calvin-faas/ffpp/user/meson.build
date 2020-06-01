@@ -13,8 +13,13 @@ inc = include_directories('include')
 
 subdir('include')
 subdir('src')
+
 if get_option('tests')
   subdir('tests/unit')
+endif
+
+if get_option('examples')
+  subdir('examples')
 endif
 
 pkg_mod = import('pkgconfig')

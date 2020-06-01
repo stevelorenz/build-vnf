@@ -95,6 +95,10 @@ actions:
 
 ## Run a Docker container, DPDK and XDP based benchmark topology on a single laptop
 
+WARNING: This setup is used to fast prototyping network functions on a single laptop with limited computing resources.
+Therefore, containers are used with privileged mode to enable running DPDK and XDP based application INSIDE them.
+This is definitely not suggested for production deployment.
+
 ### Requirements
 
 -   The test VM or host machine needs minimal 2 vCPU cores.
