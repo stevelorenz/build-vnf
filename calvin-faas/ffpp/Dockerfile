@@ -48,9 +48,6 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
 # Remove unused files.
 RUN rm -rf /opt/xdp-tools-${XDP_TOOLS_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz
 
-# For Rust env.
-RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y rustc
-
 # Build FFPP library
 ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
