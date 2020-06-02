@@ -10,6 +10,7 @@ ffpp_headers = files(
   'ffpp/mp.h',
   'ffpp/task.h',
   'ffpp/utils.h',
+  'ffpp/bpf_helpers_user.h',
 )
 
 install_headers(ffpp_headers, subdir: 'ffpp')

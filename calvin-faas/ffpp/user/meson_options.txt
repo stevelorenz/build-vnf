@@ -1,2 +1,4 @@
+option('examples', type: 'boolean', value: true,
+	description: 'Build all examples.')
 option('tests', type: 'boolean', value: false,
 	description: 'Build unit tests.')

@@ -22,7 +22,7 @@ ENV DPDK_BUILD_OPTION="-Dtests=false"
 RUN apt-get update && \
     DEBIAN_FRONTEND="noninteractive" apt-get install -y wget build-essential pkg-config python3 meson ninja-build \
     libnuma-dev libpcap-dev gcovr \
-    libelf-dev clang llvm gcc-multilib linux-headers-$(uname -r) linux-tools-common linux-tools-$(uname -r) \
+    libelf-dev clang llvm gcc-multilib linux-headers-5.4.0-28-generic linux-tools-common linux-tools-5.4.0-28-generic \
     libcmocka-dev iproute2 iputils-ping tcpdump \
     bash-completion cppcheck clang-tidy
 
@@ -46,8 +46,7 @@ ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/lib64/pkgconfig
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
 
 # Remove unused files.
-RUN rm -rf /opt/${LIBBPF_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz \
-    /opt/dpdk/build
+RUN rm -rf /opt/xdp-tools-${XDP_TOOLS_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz
 
 # For Rust env.
 RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y rustc
