@@ -3,6 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include <getopt.h>
+// #include <pcre.h>
 
 #include <locale.h>
 #include <unistd.h>
@@ -34,6 +35,18 @@ struct stats_record {
     struct record stats;
 };
 
+struct measurement {
+    __u64 count;
+    __u32 min_counts;
+    __u32 idx;      //count % min_counts;
+    __u32 scale_down_count;
+    __u32 scale_up_count;
+    double inter_arrival_time;
+    double avg_cpu_util;
+    double cpu_util[5];
+    bool had_first_packet;      //false;
+};
+
 static double calc_period(struct record *r, struct record *p)
 {
     double period_ = 0;
@@ -48,13 +61,100 @@ static double calc_period(struct record *r, struct record *p)
     return period_;
 }
 
+static double get_cpu_frequency()
+{
+    FILE *cpuinfo = fopen("/proc/cpuinfo", "rb");
+    if (cpuinfo == NULL)
+    {
+        fprintf(stderr, "ERR: Couldn't get CPU frequency");
+        return EXIT_FAILURE;
+    }
+
+    const char *key = "MHz";
+    char str[255];
+    double freq = 0.0;
+
+    while ((fgets(str, sizeof str, cpuinfo)) != NULL)
+    {
+        if (strstr(str, key) != NULL)
+        {
+            char *s = strtok(str, ":");
+            s = strtok(NULL, s);    // get second element (frequency)
+            freq = atof(s);
+
+            // Currently we get the frequency only for the first core
+            break;
+        }
+    }
+    fclose(cpuinfo);
+
+    return freq * 1e3;
+}
+
+static void scale_cpu_frequency(struct measurement *measurement)
+{
+    __u32 c_packet = 100;
+    __u32 scale_threshold = 5;      // Avoid ping-pong scaling
+    double util_threshold[2] = {0.8, 0.9};
+    double new_cpu_freq;
+
+    if (measurement->avg_cpu_util < util_threshold[0])
+    {
+        measurement->scale_down_count += 1;
+        if (measurement->scale_down_count > scale_threshold)
+        {
+            // Check which frequency is needed to bring the utilization
+            // back up to 80%
+            // Use only last inter-arrival time sample or also average?
+            measurement->scale_down_count = 0;
+            new_cpu_freq = c_packet / (measurement->inter_arrival_time * 0.85);
+            printf("Scale CPU frequency down to: %f\n", new_cpu_freq);
+        }
+    }
+    else if (measurement->avg_cpu_util > util_threshold[1])
+    {
+        measurement->scale_up_count += 1;
+        if (measurement->scale_up_count > scale_threshold)
+        {
+            // Same check as for down scaling
+            measurement->scale_up_count = 0;
+            new_cpu_freq = c_packet / (measurement->inter_arrival_time * 0.85);
+            printf("Scale CPU frequency up to: %f\n", new_cpu_freq);
+        }
+    }
+}
+
+static void get_cpu_utilization(struct measurement *measurement)
+{
+    __u32 c_packet = 100;   // CPU cycles per processed packet
+    int i;
+    double sum = 0.0;
+    double cpu_freq = get_cpu_frequency();
+    measurement->cpu_util[measurement->idx] = c_packet /
+                (measurement->inter_arrival_time * cpu_freq);
+    if (measurement->count >= measurement->min_counts)
+    {
+        for (i = 0; i < measurement->min_counts; i++)
+        {
+            sum += measurement->cpu_util[i];
+        }
+        measurement->avg_cpu_util = sum / measurement->min_counts;
+
+        scale_cpu_frequency(measurement);
+    }
+    printf("Current CPU utilization: %'.10f, average CPU utilization: %'.10f\n",
+            measurement->cpu_util[measurement->idx],
+            measurement->avg_cpu_util);
+}
+
 // static void stats_print_header()
 // {
     // printf("%-12s\n", "XDP-action");
 // }
 
 static void stats_print(struct stats_record *stats_rec,
-            struct stats_record *stats_prev)
+            struct stats_record *stats_prev,
+            struct measurement *measurement)
 {
     struct record *rec, *prev;
     __u64 packets;
@@ -66,7 +166,7 @@ static void stats_print(struct stats_record *stats_rec,
 
     char *fmt = "%-12s %'11lld pkts (%'10.0f pps)"
 		    // " %'11lld Kbytes (%'6.0f Mbits/s)"
-            " \t%'10.5f s"
+            " \t%'10.8f s"
 		    " \tperiod:%f\n";
     const char *action = action2str(2); // @2: xdp_pass
 
@@ -84,10 +184,23 @@ static void stats_print(struct stats_record *stats_rec,
 
     // Can we get per-packet measurements in user space?
     // If not: inter_arrival /= packets for an average
+    printf("Actual time: %f , Previous time: %f \n",
+            rec->total.rx_time / 1e9, prev->total.rx_time / 1e9);
     if (packets > 0)
     {
         inter_arrival = (rec->total.rx_time - prev->total.rx_time) /
                         (packets * 1e9);
+        if (measurement->had_first_packet)
+        {
+            measurement->inter_arrival_time = inter_arrival;
+            measurement->count += 1;
+            measurement->idx = measurement->count % measurement->min_counts;
+        }
+        else
+        {
+            inter_arrival = 0;
+            measurement->had_first_packet = true;
+        }
     }
     else
     {
@@ -116,7 +229,7 @@ void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
     for (i = 0; i < nr_cpus; i++)
     {
         sum_pkts += values[i].rx_packets;
-        
+
         // Get the latest time stamp
         if (values[i].rx_time > latest_time)
         {
@@ -151,6 +264,10 @@ static void stats_collect(int map_fd, struct stats_record *stats_rec)
 static void stats_poll(int map_fd, int interval)
 {
     struct stats_record prev, record = { 0 };
+    struct measurement measurement = { 0 };
+
+    measurement.min_counts = 5;
+    measurement.had_first_packet = false;
 
     setlocale(LC_NUMERIC, "en_US");
 
@@ -161,10 +278,16 @@ static void stats_poll(int map_fd, int interval)
     {
         prev = record;
         stats_collect(map_fd, &record);
-        stats_print(&record, &prev);
+        stats_print(&record, &prev, &measurement);
+        printf("Count: %lld\n", measurement.count);
+        // if (measurement.count >= measurement.min_counts)
+        // {
+            get_cpu_utilization(&measurement);;
+        // }
         sleep(interval);
     }
 }
+
 
 int main(int argc, char **argv)
 {
@@ -193,7 +316,7 @@ int main(int argc, char **argv)
     {
         fprintf(stderr, "ERR: creating pin dirname\n");
     }
-    
+
     printf("%s\n", pin_dir);
     stats_map_fd = open_bpf_map_file(pin_dir, map_file_name, &info);
     if (stats_map_fd < 0)
@@ -203,7 +326,7 @@ int main(int argc, char **argv)
     }
 
     err = check_map_fd_info(&info, &map_expect);
-	if (err) 
+	if (err)
     {
 		fprintf(stderr, "ERR: map via FD not compatible\n");
 		return err;
@@ -215,6 +338,9 @@ int main(int argc, char **argv)
 	       " key_size:%d value_size:%d max_entries:%d\n",
 	       info.type, info.id, info.name, info.key_size, info.value_size,
 	       info.max_entries);
+
+    double cpu_freq = get_cpu_frequency();
+    printf("Frequency: %f\n", cpu_freq);
 
 	stats_poll(stats_map_fd, interval);
 
