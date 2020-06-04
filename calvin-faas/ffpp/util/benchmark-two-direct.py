@@ -44,7 +44,6 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "image": "ffpp-dev:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-dev-benchmark"},
-    "nano_cpus": int(5e8),  # Avoid 100% CPU usage.
     # Ulimits, memlock should be enough to load eBPF maps.
     "ulimits": [
         docker.types.Ulimit(
@@ -306,8 +305,19 @@ if __name__ == "__main__":
         default=FFPP_DEV_CONTAINER_OPTS_DEFAULT["image"],
         help="The Docker image to create the pktgen.",
     )
+    nano_cpus_help = " ".join(
+        (
+            "CPU quota in units of 1e-9 CPUs.",
+            "For example, 5e8 means 50%% of the CPU.",
+            "WARN: the type of this argument is float to allow XeX format,",
+            "it is converted to integer.",
+        )
+    )
+    parser.add_argument("--nano_cpus", type=float, default=5e8, help=nano_cpus_help)
 
     args = parser.parse_args()
+
+    FFPP_DEV_CONTAINER_OPTS_DEFAULT["nano_cpus"] = int(args.nano_cpus)
 
     cpu_count = multiprocessing.cpu_count()
     if cpu_count < 2:

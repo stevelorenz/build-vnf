@@ -21,6 +21,8 @@ clean:
 	cd ./xdp_count/ && make clean
 	cd ./xdp_fwd/ && make clean
 
+.PHONY: release debug clean
+
 # ONLY used by the developers.
 
 C_XDP_SRCS := $(shell find ./ -name '*.c')

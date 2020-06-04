@@ -5,31 +5,27 @@
 all: release
 
 release:
-	cd ./user && \
-		meson -Dc_args=-O3 build && \
-		cd ./build && ninja
+	cd ./user && make release
 	cd ./kern && make
 
 debug:
-	cd ./user && \
-		meson -Dc_args=-Og -Dtests=true -Ddebug=true -Db_coverage=true -Db_sanitize=address build \
-		&& cd ./build && ninja
+	cd ./user && make debug
 	cd ./kern && make DEBUG=1
 
 test:
-	cd ./user/build && ninja test && ninja coverage-html
+	cd ./user/ && make test
 
 install:
-	cd ./user/build && ninja install
+	cd ./user/ && make install
 
 uninstall:
-	cd ./user/build && ninja uninstall
+	cd ./user/ && make uninstall
 
 clean:
-	cd ./user && rm -r ./build
+	cd ./user && make clean
 	cd ./kern && make clean
 
 docs:
 	cd ./user && doxygen ./docs/Doxyfile
 
-.PHONY: release release-with-tests debug docs
+.PHONY: release debug test install uninstall clean docs

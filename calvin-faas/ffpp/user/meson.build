@@ -11,11 +11,16 @@ project('ffpp', 'c',
 
 add_project_arguments(
 	[
+        '-Wall',
 		'-Wundef',
 		'-Wvla',
 	],
 	language: 'c',
 )
+
+if get_option('buildtype').startswith('debug')
+  add_project_arguments('-DDEBUG', language : 'c')
+endif
 
 cc = meson.get_compiler('c')
 
