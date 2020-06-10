@@ -142,7 +142,7 @@ static void get_cpu_utilization(struct measurement *measurement)
 
         scale_cpu_frequency(measurement);
     }
-    printf("Current CPU utilization: %'.10f, average CPU utilization: %'.10f\n",
+    printf("Current CPU utilization: %'.10f, average CPU utilization: %'.10f\n\n",
             measurement->cpu_util[measurement->idx],
             measurement->avg_cpu_util);
 }
@@ -184,8 +184,6 @@ static void stats_print(struct stats_record *stats_rec,
 
     // Can we get per-packet measurements in user space?
     // If not: inter_arrival /= packets for an average
-    printf("Actual time: %f , Previous time: %f \n",
-            rec->total.rx_time / 1e9, prev->total.rx_time / 1e9);
     if (packets > 0)
     {
         inter_arrival = (rec->total.rx_time - prev->total.rx_time) /
@@ -209,7 +207,7 @@ static void stats_print(struct stats_record *stats_rec,
 
     printf(fmt, action, rec->total.rx_packets, pps,
             inter_arrival, period);
-    printf("\n");
+    // printf("\n");
 }
 
 void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
@@ -279,11 +277,7 @@ static void stats_poll(int map_fd, int interval)
         prev = record;
         stats_collect(map_fd, &record);
         stats_print(&record, &prev, &measurement);
-        printf("Count: %lld\n", measurement.count);
-        // if (measurement.count >= measurement.min_counts)
-        // {
-            get_cpu_utilization(&measurement);;
-        // }
+        get_cpu_utilization(&measurement);;
         sleep(interval);
     }
 }
