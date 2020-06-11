@@ -4,7 +4,10 @@
 #include <string.h>
 #include <errno.h>
 
+#include <time.h>
+
 #include <ffpp/bpf_helpers_user.h>
+
 
 int open_bpf_map_file(const char *pin_dir, const char *mapname,
 		      struct bpf_map_info *info)
@@ -74,4 +77,60 @@ int check_map_fd_info(const struct bpf_map_info *info,
 		return -1;
 	}
 	return 0;
+}
+
+__u64 gettime(void)
+{
+	struct timespec t ;
+	int res;
+
+	res = clock_gettime(CLOCK_MONOTONIC, &t);
+	if (res < 0) {
+		fprintf(stderr, "Error with gettimeofday! (%i)\n", res);
+		exit(EXIT_FAIL);
+	}
+	return (__u64)t.tv_sec * NANOSEC_PER_SEC + t.tv_nsec;
+}
+
+void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
+{
+    unsigned int nr_cpus = libbpf_num_possible_cpus();
+    struct datarec values[nr_cpus];
+    __u64 sum_pkts = 0;
+    __u64 latest_time = 0;
+    __u32 i;
+
+    if ((bpf_map_lookup_elem(fd, &key, values)) != 0)
+    {
+        fprintf(stderr, "ERR:bpf_map_lookup_elem failed key:0x%X\n", key);
+        return;
+    }
+
+    for (i = 0; i < nr_cpus; i++)
+    {
+        sum_pkts += values[i].rx_packets;
+
+        // Get the latest time stamp
+        if (values[i].rx_time > latest_time)
+        {
+            latest_time = values[i].rx_time;
+        }
+    }
+
+    value->rx_packets = sum_pkts;
+    value->rx_time = latest_time;
+}
+
+bool map_collect(int fd, __u32 key, struct record *rec)
+{
+    struct datarec value;
+
+    rec->timestamp = gettime();
+
+    map_get_value_percpu_array(fd, key, &value);
+
+    rec->total.rx_packets = value.rx_packets;
+    rec->total.rx_time = value.rx_time;
+
+    return true;
 }

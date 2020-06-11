@@ -35,12 +35,20 @@ struct bpf_map_def SEC("maps") eth_new_src_params = {
 	.max_entries = 1,
 };
 
+struct bpf_map_def SEC("maps") xdp_stats_map = {
+	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
+	.key_size = sizeof(__u32),
+	.value_size = sizeof(struct datarec),
+	.max_entries = 1,
+};
+
 /* TODO:  <01-06-20, Malte> Add traffic monitoring related eBPF maps and actions
  * in the xdp_fwd_func. */
 
 SEC("xdp_redirect_map")
 int xdp_fwd_func(struct xdp_md *ctx)
 {
+	__u64 timestamp = bpf_ktime_get_ns();
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
 	struct hdr_cursor nh;
@@ -68,6 +76,15 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	if (new_eth_h_source) {
 		memcpy(eth->h_source, new_eth_h_source, ETH_ALEN);
 	}
+
+	// Update stats
+	__u32 key = 0;
+	struct datarec *rec = bpf_map_lookup_elem(&xdp_stats_map, &key);
+	if (!rec){
+		return action;
+	}
+	rec->rx_packets++;
+	rec->rx_time = timestamp;
 
 	action = bpf_redirect_map(&tx_port, 0, 0);
 	return action;
