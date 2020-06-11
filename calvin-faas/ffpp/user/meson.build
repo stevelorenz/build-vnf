@@ -38,7 +38,7 @@ if get_option('examples')
 endif
 
 if get_option('tests')
-  subdir('tests/unit')
+  subdir('tests')
 endif
 
 

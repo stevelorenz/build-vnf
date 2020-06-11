@@ -12,9 +12,6 @@ debug:
 	cd ./user && make debug
 	cd ./kern && make DEBUG=1
 
-test:
-	cd ./user/ && make test
-
 install:
 	cd ./user/ && make install
 
@@ -28,4 +25,4 @@ clean:
 docs:
 	cd ./user && doxygen ./docs/Doxyfile
 
-.PHONY: release debug test install uninstall clean docs
+.PHONY: release debug install uninstall clean docs

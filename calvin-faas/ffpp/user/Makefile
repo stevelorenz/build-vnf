@@ -4,14 +4,23 @@ release:
 	meson -Dc_args=-O3 build && cd ./build && ninja
 
 debug:
-	meson -Dc_args=-Og -Dtests=true -Db_coverage=true -Db_sanitize=address build --buildtype=debug \
+	meson -Dc_args=-Og -Db_sanitize=address build --buildtype=debug \
 	&& cd ./build && ninja
 
 examples:
 	meson configure -Dexamples=true build
 	cd ./build/ && ninja
 
-test:
+# Build all tests
+tests:
+	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=address build
+	cd ./build/ && ninja
+
+# Run all auto unit tests
+run-unit-tests:
+	cd ./build && ninja test
+
+run-coverage:
 	cd ./build && ninja test && ninja coverage-html
 
 install:
@@ -23,7 +32,7 @@ uninstall:
 clean:
 	rm -rf ./build
 
-.PHONY: release debug examples test install uninstall clean
+.PHONY: release debug examples tests run-tests install uninstall clean
 
 C_FFPP_SRCS := $(shell find ./src/ -name '*.c')
 C_FFPP_SHARED_HEADERS := $(shell find ./include/ -name '*.h')
