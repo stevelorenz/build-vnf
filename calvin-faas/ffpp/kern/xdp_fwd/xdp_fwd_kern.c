@@ -80,7 +80,7 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	// Update stats
 	__u32 key = 0;
 	struct datarec *rec = bpf_map_lookup_elem(&xdp_stats_map, &key);
-	if (!rec){
+	if (!rec) {
 		return action;
 	}
 	rec->rx_packets++;

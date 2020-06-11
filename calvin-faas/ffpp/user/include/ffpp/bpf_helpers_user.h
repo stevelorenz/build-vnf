@@ -11,7 +11,6 @@
 #include <ffpp/bpf_defines_user.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
-
 #define EXIT_OK 0
 #define EXIT_FAIL 1
 #define EXIT_FAIL_OPTION 2
@@ -61,7 +60,7 @@ int check_map_fd_info(const struct bpf_map_info *info,
 /**
  * @ Get current time stamp in ns
 */
-__u64 gettime(void); 
+__u64 gettime(void);
 
 /**
  * Get map entries for each core
@@ -70,7 +69,7 @@ __u64 gettime(void);
  * @param key: Key for the entry to read
  * @param value: The struct to store the read values in
  */
- void map_get_value_per_cpu_array(int fd, __u32 key, struct datarec *value);
+void map_get_value_per_cpu_array(int fd, __u32 key, struct datarec *value);
 
 /**
  * 

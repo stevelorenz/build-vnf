@@ -8,7 +8,6 @@
 
 #include <ffpp/bpf_helpers_user.h>
 
-
 int open_bpf_map_file(const char *pin_dir, const char *mapname,
 		      struct bpf_map_info *info)
 {
@@ -81,7 +80,7 @@ int check_map_fd_info(const struct bpf_map_info *info,
 
 __u64 gettime(void)
 {
-	struct timespec t ;
+	struct timespec t;
 	int res;
 
 	res = clock_gettime(CLOCK_MONOTONIC, &t);
@@ -94,43 +93,41 @@ __u64 gettime(void)
 
 void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
 {
-    unsigned int nr_cpus = libbpf_num_possible_cpus();
-    struct datarec values[nr_cpus];
-    __u64 sum_pkts = 0;
-    __u64 latest_time = 0;
-    __u32 i;
+	unsigned int nr_cpus = libbpf_num_possible_cpus();
+	struct datarec values[nr_cpus];
+	__u64 sum_pkts = 0;
+	__u64 latest_time = 0;
+	__u32 i;
 
-    if ((bpf_map_lookup_elem(fd, &key, values)) != 0)
-    {
-        fprintf(stderr, "ERR:bpf_map_lookup_elem failed key:0x%X\n", key);
-        return;
-    }
+	if ((bpf_map_lookup_elem(fd, &key, values)) != 0) {
+		fprintf(stderr, "ERR:bpf_map_lookup_elem failed key:0x%X\n",
+			key);
+		return;
+	}
 
-    for (i = 0; i < nr_cpus; i++)
-    {
-        sum_pkts += values[i].rx_packets;
+	for (i = 0; i < nr_cpus; i++) {
+		sum_pkts += values[i].rx_packets;
 
-        // Get the latest time stamp
-        if (values[i].rx_time > latest_time)
-        {
-            latest_time = values[i].rx_time;
-        }
-    }
+		// Get the latest time stamp
+		if (values[i].rx_time > latest_time) {
+			latest_time = values[i].rx_time;
+		}
+	}
 
-    value->rx_packets = sum_pkts;
-    value->rx_time = latest_time;
+	value->rx_packets = sum_pkts;
+	value->rx_time = latest_time;
 }
 
 bool map_collect(int fd, __u32 key, struct record *rec)
 {
-    struct datarec value;
+	struct datarec value;
 
-    rec->timestamp = gettime();
+	rec->timestamp = gettime();
 
-    map_get_value_percpu_array(fd, key, &value);
+	map_get_value_percpu_array(fd, key, &value);
 
-    rec->total.rx_packets = value.rx_packets;
-    rec->total.rx_time = value.rx_time;
+	rec->total.rx_packets = value.rx_packets;
+	rec->total.rx_time = value.rx_time;
 
-    return true;
+	return true;
 }
