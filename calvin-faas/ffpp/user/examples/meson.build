@@ -2,6 +2,7 @@ ffpp_dep = dependency('libffpp')
 
 all_examples = [
   'power_manager',
+  'frequency_manager',
 ]
 
 foreach example: all_examples
@@ -11,5 +12,6 @@ foreach example: all_examples
   executable('ffpp_' + name, sources,
     include_directories: [inc, include_directories(example)],
     dependencies: [dpdk_dep, bpf_dep, ffpp_dep],
-    link_with : [ffpplib_shared])
+    link_with : [ffpplib_shared],
+    link_args : '-lcpufreq')
 endforeach

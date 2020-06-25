@@ -3,7 +3,6 @@
 #include <string.h>
 #include <errno.h>
 #include <getopt.h>
-// #include <pcre.h>
 
 #include <locale.h>
 #include <unistd.h>
