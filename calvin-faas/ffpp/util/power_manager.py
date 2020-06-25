@@ -54,6 +54,7 @@ def run():
 
     pm_args = POWER_MANAGER_OPTS_DEFAULT.copy()
     pm_args["name"] = "power-manager"
+    pm_args["network_mode"] = "host"
     c_pm = client.containers.run(**pm_args)
 
     while not c_pm.attrs["State"]["Running"]:

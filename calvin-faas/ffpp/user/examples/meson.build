@@ -2,6 +2,7 @@ ffpp_dep = dependency('libffpp')
 
 all_examples = [
   'power_manager',
+  'pstate_manager',
 ]
 
 foreach example: all_examples

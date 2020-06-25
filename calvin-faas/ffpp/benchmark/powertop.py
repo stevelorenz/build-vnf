@@ -21,7 +21,7 @@ from time import sleep
 class Powertop(object):
     """Powertop"""
 
-    def __init__(self, command="/usr/bin/powertop -q"):
+    def __init__(self, command="/usr/sbin/powertop -q"):
         self.command = command
         self.pid = -1
         self.csv_name = ""
