@@ -13,15 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include <cpufreq.h>
-
-#include <rte_common.h>
-#include <rte_eal.h>
 #include <rte_power.h>
-#include <rte_lcore.h>
-#include <rte_per_lcore.h>
-#include <rte_timer.h>
-
 
 #define NUM_CORES 4
 #define MAX_PSTATES 32
