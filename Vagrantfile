@@ -76,8 +76,8 @@ provider = get_provider || "virtualbox"
 
 Vagrant.configure("2") do |config|
 
-  # --- VM for Network Function development/test/benchmarking ---
   config.vm.define "vnf" do |vnf|
+  # --- VM for Network Function development/test/benchmarking ---
 
     vnf.vm.provider "virtualbox" do |vb|
       vb.name = "vnf"
@@ -102,6 +102,8 @@ Vagrant.configure("2") do |config|
       vnf.vm.box_version = BOX_LIBVIRT_VER
       # This option does not invoke vagrant rsync automatically.
       # Run `vagrant rsync-auto vnf` after the VM is booted.
+      vnf.vm.synced_folder ".", "/vagrant", disabled: true
+      vnf.vm.synced_folder ".", "/vagrant", type: 'nfs', disabled: true
       vnf.vm.synced_folder ".", "/vagrant", type:'rsync'
     end
 

@@ -210,6 +210,8 @@ xdp_count_loader
 af_xdp_dpdk_user
 xdp_fwd_loader
 xdp_fwd_user
+xdp_time_loader
+xdp_time_user
 
 calvin-faas/ffpp/docs/html
 calvin-fass/ffpp/docs/latex

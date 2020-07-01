@@ -8,7 +8,7 @@ if [[ $1 == "-u" ]]; then
     cd ~/comnetsemu/util || exit
     bash ./install.sh -u
 else
-    echo "- Install ComNetsEmu."
+    echo "- Install ComNetsEmu. Warning: already-installed ComNetsEmu is automatically removed."
     sudo apt-get update
     sudo apt-get install -y python3-pip
     if [ -d ~/comnetsemu ]; then sudo rm -rf ~/comnetsemu; fi
