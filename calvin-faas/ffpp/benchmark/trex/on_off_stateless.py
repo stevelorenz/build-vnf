@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -6,8 +6,10 @@ About: On/Off traffic of multiple-dependent stateless streams.
        For basic latency benchmark of proposed power management mechanisms.
 """
 
+import argparse
 import time
 
+import numpy as np
 import stf_path
 
 from trex.stl.api import (
@@ -23,30 +25,12 @@ from trex.stl.api import (
     UDP,
 )
 
-ETH_HDR_LEN = 14
-IP_HDR_LEN = 20
-
-# MARK: Currently hard-coded, maybe auto-generate based on CAIDA datasets
-# Streams with name: s0, s1 ... , sn and pgid: 0, 1 ... n
-# - pps: Packet-Per-Second (PPS)
-# - duration (in seconds): Stream duration. Trex uses total packets to configure the stream
-#   duration, so total_pkts = int( pps * duration )
-# - isg: Inter-Stream-gap (in microseconds)
-STREAM_PROFILES = [
-    # This is the initial stream
-    {"pps": 1.5 * (10 ** 3), "duration": 2, "isg": 10},
-    # Other streams are triggered one-by-one
-    {"pps": 3.1 * (10 ** 3), "duration": 2, "isg": 49},
-    {"pps": 4.4 * (10 ** 3), "duration": 2, "isg": 22},
-    {"pps": 6.1 * (10 ** 3), "duration": 2, "isg": 100},
-    {"pps": 7.5 * (10 ** 3), "duration": 2, "isg": 86},
-]
-
-RX_DELAY_S = sum([s["duration"] for s in STREAM_PROFILES]) + 3
-RX_DELAY_MS = 1000 * RX_DELAY_S
-
+PREAMBLE_SIZE = 64  # bits
+# Minimal idle time required to sync clocks before sending the next packet on
+# the line.
+IFG_SIZE = 96  # bits
 # Full packet size including Ether, IP and UDP headers
-PACKET_SIZE = 64
+PACKET_SIZE = 64  # bytes
 
 
 def init_ports(client):
@@ -55,13 +39,11 @@ def init_ports(client):
     print(f"TX port: {tx_port}, RX port: {rx_port}")
     tx_port_attr = client.get_port_attr(tx_port)
     rx_port_attr = client.get_port_attr(rx_port)
-    assert tx_port_attr["src_ipv4"] == "192.168.17.1"
-    assert rx_port_attr["src_ipv4"] == "192.168.18.1"
     client.reset(ports=all_ports)
     return (tx_port, rx_port)
 
 
-def add_streams(client, tx_port):
+def add_streams(client, tx_port, stream_profiles):
     udp_payload_size = PACKET_SIZE - len(Ether()) - len(IP()) - len(UDP())
     print(f"UDP payload size: {udp_payload_size}")
     udp_payload = "Z" * udp_payload_size
@@ -72,10 +54,10 @@ def add_streams(client, tx_port):
         / udp_payload
     )
 
-    # Add all streams in the STREAM_PROFILES
+    # Add all streams in the stream_profiles
     streams = list()
 
-    for index, st in enumerate(STREAM_PROFILES[:-1]):
+    for index, st in enumerate(stream_profiles[:-1]):
         streams.append(
             STLStream(
                 name=f"s{index}",
@@ -83,15 +65,15 @@ def add_streams(client, tx_port):
                 packet=pkt,
                 flow_stats=STLFlowLatencyStats(pg_id=index),
                 mode=STLTXSingleBurst(
-                    pps=st["pps"], total_pkts=int(st["pps"] * st["duration"])
+                    pps=st["pps"], total_pkts=int(st["pps"] * st["on_time"])
                 ),
                 next=f"s{index+1}",
             )
         )
 
     # Add the last stream without next
-    index = len(STREAM_PROFILES) - 1
-    st = STREAM_PROFILES[-1]
+    index = len(stream_profiles) - 1
+    st = stream_profiles[-1]
     streams.append(
         STLStream(
             name=f"s{index}",
@@ -99,7 +81,7 @@ def add_streams(client, tx_port):
             packet=pkt,
             flow_stats=STLFlowLatencyStats(pg_id=index),
             mode=STLTXSingleBurst(
-                pps=st["pps"], total_pkts=int(st["pps"] * st["duration"])
+                pps=st["pps"], total_pkts=int(st["pps"] * st["on_time"])
             ),
         )
     )
@@ -118,9 +100,9 @@ def get_rx_stats(client, tx_port, rx_port):
     stats = client.get_pgid_stats(pgids["latency"])
 
     # A list of dictionary
-    err_cntrs_results = [dict()] * len(STREAM_PROFILES)
-    latency_results = [dict()] * len(STREAM_PROFILES)
-    for index, _ in enumerate(STREAM_PROFILES):
+    err_cntrs_results = [dict()] * len(stream_profiles)
+    latency_results = [dict()] * len(stream_profiles)
+    for index, _ in enumerate(stream_profiles):
         all_stats = stats["latency"].get(index)
         if not all_stats:
             print(f"No stats available for PG ID {index}!")
@@ -132,12 +114,72 @@ def get_rx_stats(client, tx_port, rx_port):
     return (err_cntrs_results, latency_results)
 
 
+def generate_stream_profiles(profile, max_bit_rate, on_time, interation):
+    """Generate stream profiles with the link utilization ranging from 0.1 to 1
+    with a step of 0.1.
+    """
+    if profile == "deterministic":
+        init_off_on_ratio = 0.5
+    else:
+        raise RuntimeError("Unknown profile!")
+
+    pps_list = [
+        np.ceil(
+            (utilization * max_bit_rate * 10 ** 9)
+            / (PACKET_SIZE * 8 + PREAMBLE_SIZE + IFG_SIZE)
+        )
+        for utilization in np.arange(0.1, 1.1, 0.1)
+    ]
+    # In usecs
+    isg_list = [
+        np.ceil(on_time * init_off_on_ratio * ratio * 10 ** 9)
+        for ratio in np.arange(1.0, 0, -0.1)
+    ]
+    stream_profiles = [
+        {"pps": pps, "isg": isg, "on_time": on_time}
+        for pps, isg in zip(pps_list, isg_list)
+    ]
+
+    # Duplicate each stream for interation numbers.
+    stream_profiles = [s for s in stream_profiles for _ in range(interation)]
+
+    return stream_profiles
+
+
 def main():
+
+    parser = argparse.ArgumentParser(description="ON-OFF stateless traffic generator.")
+    parser.add_argument(
+        "--max_bit_rate",
+        type=float,
+        default=1,
+        help="Maximal bit rate (with the unit Gbps) of the underlying network.",
+    )
+    parser.add_argument("--on_time", type=int, default=2, help="ON time in seconds.")
+    parser.add_argument(
+        "--interation",
+        type=int,
+        default=1,
+        help="Number of interations for each ON state with different PPS",
+    )
+
+    args = parser.parse_args()
+
+    stream_profiles = generate_stream_profiles(
+        "deterministic", args.max_bit_rate, args.on_time, args.interation
+    )
+    print("\nTo be used stream profiles:")
+    print(stream_profiles)
+    print()
+
+    RX_DELAY_S = sum([s["on_time"] for s in stream_profiles]) + 3
+    RX_DELAY_MS = 1000 * RX_DELAY_S
+
     try:
         client = STLClient()
         client.connect()
         tx_port, rx_port = init_ports(client)
-        add_streams(client, tx_port)
+        add_streams(client, tx_port, stream_profiles)
         start_ts = time.time()
         start_tx(client, tx_port)
         print(f"The estimated RX delay: {RX_DELAY_S} seconds.")
@@ -147,7 +189,8 @@ def main():
         # MARK: All latency results are in usec.
         err_cntrs_results, latency_results = get_rx_stats(client, tx_port, rx_port)
         print("--- The latency results of all streams:")
-        for index, _ in enumerate(STREAM_PROFILES):
+        print(f"- Number of streams: {len(latency_results)}")
+        for index, _ in enumerate(stream_profiles):
             print(f"- Stream: {index}")
             print(err_cntrs_results[index])
             print(latency_results[index])

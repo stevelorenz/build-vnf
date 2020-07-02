@@ -9,6 +9,7 @@ RUN apt-get update --fix-missing \
     && DEBIAN_FRONTEND="noninteractive" apt-get install -y wget ca-certificates iproute2 net-tools telnet tcpdump iputils-ping procps \
        sudo build-essential pkg-config python3 python3-setuptools zlib1g-dev pciutils kmod strace \
        libnuma-dev libpcap-dev libelf-dev clang llvm gcc-multilib linux-headers-5.4.0-28-generic linux-tools-common linux-tools-5.4.0-28-generic \
+       python3-numpy python3-scipy \
     && rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 WORKDIR /opt
