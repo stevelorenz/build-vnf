@@ -132,7 +132,7 @@ def generate_stream_profiles(profile, max_bit_rate, on_time, interation):
     ]
     # In usecs
     isg_list = [
-        np.ceil(on_time * init_off_on_ratio * ratio * 10 ** 9)
+        np.ceil(on_time * init_off_on_ratio * ratio * 10 ** 6)
         for ratio in np.arange(1.0, 0, -0.1)
     ]
     stream_profiles = [
