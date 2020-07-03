@@ -22,7 +22,7 @@ ENV DPDK_BUILD_OPTION="-Dtests=false"
 RUN apt-get update && \
     DEBIAN_FRONTEND="noninteractive" apt-get install -y wget build-essential pkg-config python3 meson ninja-build \
     libnuma-dev libpcap-dev gcovr \
-    libelf-dev clang llvm gcc-multilib linux-headers-5.4.0-28-generic linux-tools-common linux-tools-generic linux-tools-5.4.0-28-generic \
+    libelf-dev clang llvm gcc-multilib linux-headers-5.4.0-28-generic linux-tools-common linux-tools-5.4.0-28-generic \
     libcmocka-dev iproute2 iputils-ping tcpdump \
     bash-completion cppcheck clang-tidy libcpufreq-dev
 
@@ -47,6 +47,13 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
 
 # Remove unused files.
 RUN rm -rf /opt/xdp-tools-${XDP_TOOLS_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz
+
+# Install FFPP dependencies.
+RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
+    python3-pip libczmq-dev python3-zmq libjansson-dev \
+    rustc
+
+RUN pip3 install -q docker
 
 # Build FFPP library
 ENV FFPP_PATH /ffpp

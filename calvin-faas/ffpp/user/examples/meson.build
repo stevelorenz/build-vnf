@@ -4,6 +4,7 @@ all_examples = [
   'power_manager',
   'frequency_manager',
   'frequency_switcher',
+  'zmq'
 ]
 
 foreach example: all_examples
@@ -12,7 +13,7 @@ foreach example: all_examples
   subdir(example)
   executable('ffpp_' + name, sources,
     include_directories: [inc, include_directories(example)],
-    dependencies: [dpdk_dep, bpf_dep, ffpp_dep],
+    dependencies: [dpdk_dep, bpf_dep, ffpp_dep, zmq_dep, json_dep],
     link_with : [ffpplib_shared],
     link_args : '-lcpufreq')
 endforeach

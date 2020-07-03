@@ -47,6 +47,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
         "/sys/kernel/mm/hugepages": {"bind": "/sys/kernel/mm/hugepages", "mode": "rw"},
         "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw"},
         "/dev": {"bind": "/dev", "mode": "rw"},
+        "/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"},
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
     "working_dir": "/ffpp",

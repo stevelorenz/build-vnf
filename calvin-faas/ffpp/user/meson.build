@@ -30,7 +30,10 @@ cc = meson.get_compiler('c')
 
 # Find DPDK dependency using pkg-config (by default.)
 dpdk_dep = dependency('libdpdk')
+
 bpf_dep = dependency('libbpf')
+zmq_dep = dependency('libzmq')
+json_dep = dependency('jansson')
 
 inc = include_directories('include')
 
