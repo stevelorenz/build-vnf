@@ -37,8 +37,6 @@ def init_ports(client):
     all_ports = client.get_all_ports()
     tx_port, rx_port = all_ports
     print(f"TX port: {tx_port}, RX port: {rx_port}")
-    tx_port_attr = client.get_port_attr(tx_port)
-    rx_port_attr = client.get_port_attr(rx_port)
     client.reset(ports=all_ports)
     return (tx_port, rx_port)
 
@@ -94,7 +92,7 @@ def start_tx(client, tx_port):
     client.start(ports=[tx_port])
 
 
-def get_rx_stats(client, tx_port, rx_port):
+def get_rx_stats(client, tx_port, rx_port, stream_profiles):
     pgids = client.get_active_pgids()
     print("Currently used pgids: {0}".format(pgids))
     stats = client.get_pgid_stats(pgids["latency"])
@@ -187,7 +185,9 @@ def main():
         test_dur = time.time() - start_ts
         print(f"Total test duration: {test_dur} seconds")
         # MARK: All latency results are in usec.
-        err_cntrs_results, latency_results = get_rx_stats(client, tx_port, rx_port)
+        err_cntrs_results, latency_results = get_rx_stats(
+            client, tx_port, rx_port, stream_profiles
+        )
         print("--- The latency results of all streams:")
         print(f"- Number of streams: {len(latency_results)}")
         for index, _ in enumerate(stream_profiles):
