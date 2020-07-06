@@ -8,6 +8,8 @@ About: On/Off traffic of a deterministic and stateless stream profile.
 
 import argparse
 import pprint
+import re
+import subprocess
 import time
 
 import numpy as np
@@ -38,17 +40,28 @@ PACKET_SIZE = 64  # bytes
 LATENCY_FLOW_MAX_PPS = 5 * 10 ** 6  # 5 MPPS
 
 
+def get_core_mask(numa_node: int) -> int:
+    outputs = subprocess.run("lscpu", capture_output=True).stdout.decode().splitlines()
+    for out in outputs:
+        m = re.match(r"NUMA node%d CPU\(s\):\s+((\d,)+\d)" % numa_node, out)
+        if m:
+            cores = (m.group(1)).split(",")
+            break
+    else:
+        raise RuntimeError(f"Can not get core list of the NUMA node: {numa_node}")
+
+    print("To be used cores:")
+    pprint.pp(cores)
+    core_mask = sum([2 ** int(c) for c in cores])
+    return core_mask
+
+
 def init_ports(client):
     all_ports = client.get_all_ports()
     tx_port, rx_port = all_ports
     print(f"TX port: {tx_port}, RX port: {rx_port}")
     client.reset(ports=all_ports)
     return (tx_port, rx_port)
-
-
-def start_tx(client, tx_port):
-    client.clear_stats()
-    client.start(ports=[tx_port])
 
 
 def get_rx_stats(client, tx_port, rx_port, stream_params):
@@ -174,9 +187,17 @@ def main():
         description="On/Off traffic of a deterministic and stateless stream profile."
     )
 
-    parser.add_argument("ip_src", type=str, help="Source IP address for all streams.")
     parser.add_argument(
-        "ip_dst", type=str, help="Destination IP address for all streams."
+        "--ip_src",
+        type=str,
+        default="192.168.17.1",
+        help="Source IP address for all packets in the stream.",
+    )
+    parser.add_argument(
+        "--ip_dst",
+        type=str,
+        default="192.168.17.2",
+        help="Destination IP address for all packets in the stream.",
     )
 
     parser.add_argument(
@@ -198,6 +219,12 @@ def main():
         default=1,
         help="Number of iterations for the ON state of each PPS.",
     )
+    parser.add_argument(
+        "--numa_node",
+        type=int,
+        default=0,
+        help="The NUMA node of cores used for TX and RX.",
+    )
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
 
     args = parser.parse_args()
@@ -213,6 +240,9 @@ def main():
     pprint.pp(stream_params)
     print()
 
+    core_mask = get_core_mask(args.numa_node)
+    print(f"The core mask for RX and TX: {hex(core_mask)}")
+
     streams = create_streams(stream_params, args.ip_src, args.ip_dst)
     if args.test:
         pprint.pp(streams)
@@ -226,12 +256,20 @@ def main():
         client.connect()
         tx_port, rx_port = init_ports(client)
         client.add_streams(streams, ports=[tx_port])
+
+        # Start TX
         start_ts = time.time()
-        start_tx(client, tx_port)
+        client.clear_stats()
+        # All cores in the core_mask is used by the tx_port and its adjacent
+        # port, so it is the rx_port normally.
+        client.start(ports=[tx_port], core_mask=[core_mask])
+
         print(f"The estimated RX delay: {RX_DELAY_S} seconds.")
         client.wait_on_traffic(rx_delay_ms=RX_DELAY_MS)
         test_dur = time.time() - start_ts
         print(f"Total test duration: {test_dur} seconds")
+
+        # Check RX stats.
         # MARK: All latency results are in usec.
         err_cntrs_results, latency_results = get_rx_stats(
             client, tx_port, rx_port, stream_params
