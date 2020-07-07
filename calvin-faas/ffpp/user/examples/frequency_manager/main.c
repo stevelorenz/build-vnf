@@ -15,6 +15,8 @@
 
 #include <rte_power.h>
 
+#include <ffpp/bpf_helpers_user.h>
+
 #define NUM_CORES 4
 #define MAX_PSTATES 32
 
@@ -151,6 +153,7 @@ static void check_pstate(int pstate, int num_pstates)
 
 int main(int argc, char *argv[])
 {
+	gettime();
 	if (argc == 1) {
 		printf("No option was given, terminate programm.\n");
 		printf("Please run with one of the folling options: \n"

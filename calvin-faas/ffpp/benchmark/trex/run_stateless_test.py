@@ -24,9 +24,9 @@ from trex.stl.api import (
 )
 
 PG_ID = 17
-TOTAL_PKTS = 100000
-PPS = 100  # Inter Packet Gap = (1 / PPS)
-MONITOR_DUR = 800  # Duration to monitor the flow stats in seconds.
+TOTAL_PKTS = int(1e7)
+PPS = 1e4  # Inter Packet Gap = (1 / PPS)
+MONITOR_DUR = 60  # Duration to monitor the flow stats in seconds.
 
 
 def rx_interation(c, tx_port, rx_port, total_pkts, pkt_len):
