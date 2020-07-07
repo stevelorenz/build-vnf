@@ -30,14 +30,16 @@ from trex.stl.api import (
     UDP,
 )
 
-PREAMBLE_SIZE = 64  # bits
+PREAMBLE_SIZE = 8  # bytes
 # Minimal idle time required to sync clocks before sending the next packet on
 # the line.
-IFG_SIZE = 96  # bits
-# Full packet size including Ether, IP and UDP headers
-PACKET_SIZE = 64  # bytes
+IFG_SIZE = 12  # bytes
+# Full Ethernet frame size including Ether, IP and UDP headers and the payload.
+FRAME_SIZE = 64  # bytes
 
-LATENCY_FLOW_MAX_PPS = 5 * 10 ** 6  # 5 MPPS
+# Fixed PPS for latency monitoring flows.
+# 0.1 MPPS, so the resolution is ( 1 / (0.1 * 10 ** 6)) * 10 ** 6  = 10 usec
+LATENCY_FLOW_PPS = int(0.1 * 10 ** 6)
 
 
 def get_core_mask(numa_node: int) -> int:
@@ -87,7 +89,7 @@ def get_rx_stats(client, tx_port, rx_port, stream_params):
 def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
     """Create a list of STLStream objects."""
 
-    udp_payload_size = PACKET_SIZE - len(Ether()) - len(IP()) - len(UDP())
+    udp_payload_size = FRAME_SIZE - len(Ether()) - len(IP()) - len(UDP())
     if udp_payload_size < 16:
         raise RuntimeError("The minimal payload size is 16 bytes.")
     print(f"UDP payload size: {udp_payload_size}")
@@ -113,9 +115,27 @@ def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
 
     for index, stp in enumerate(stream_params):
         next_st_name = None
+        next_st_w_name = None
         if index != len(stream_params) - 1:
             next_st_name = f"s{index+1}"
+            next_st_w_name = f"sw{index+1}"
 
+        # Add extra workload stream.
+        workload_stream_pps = stp["pps"] - LATENCY_FLOW_PPS
+        streams.append(
+            STLStream(
+                name=f"sw{index}",
+                isg=stp["isg"],
+                packet=pkt,
+                mode=STLTXSingleBurst(
+                    pps=workload_stream_pps,
+                    total_pkts=int(workload_stream_pps * stp["on_time"]),
+                ),
+                next=next_st_w_name,
+            )
+        )
+
+        # Add latency monitoring flow with a fixed PPS.
         streams.append(
             STLStream(
                 name=f"s{index}",
@@ -123,7 +143,8 @@ def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
                 packet=pkt,
                 flow_stats=STLFlowLatencyStats(pg_id=index),
                 mode=STLTXSingleBurst(
-                    pps=stp["pps"], total_pkts=int(stp["pps"] * stp["on_time"]),
+                    pps=LATENCY_FLOW_PPS,
+                    total_pkts=int(LATENCY_FLOW_PPS * stp["on_time"]),
                 ),
                 next=next_st_name,
             )
@@ -144,18 +165,20 @@ def create_stream_params(
     with a step of 0.1.
     """
 
+    # MARK: Here pps is the L2 pps, Trex calculates the L1 bps itsel which
+    # includes the PREAMBLE_SIZE and IFG_SIZE.
     pps_list = [
-        np.ceil(
+        np.floor(
             (utilization * max_bit_rate * 10 ** 9)
-            / (PACKET_SIZE * 8 + PREAMBLE_SIZE + IFG_SIZE)
+            / ((FRAME_SIZE + PREAMBLE_SIZE + IFG_SIZE) * 8)
         )
         for utilization in np.arange(0.1, 1.1, 0.1)
     ]
 
     for pps in pps_list:
-        if pps > LATENCY_FLOW_MAX_PPS:
+        if pps < LATENCY_FLOW_PPS:
             raise RuntimeError(
-                f"The maximal PPS supported by latency streams is {LATENCY_FLOW_MAX_PPS}"
+                f"The minimal PPS supported by latency streams is {LATENCY_FLOW_PPS}"
             )
 
     # In usecs
