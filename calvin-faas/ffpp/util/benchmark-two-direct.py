@@ -22,8 +22,14 @@ with open("../VERSION", "r") as vfile:
     FFPP_VER = vfile.read().strip()
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
+TREX_CONF_DIR = PARENT_DIR + "/benchmark/trex"
 BPF_MAP_BASEDIR = "/sys/fs/bpf"
 LOCKED_IN_MEMORY_SIZE = 65536  # kbytes
+
+TREX_CONF = {
+    TREX_CONF_DIR + "/trex_cfg.yaml": {"bind": "/etc/trex_cfg.yaml", "mode": "rw"},
+    TREX_CONF_DIR: {"bind": "/trex/v2.81/local", "mode": "rw"},
+}
 
 FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "auto_remove": True,
@@ -68,6 +74,7 @@ def setup_common(pktgen_image):
     pktgen_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
     pktgen_args["name"] = "pktgen"
     pktgen_args["image"] = pktgen_image
+    pktgen_args["volumes"].update(TREX_CONF)
     c_pktgen = client.containers.run(**pktgen_args)
     while not c_pktgen.attrs["State"]["Running"]:
         time.sleep(0.05)

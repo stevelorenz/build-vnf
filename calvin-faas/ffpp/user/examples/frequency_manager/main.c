@@ -15,14 +15,15 @@
 
 #include <rte_power.h>
 
-#define NUM_CORES 4
-#define MAX_PSTATES 32
+#include <ffpp/scaling_defines_user.h>
+#include <ffpp/scaling_helpers_user.h>
 
 static int init_power_library(void)
 {
 	int ret = 0;
 	int lcore_id = 0;
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		ret = rte_power_init(lcore_id);
 		if (ret) {
 			RTE_LOG(ERR, POWER,
@@ -38,7 +39,8 @@ static void check_lcore_power_caps(void)
 	int ret = 0;
 	int lcore_id = 0;
 	int cnt = 0;
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		struct rte_power_core_capabilities caps;
 		ret = rte_power_get_capabilities(lcore_id, &caps);
 		if (ret == 0) {
@@ -59,7 +61,8 @@ static void freq_max(void)
 	int ret;
 	int lcore_id;
 	printf("Scale frequency up to maximum.\n");
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		ret = rte_power_freq_max(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
@@ -74,7 +77,8 @@ static void freq_min(void)
 	int ret;
 	int lcore_id;
 	printf("Scale frequency down to minimum.\n");
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		ret = rte_power_freq_min(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
@@ -89,7 +93,8 @@ static void freq_turbo(void)
 	int ret;
 	int lcore_id;
 	printf("Enable Turbo Boost.\n");
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		ret = rte_power_freq_enable_turbo(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
@@ -109,7 +114,8 @@ static void set_freq(int pstate)
 {
 	int ret;
 	int lcore_id;
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		ret = rte_power_set_freq(lcore_id, pstate);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER, "Failed to scale CPU frequency.\n");
@@ -117,15 +123,15 @@ static void set_freq(int pstate)
 	}
 }
 
-static void check_freq(unsigned int freq, unsigned int *freqs, int num_freqs)
+static void check_freq(unsigned int freq, struct freq_info *f)
 {
-	if (freq >= freqs[0]) {
+	if (freq >= f->freqs[0]) {
 		printf("Given frequency too high, try to enter Turbo Boost.\n");
 		freq_turbo();
-	} else if (freq >= freqs[num_freqs - 1]) {
+	} else if (freq >= f->freqs[f->num_freqs - 1]) {
 		int freq_idx;
-		for (freq_idx = num_freqs - 1; freq_idx > 0; freq_idx--) {
-			if (freqs[freq_idx] >= freq) {
+		for (freq_idx = f->num_freqs - 1; freq_idx > 0; freq_idx--) {
+			if (f->freqs[freq_idx] >= freq) {
 				set_freq(freq_idx);
 				break;
 			}
@@ -170,7 +176,8 @@ int main(int argc, char *argv[])
 	check_lcore_power_caps();
 	int ret;
 	int lcore_id;
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		ret = rte_power_turbo_status(lcore_id);
 		if (ret == 1) {
 			printf("Turbo boost is enabled on lcore %d.\n",
@@ -185,9 +192,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	int num_freqs;
-	unsigned int freqs[MAX_PSTATES];
-	num_freqs = rte_power_freqs(0, freqs, MAX_PSTATES);
+	struct freq_info freq_info = { 0 };
+	get_frequency_info(CORE_OFFSET, &freq_info, false);
 
 	char *ptr; // dummy pointer for function @strtoul
 	unsigned int freq;
@@ -201,7 +207,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'f':
 			freq = strtoul(optarg, &ptr, 10);
-			check_freq(freq, freqs, num_freqs);
+			check_freq(freq, &freq_info);
 			break;
 		case 'h':
 			freq_max();
@@ -211,7 +217,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'p':
 			pstate = strtoul(optarg, &ptr, 10);
-			check_pstate(pstate, num_freqs);
+			check_pstate(pstate, freq_info.num_freqs);
 			break;
 		case 't':
 			freq_turbo();
@@ -240,9 +246,9 @@ int main(int argc, char *argv[])
 		// return 0;
 	}
 
-	pstate = rte_power_get_freq(0);
-	printf("Scaled frequency to %d KHz (p-state %d).\n", freqs[pstate],
-	       pstate);
+	pstate = rte_power_get_freq(CORE_OFFSET);
+	printf("Scaled frequency to %d KHz (p-state %d).\n",
+	       freq_info.freqs[pstate], pstate);
 
 	return 1;
 }

@@ -88,6 +88,7 @@ __u64 gettime(void)
 		fprintf(stderr, "Error with gettimeofday! (%i)\n", res);
 		exit(EXIT_FAIL);
 	}
+
 	return (__u64)t.tv_sec * NANOSEC_PER_SEC + t.tv_nsec;
 }
 
