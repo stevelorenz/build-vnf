@@ -5,6 +5,8 @@
 #ifndef SCALING_DEFINES_USER_H
 #define SCALING_DEFINES_USER_H
 
+#include <ffpp/bpf_helpers_user.h>
+
 // Hyper-parameter for scaling decision
 #define INTERVAL 2
 #define UTIL_THRESHOLD_UP 0.85
@@ -12,7 +14,9 @@
 #define COUNTER_THRESHOLD 20
 #define NUM_READINGS 5
 
-#define NUM_CORES 4
+#define NUM_CORES 8 // Total cores of the system
+#define CORE_MASK 2 // Cores to initialize
+#define CORE_OFFSET 1 // First core to initialize
 #define C_PACKET 100 // CPU cycles for one packet
 #define MAX_PSTATES 32 // Max possible p-states
 
