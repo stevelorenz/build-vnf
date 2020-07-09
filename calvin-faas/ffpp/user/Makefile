@@ -11,6 +11,10 @@ examples:
 	meson configure -Dexamples=true build
 	cd ./build/ && ninja
 
+related_works:
+	meson configure -Drelated_works=true build
+	cd ./build/ && ninja
+
 # Build all tests
 tests:
 	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=address build
@@ -32,7 +36,7 @@ uninstall:
 clean:
 	rm -rf ./build
 
-.PHONY: release debug examples tests run-tests install uninstall clean
+.PHONY: release debug examples related_works tests run-tests install uninstall clean
 
 C_FFPP_SRCS := $(shell find ./src/ -name '*.c')
 C_FFPP_SHARED_HEADERS := $(shell find ./include/ -name '*.h')

@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Run DPDK L2 forwarding sample application INSIDE the virtual setup managed by ./benchmark-two-direct.py
+#
 
 if [[ ! -d /opt/dpdk/examples/l2fwd ]]; then
     echo "Can not find the directory of l2fwd sample."
@@ -12,6 +15,11 @@ fi
 
 echo "* Run DPDK l2fwd on interfaces vnf-in and vnf-out."
 cd /opt/dpdk/examples/l2fwd/build
-# MARK (TODO): Replace net_af_packet to net_af_xdp when running on the testbed with enough resources.
-# ./l2fwd -l 0,1 --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03
-./l2fwd -l 0,1 --vdev net_af_packet0,iface=enp4s0 --vdev net_af_packet1,iface=enp0s31f6 --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03
+
+if [[ $1 == "-t" ]]; then
+    ./l2fwd -l 0,1 --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03 --no-mac-updating
+else
+    xdp-loader unload vnf-in
+    xdp-loader unload vnf-out
+    ./l2fwd -l 0,1 --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03 --no-mac-updating
+fi
