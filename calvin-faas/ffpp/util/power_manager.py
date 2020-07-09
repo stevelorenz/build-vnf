@@ -10,6 +10,9 @@ import argparse
 import os
 import time
 
+from shlex import split
+from subprocess import run, PIPE
+
 import docker
 
 with open("../VERSION", "r") as vfile:
@@ -48,8 +51,29 @@ POWER_MANAGER_OPTS_DEFAULT = {
     ],
 }
 
+def loadXDP(iface):
+    print("* Load xdp-pass on ingress interface ", iface)
+    xdp_pass_dir = os.path.abspath("../kern/xdp_time/")
+    if not os.path.exists(xdp_pass_dir):
+        print("ERR: Can not find the xdp_time program.")
+        sys.exit(1)
+    os.chdir(xdp_pass_dir)
+    if not os.path.exists(os.path.join(xdp_pass_dir, "./xdp_time_kern.o")):
+        print("\tINFO: Compile programs in xdp_time.")
+        run(split("make"), check=True)
+    print("\t- Load xdp_time kernel program")
+    run(split("sudo ./xdp_loader_time {}".format(iface)), check=True)
 
-def run():
+    print("* Current XDP status: ")
+    run(split("xdp-loader status"), check=True)
+
+
+def unloadXDP(iface):
+    run(split("sudo xdp-loader unload {}".format(iface)), check=True)
+    print("* Unloaded XPD programm from interface ", iface)
+
+
+def run(iface):
     client = docker.from_env()
 
     pm_args = POWER_MANAGER_OPTS_DEFAULT.copy()
@@ -65,9 +89,10 @@ def run():
     print("* The power manager container is running with PID: {}".format(c_pm_pid))
 
     client.close()
+    # loadXDP(iface)
 
 
-def stop():
+def stop(iface):
     client = docker.from_env()
     c_list = client.containers.list(
         all=True, filters={"label": "group=ffpp-power-manager"}
@@ -76,6 +101,7 @@ def stop():
         print("* Remove container: {}".format(c.name))
         c.remove(force=True)
     client.close()
+    # unloadXDP(iface)
 
 
 if __name__ == "__main__":
@@ -85,10 +111,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "action", type=str, choices=["run", "stop"], help="The action to perform.",
     )
+    parser.add_argument(
+        "-i",
+        default="eno2",
+        const="eno2",
+        nargs="?",
+        type=str,
+        help="Interface to attach XDP to.",
+    )
 
     args = parser.parse_args()
 
     if args.action == "run":
-        run()
+        run(args.i)
     elif args.action == "stop":
-        stop()
+        stop(args.i)
