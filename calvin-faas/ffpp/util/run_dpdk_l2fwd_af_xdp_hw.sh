@@ -25,14 +25,12 @@ while :; do
     shift
 done
 
-echo "$TEST"
-
 cd /opt/dpdk/examples/l2fwd/build
 
 if [ "$TEST" = true ]; then
     echo "* Run DPDK l2fwd with af_packet on interfaces eno2 and eno3."
-./l2fwd -l 0,1 --vdev net_af_packet0,iface=eno2 --vdev net_af_packet1,iface=eno3 --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03
+    ./l2fwd -l 1,3 --vdev net_af_packet0,iface=eno2 --vdev net_af_packet1,iface=eno3 --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03 --no-mac-updating
 else
     echo "* Run DPDK l2fwd with af_xdp on interfaces eno2 and eno3."
-./l2fwd -l 0,1 --vdev net_af_xdp0,iface=eno2 --vdev net_af_xdp1,iface=eno3 --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03
+    ./l2fwd -l 1,3 --vdev net_af_xdp0,iface=eno2 --vdev net_af_xdp1,iface=eno3 --no-pci --single-file-segments --file-prefix=vnf  -- -p 0x03 --no-mac-updating
 fi
