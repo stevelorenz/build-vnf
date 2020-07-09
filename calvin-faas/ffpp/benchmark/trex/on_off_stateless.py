@@ -39,7 +39,7 @@ FRAME_SIZE = 64  # bytes
 
 # Fixed PPS for latency monitoring flows.
 # 0.1 MPPS, so the resolution is ( 1 / (0.1 * 10 ** 6)) * 10 ** 6  = 10 usec
-LATENCY_FLOW_PPS = int(0.1 * 10 ** 6)
+LATENCY_FLOW_PPS = int(0.01 * 10 ** 6)
 
 
 def get_core_mask(numa_node: int) -> int:
@@ -285,7 +285,7 @@ def main():
         client.clear_stats()
         # All cores in the core_mask is used by the tx_port and its adjacent
         # port, so it is the rx_port normally.
-        client.start(ports=[tx_port], core_mask=[core_mask])
+        client.start(ports=[tx_port], core_mask=[core_mask], force=True)
 
         print(f"The estimated RX delay: {RX_DELAY_S} seconds.")
         client.wait_on_traffic(rx_delay_ms=RX_DELAY_MS)
