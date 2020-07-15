@@ -40,8 +40,8 @@ make install
 
 Additional required packages to run unit tests:
 
-*   `[Cmocka]`(https://cmocka.org/): An elegant unit testing framework for C and it's written in pure C.
-*   `[gcovr]`(https://gcovr.com/en/stable/): To generate coverage report.
+*   [Cmocka](https://cmocka.org/): An elegant unit testing framework for C and it's written in pure C.
+*   [gcovr](https://gcovr.com/en/stable/): To generate coverage report.
 
 Assume the `build` directory is already created using the default options using `make`. Run following commands to clean
 the release build, build the debug version and run tests.
@@ -156,7 +156,8 @@ terminal 1 > ./t-rex-64 -i
 
 # Run DPDK l2fwd program in vnf
 terminal 2 > sudo docker attach vnf
-terminal 2 > ./util/run_dpdk_l2fwd_af_xdp.sh
+# Use AF_Packet PMD just for test
+terminal 2 > ./util/run_dpdk_l2fwd_af_xdp.sh -t
 # The screen should show the port statistics of port 0 and port 1
 
 # Run a basic stateless UDP latency test using Trex's Python API.
@@ -183,10 +184,28 @@ Latency test is passed!
 sudo ./benchmark-two-direct.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 teardown
 ```
 
+## Run benchmarks on hardware testbed
+
+Deploying DPDK and XDP programs on hardware tested requires supported hardware, see following links for supported
+hardware and corresponded drivers:
+
+-   [DPDK supported Hardware](https://core.dpdk.org/supported/)
+-   [XDP supported NICs](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md#xdp)
+
+The physical machine used in our lab for VNF/CNF deployment is a Dell PowerEdge R620 with following specs:
+
+-   Intel XEON CPU E5-2643 0 @ 3.30GHz (8 physical cores), 32GB RAM.
+-   3 X 82574L Gigabit Ethernet Network Connection.
+-   1 X Mellanox MCX512A-ACAT ConnectX-5 EN Network Interface Card, 25 GbE, Dual-Port SFP28.
+
+This machine is considered as a reasonable COTS server deployed in the edge cloud.
 
 ## Catalog
 
 1.  user: Sources for programs running in the user space.
+
+  1.  user/comparison/: Sources for comparable approach published by others. They are used to evaluate the performance
+      of the FFPP's approach.
 
 1.  kern: Sources for eBPF and XDP programs running in the kernel space.
 
