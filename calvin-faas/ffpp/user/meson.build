@@ -14,6 +14,10 @@ add_project_arguments(
         '-Wall',
         '-Wundef',
         '-Wvla',
+
+        # ABI stability of DPDK is not considered here.
+        # Because the test container always uses a specific DPDK version.
+        '-Wno-deprecated-declarations',
     ],
     language: 'c',
 )

@@ -10,20 +10,20 @@ fi
 
 cd ../../build/related_works/
 
-echo "* Run DPDK l2fwd_power on interface vnf-in"
-echo "WARN: ONLY one interface is used since common laptops have two physical cores."
+echo "* Run DPDK l2fwd_power on virtual interfaces."
+
+# - Add --empty-poll to enable empty mode with the thresholds configured.
+# --log-level user1,8 can be used for debugging.
 if [[ $1 == "-t" ]]; then
-        ep_args=""
-        if [[ $2 == "-t" ]]; then
-                ep_args="1,0,0"
-        fi
-        ./ffpp_l2fwd_power -l 0,1 --vdev net_af_packet0,iface=vnf-in \
+        ./ffpp_l2fwd_power -l 0,1 \
+                --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
                 --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
-                -- -p 0x01 --no-mac-updating --empty-poll="$ep_args"
+                -- -p 0x03 --no-mac-updating -T 0
 else
         xdp-loader unload vnf-in
         xdp-loader unload vnf-out
-        ./ffpp_l2fwd_power -l 0,1 --vdev net_af_xdp0,iface=vnf-in \
+        ./ffpp_l2fwd_power -l 0,1 \
+                --vdev net_af_xdp0,iface=vnf-in net_af_xdp1,iface=vnf-out \
                 --no-pci --single-file-segments --file-prefix=vnf \
-                -- -p 0x01 --no-mac-updating --empty-poll="$ep_args"
+                -- -p 0x03 --no-mac-updating -T 0
 fi
