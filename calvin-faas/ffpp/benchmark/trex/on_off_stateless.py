@@ -14,6 +14,7 @@ import time
 
 import numpy as np
 import stf_path
+import json
 
 from trex.stl.api import (
     Ether,
@@ -66,6 +67,19 @@ def init_ports(client):
     return (tx_port, rx_port)
 
 
+def save_rx_stats(data, filename, stream_params):
+    wrote_first = False
+    with open(filename, "w") as f:
+        for index, _ in enumerate(stream_params):
+            if not wrote_first:
+                f.write("[\n")
+                wrote_first = True
+            else:
+                f.write(",\n")
+            json.dump(data[index], f)
+        f.write("\n]")
+
+
 def get_rx_stats(client, tx_port, rx_port, stream_params):
     pgids = client.get_active_pgids()
     print("Currently used pgids: {0}".format(pgids))
@@ -116,9 +130,12 @@ def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
     for index, stp in enumerate(stream_params):
         next_st_name = None
         next_st_w_name = None
+        self_start = False
         if index != len(stream_params) - 1:
             next_st_name = f"s{index+1}"
             next_st_w_name = f"sw{index+1}"
+        if index == 0:
+            self_start = True
 
         # Add extra workload stream.
         workload_stream_pps = stp["pps"] - LATENCY_FLOW_PPS
@@ -132,6 +149,7 @@ def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
                     total_pkts=int(workload_stream_pps * stp["on_time"]),
                 ),
                 next=next_st_w_name,
+                self_start=self_start,
             )
         )
 
@@ -147,6 +165,7 @@ def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
                     total_pkts=int(LATENCY_FLOW_PPS * stp["on_time"]),
                 ),
                 next=next_st_name,
+                self_start=self_start,
             )
         )
 
@@ -249,6 +268,12 @@ def main():
         help="The NUMA node of cores used for TX and RX.",
     )
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
+    parser.add_argument(
+        "--out",
+        type=str,
+        default="",
+        help="The name of the output file, stored in /home if given",
+    )
 
     args = parser.parse_args()
 
@@ -289,7 +314,8 @@ def main():
 
         print(f"The estimated RX delay: {RX_DELAY_S} seconds.")
         client.wait_on_traffic(rx_delay_ms=RX_DELAY_MS)
-        test_dur = time.time() - start_ts
+        end_ts = time.time()
+        test_dur = end_ts - start_ts
         print(f"Total test duration: {test_dur} seconds")
 
         # Check RX stats.
@@ -301,8 +327,19 @@ def main():
         print(f"- Number of streams: {len(latency_results)}")
         for index, _ in enumerate(stream_params):
             print(f"- Stream: {index}")
+            err_cntrs_results[index]["start_ts"] = start_ts
+            err_cntrs_results[index]["end_ts"] = end_ts
             print(err_cntrs_results[index])
             print(latency_results[index])
+        if args.out:
+            savedir = "/home/" + args.out
+            print("Results: ", savedir)
+            save_rx_stats(err_cntrs_results, 
+                        savedir + "_error.json",
+                        stream_params)
+            save_rx_stats(latency_results, 
+                        savedir + "_latency.json",
+                        stream_params)
 
     except STLError as error:
         print(error)
