@@ -64,7 +64,7 @@ def run():
 
     c_pktgen_pid = c_pktgen.attrs["State"]["Pid"]
     c_pktgen.exec_run("mount -t bpf bpf /sys/fs/bpf")
-    print("Pktgen container is running with PID: ", c_pktgen_pid)
+    print("* The Pktgen container is running with PID: ", c_pktgen_pid)
 
     client.close()
 

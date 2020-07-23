@@ -192,6 +192,7 @@ def create_stream_params(
             / ((FRAME_SIZE + PREAMBLE_SIZE + IFG_SIZE) * 8)
         )
         for utilization in np.arange(0.1, 1.1, 0.1)
+        # for utilization in [1.0] * 10
     ]
 
     for pps in pps_list:
@@ -201,10 +202,11 @@ def create_stream_params(
             )
 
     # In usecs
-    isg_list = [
-        np.ceil(on_time * init_off_on_ratio * ratio * 10 ** 6)
-        for ratio in np.arange(1.0, 0, -0.1)
-    ]
+    # isg_list = [
+    #     np.ceil(on_time * init_off_on_ratio * ratio * 10 ** 6)
+    #     for ratio in np.arange(1.0, 0, -0.1)
+    # ]
+    isg_list = [1 * 10 ** 6] * 10
 
     if test:
         stream_params = [
@@ -313,7 +315,7 @@ def main():
         client.start(ports=[tx_port], core_mask=[core_mask], force=True)
 
         print(f"The estimated RX delay: {RX_DELAY_S} seconds.")
-        client.wait_on_traffic(rx_delay_ms=RX_DELAY_MS)
+        client.wait_on_traffic(rx_delay_ms=1000 * 3)
         end_ts = time.time()
         test_dur = end_ts - start_ts
         print(f"Total test duration: {test_dur} seconds")
