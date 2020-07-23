@@ -6,6 +6,7 @@ project('ffpp', 'c',
     'c_std=gnu99',
     'buildtype=release',
     'warning_level=3',
+    'default_library=both',
     ],
 )
 

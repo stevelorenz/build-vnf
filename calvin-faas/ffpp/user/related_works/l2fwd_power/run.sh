@@ -18,7 +18,7 @@ if [[ $1 == "-t" ]]; then
         ./ffpp_l2fwd_power -l 0,1 \
                 --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
                 --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
-                -- -p 0x03 --no-mac-updating -T 0
+                -- -p 0x03 --no-mac-updating --no-pm -T 0
 else
         xdp-loader unload vnf-in
         xdp-loader unload vnf-out

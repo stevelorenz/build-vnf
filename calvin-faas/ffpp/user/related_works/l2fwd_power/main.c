@@ -118,8 +118,9 @@ struct l2fwd_port_statistics port_statistics[RTE_MAX_ETHPORTS];
 // -----------------------------------------------------------------------------
 
 enum app_mode {
-	APP_MODE_LEGACY = 0,
-	APP_MODE_EMPTY_POLL = 1,
+	APP_MODE_NO_PM = 0,
+	APP_MODE_LEGACY = 1,
+	APP_MODE_EMPTY_POLL = 2,
 	// TODO: Add mode based branch predictions.
 };
 
@@ -244,6 +245,8 @@ static __inline__ const char *get_app_mode_string(enum app_mode app_mode)
 		return "LEGACY_MODE";
 	case APP_MODE_EMPTY_POLL:
 		return "EMPTY_POLL_MODE";
+	case APP_MODE_NO_PM:
+		return "APP_MODE_NO_PM";
 	}
 	return "unknown";
 }
@@ -433,7 +436,8 @@ static void power_freq_scale_down_cb()
 }
 
 /* main processing loop */
-static void l2fwd_main_loop(void)
+// ISSUE !!!: It runs 10 times faster than the no-pm loop...
+static void l2fwd_main_loop_legacy(void)
 {
 	struct rte_mbuf *pkts_burst[MAX_PKT_BURST];
 	struct rte_mbuf *m;
@@ -618,9 +622,111 @@ static void l2fwd_main_loop(void)
 	}
 }
 
-static int l2fwd_launch_one_lcore(__attribute__((unused)) void *dummy)
+static void l2fwd_main_loop_no_pm(void)
 {
-	l2fwd_main_loop();
+	struct rte_mbuf *pkts_burst[MAX_PKT_BURST];
+	struct rte_mbuf *m;
+	int sent;
+	unsigned lcore_id;
+	uint64_t prev_tsc = 0, diff_tsc, cur_tsc, timer_tsc;
+	unsigned i, j, port_id, nb_rx;
+	struct lcore_queue_conf *qconf;
+	const uint64_t drain_tsc = (rte_get_tsc_hz() + US_PER_S - 1) /
+				   US_PER_S * BURST_TX_DRAIN_US;
+	struct rte_eth_dev_tx_buffer *buffer;
+
+	prev_tsc = 0;
+	timer_tsc = 0;
+
+	lcore_id = rte_lcore_id();
+	qconf = &lcore_queue_conf[lcore_id];
+
+	if (qconf->n_rx_port == 0) {
+		RTE_LOG(INFO, L2FWD, "lcore %u has nothing to do\n", lcore_id);
+		return;
+	}
+
+	RTE_LOG(INFO, L2FWD, "entering main loop on lcore %u\n", lcore_id);
+
+	for (i = 0; i < qconf->n_rx_port; i++) {
+		port_id = qconf->rx_port_list[i];
+		RTE_LOG(INFO, L2FWD, " -- lcoreid=%u port_id=%u\n", lcore_id,
+			port_id);
+	}
+
+	while (!force_quit) {
+		stats[lcore_id].nb_iteration_looped++;
+
+		cur_tsc = rte_rdtsc();
+		/*
+		 * TX burst queue drain
+		 */
+		diff_tsc = cur_tsc - prev_tsc;
+		if (unlikely(diff_tsc > drain_tsc)) {
+			for (i = 0; i < qconf->n_rx_port; i++) {
+				port_id =
+					l2fwd_dst_ports[qconf->rx_port_list[i]];
+				buffer = tx_buffer[port_id];
+
+				sent = rte_eth_tx_buffer_flush(port_id, 0,
+							       buffer);
+				if (sent)
+					port_statistics[port_id].tx += sent;
+			}
+
+			/* if timer is enabled */
+			if (timer_period > 0) {
+				/* advance the timer */
+				timer_tsc += diff_tsc;
+
+				/* if timer has reached its timeout */
+				if (unlikely(timer_tsc >= timer_period)) {
+					/* do this only on master core */
+					if (lcore_id ==
+					    rte_get_master_lcore()) {
+						print_stats();
+						/* reset the timer */
+						timer_tsc = 0;
+					}
+				}
+			}
+
+			prev_tsc = cur_tsc;
+		}
+
+		/*
+		 * Read packet from RX queues
+		 */
+		for (i = 0; i < qconf->n_rx_port; i++) {
+			port_id = qconf->rx_port_list[i];
+			nb_rx = rte_eth_rx_burst(port_id, 0, pkts_burst,
+						 MAX_PKT_BURST);
+
+			port_statistics[port_id].rx += nb_rx;
+			stats[lcore_id].nb_rx_processed += nb_rx;
+
+			for (j = 0; j < nb_rx; j++) {
+				m = pkts_burst[j];
+				rte_prefetch0(rte_pktmbuf_mtod(m, void *));
+				l2fwd_simple_forward(m, port_id);
+			}
+		}
+	}
+}
+
+static int l2fwd_launch_one_lcore(void *arg)
+{
+	enum app_mode *mode;
+	mode = (enum app_mode *)arg;
+	if (*mode == APP_MODE_LEGACY) {
+		RTE_LOG(INFO, L2FWD,
+			"Launch l2fwd main loop with legacy mode.\n");
+		l2fwd_main_loop_legacy();
+	} else if (*mode == APP_MODE_NO_PM) {
+		RTE_LOG(INFO, L2FWD,
+			"Launch l2fwd main loop without any PM.\n");
+		l2fwd_main_loop_no_pm();
+	}
 	return 0;
 }
 
@@ -634,7 +740,8 @@ static void l2fwd_usage(const char *prgname)
 	       "  --[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
 	       "      When enabled:\n"
 	       "       - The source MAC address is replaced by the TX port MAC address\n"
-	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n",
+	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n"
+	       "  --no-pm: Disable power management mechanisms\n",
 	       prgname);
 }
 
@@ -755,6 +862,7 @@ static const struct option lgopts[] = {
 	{ CMD_LINE_OPT_MAC_UPDATING, no_argument, &mac_updating, 1 },
 	{ CMD_LINE_OPT_NO_MAC_UPDATING, no_argument, &mac_updating, 0 },
 	{ "empty-poll", 1, 0, 0 },
+	{ "no-pm", no_argument, (int *)(&app_mode), APP_MODE_NO_PM },
 	{ NULL, 0, 0, 0 }
 };
 
@@ -1024,14 +1132,6 @@ int main(int argc, char **argv)
 	unsigned int nb_mbufs;
 	uint64_t hz;
 
-	RTE_LOG(INFO, POWER, "Current working mode: %s\n",
-		get_app_mode_string(app_mode));
-
-	if (app_mode == APP_MODE_EMPTY_POLL) {
-		rte_exit(EXIT_FAILURE,
-			 "Empty mode is currently not fully implemented.\n");
-	}
-
 	/* init EAL */
 	ret = rte_eal_init(argc, argv);
 	if (ret < 0)
@@ -1051,10 +1151,20 @@ int main(int argc, char **argv)
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "Invalid L2FWD arguments\n");
 
+	RTE_LOG(INFO, POWER, "Current working mode: %s\n",
+		get_app_mode_string(app_mode));
+
+	if (app_mode == APP_MODE_EMPTY_POLL) {
+		rte_exit(EXIT_FAILURE,
+			 "Empty mode is currently not fully implemented.\n");
+	}
+
 	printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
 
 	check_lcores();
-	init_power_library();
+	if (app_mode != APP_MODE_NO_PM) {
+		init_power_library();
+	}
 
 	/* convert to number of cycles */
 	timer_period *= rte_get_timer_hz();
@@ -1318,7 +1428,9 @@ int main(int argc, char **argv)
 	if (resp == 'y') {
 		ret = 0;
 		/* launch per-lcore init on every non-main lcore */
-		rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, NULL,
+		// MARK: If the scaling is required to perform on all cores of a
+		// single socket, rte_eal_remote_launch can be used.
+		rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, &app_mode,
 					 CALL_MASTER);
 
 		if (app_mode == APP_MODE_EMPTY_POLL) {
@@ -1350,7 +1462,9 @@ int main(int argc, char **argv)
 		printf(" Done\n");
 	}
 
-	exit_power_library();
+	if (app_mode != APP_MODE_NO_PM) {
+		exit_power_library();
+	}
 	ret = rte_eal_cleanup();
 	if (ret) {
 		RTE_LOG(ERR, EAL,
