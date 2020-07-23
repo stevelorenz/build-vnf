@@ -10,12 +10,16 @@ project('ffpp', 'c',
 )
 
 add_project_arguments(
-	[
+    [
         '-Wall',
-		'-Wundef',
-		'-Wvla',
-	],
-	language: 'c',
+        '-Wundef',
+        '-Wvla',
+
+        # ABI stability of DPDK is not considered here.
+        # Because the test container always uses a specific DPDK version.
+        '-Wno-deprecated-declarations',
+    ],
+    language: 'c',
 )
 
 if get_option('buildtype').startswith('debug')
@@ -26,7 +30,10 @@ cc = meson.get_compiler('c')
 
 # Find DPDK dependency using pkg-config (by default.)
 dpdk_dep = dependency('libdpdk')
+
 bpf_dep = dependency('libbpf')
+zmq_dep = dependency('libzmq')
+json_dep = dependency('jansson')
 
 inc = include_directories('include')
 
@@ -39,6 +46,10 @@ endif
 
 if get_option('tests')
   subdir('tests')
+endif
+
+if get_option('related_works')
+  subdir('related_works')
 endif
 
 
