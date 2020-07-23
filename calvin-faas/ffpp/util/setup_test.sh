@@ -3,6 +3,7 @@
 # About: Setup pktgen, vnf and power-manager and loads the XDP hook
 
 IFACE="eno2"
+CORE="5" # For XDP program
 SETUP=true
 PM=true
 BASE_DIR=$(pwd)
@@ -24,6 +25,12 @@ while :; do
     -p)
         PM=false
         ;;
+    -c)
+        if [ "$2" ]; then
+            CORE="$2"
+            shift
+        fi
+        ;;
     *)
         break
         ;;
@@ -38,10 +45,10 @@ if [ "$SETUP" = true ]; then
     sudo ./pktgen.py run
     sudo ./vnf.py run
     if [ "$PM" = true ]; then
-        sudo ./power_manager.py run -i $IFACE
+        sudo ./power_manager.py run -i $IFACE -c $CORE
         cd $KERN_DIR
         # sudo xdp-loader load -m skb -p /sys/fs/bpf/ enp0s25 ./../kern/xdp_time/xdp_time_kern.o
-        sudo ./xdp_time_loader $IFACE
+        taskset --cpu-list $CORE sudo ./xdp_time_loader $IFACE
     fi
 else
     echo "* Teardown test environment."

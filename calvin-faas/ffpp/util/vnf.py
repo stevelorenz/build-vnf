@@ -47,6 +47,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "command": "bash",
     "labels": {"group": "ffpp-vnf"},
     "nano_cpus": int(1e9),
+    "cpuset_cpus": "1,3",
 }
 
 
@@ -64,7 +65,7 @@ def run():
 
     c_pktgen_pid = c_pktgen.attrs["State"]["Pid"]
     c_pktgen.exec_run("mount -t bpf bpf /sys/fs/bpf")
-    print("VNF container is running with PID: ", c_pktgen_pid)
+    print("* The VNF container is running with PID: ", c_pktgen_pid)
 
     client.close()
 

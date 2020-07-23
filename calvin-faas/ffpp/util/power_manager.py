@@ -49,6 +49,7 @@ POWER_MANAGER_OPTS_DEFAULT = {
             name="memlock", hard=LOCKED_IN_MEMORY_SIZE, soft=LOCKED_IN_MEMORY_SIZE
         )
     ],
+    "nano_cpus": int(1e9),
 }
 
 def loadXDP(iface):
@@ -73,12 +74,13 @@ def unloadXDP(iface):
     print("* Unloaded XPD programm from interface ", iface)
 
 
-def run(iface):
+def run(iface, core):
     client = docker.from_env()
 
     pm_args = POWER_MANAGER_OPTS_DEFAULT.copy()
     pm_args["name"] = "power-manager"
     pm_args["network_mode"] = "host"
+    pm_args["cpuset_cpus"] = core
     c_pm = client.containers.run(**pm_args)
 
     while not c_pm.attrs["State"]["Running"]:
@@ -119,10 +121,18 @@ if __name__ == "__main__":
         type=str,
         help="Interface to attach XDP to.",
     )
+    parser.add_argument(
+        "-c",
+        default="5",
+        const="5",
+        nargs="?",
+        type=str,
+        help="Core the power-manager runs on.",
+    )
 
     args = parser.parse_args()
 
     if args.action == "run":
-        run(args.i)
+        run(args.i, args.c)
     elif args.action == "stop":
         stop(args.i)
