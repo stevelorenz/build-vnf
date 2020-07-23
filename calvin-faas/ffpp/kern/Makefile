@@ -6,6 +6,7 @@ release:
 	cd ./xdp_pass/ && make
 	cd ./xdp_count/ && make
 	cd ./xdp_fwd/ && make
+	cd ./xdp_time && make
 
 debug:
 	cd ./common/ && make DEBUG=1
@@ -13,6 +14,7 @@ debug:
 	cd ./xdp_pass/ && make DEBUG=1
 	cd ./xdp_count/ && make DEBUG=1
 	cd ./xdp_fwd/ && make DEBUG=1
+	cd ./xdp_time && make DEBUG=1
 
 clean:
 	cd ./common/ && make clean
@@ -20,6 +22,7 @@ clean:
 	cd ./xdp_pass/ && make clean
 	cd ./xdp_count/ && make clean
 	cd ./xdp_fwd/ && make clean
+	cd ./xdp_time && make clean
 
 .PHONY: release debug clean
 
