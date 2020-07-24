@@ -3,9 +3,12 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
+#include <stdbool.h>
 
 #include <ffpp/scaling_helpers_user.h>
 #include <ffpp/bpf_helpers_user.h> // NANOSEC_PER_SEC
+#include <ffpp/general_helpers_user.h>
 
 void get_frequency_info(int lcore, struct freq_info *f, bool debug)
 {
@@ -16,7 +19,7 @@ void get_frequency_info(int lcore, struct freq_info *f, bool debug)
 	if (debug) {
 		printf("Number of possible p-states %d.\n", f->num_freqs);
 		for (int i = 0; i < f->num_freqs; i++) {
-			printf("Frequency: %d KHz; Index %d\n", f->freqs[i], i);
+			printf("Frequency: %d kHz; Index %d\n", f->freqs[i], i);
 		}
 		printf("Current p-staste %d and frequency: %d KHz.\n",
 		       f->pstate, f->freq);
@@ -60,7 +63,8 @@ void set_turbo()
 	int lcore_id;
 	/// Enable already in the begining?
 	printf("Enable Turbo Boost.\n");
-	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
 		ret = rte_power_freq_enable_turbo(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
@@ -76,97 +80,245 @@ void set_turbo()
 	}
 }
 
-void set_pstate(struct freq_info *f, int pstate)
+void set_pstate(struct freq_info *f, struct scaling_info *si)
 {
-	if (pstate == 0) {
+	if (si->next_pstate == 0) {
 		/// Do we want to use Turbo Boost?
 		set_turbo();
-		f->pstate = pstate;
-		f->freq = f->freqs[pstate]; // Actual frequency will be higher
+		f->pstate = si->next_pstate;
+		f->freq =
+			f->freqs[f->pstate]; // Actual frequency will be higher
 	} else {
 		int ret;
 		int lcore_id;
-		for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id++) {
-			ret = rte_power_set_freq(lcore_id, pstate);
+		for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+		     lcore_id += CORE_MASK) {
+			ret = rte_power_set_freq(lcore_id, si->next_pstate);
 			if (ret < 0) {
 				RTE_LOG(ERR, POWER,
 					"Failed to scale frequency of lcore %d.\n",
 					lcore_id);
 			}
 		}
-		f->pstate = pstate;
-		f->freq = f->freqs[pstate];
+		si->last_scale = get_time_of_day();
+		si->need_scale = false;
+		f->pstate = si->next_pstate;
+		f->freq = f->freqs[f->pstate];
 	}
 }
 
-int calc_pstate(struct measurement *m, struct freq_info *f)
+void calc_pstate(struct measurement *m, struct freq_info *f,
+		 struct scaling_info *si)
 {
 	// First, calc which frequency is needed for a good CPU utilization
 	unsigned int new_freq;
+	/// Up scaling with larger margin
 	// new_freq = (C_PACKET / (m->inter_arrival_time * UTIL_THRESHOLD_UP);
-	new_freq = (unsigned int)CPU_FREQ(m->inter_arrival_time);
+	new_freq = (unsigned int)(CPU_FREQ(m->inter_arrival_time) * 1e-3);
 
 	// Now, choose the next highest frequency
 	if (new_freq >= f->freqs[0]) {
-		return 0; // p-state for Turbo Boost
+		si->next_pstate = 0; // p-state for Turbo Boost
 	} else {
 		int freq_idx;
 		for (freq_idx = f->num_freqs - 1; freq_idx > 0; freq_idx--) {
 			if (f->freqs[freq_idx] >= new_freq) {
-				return freq_idx;
+				si->next_pstate = freq_idx;
+				break;
 			}
 		}
 	}
+	printf("New freq: %d, p-state: %d\n", new_freq, si->next_pstate);
 }
 
-void check_frequency_scaling(struct measurement *m, struct freq_info *f)
+void check_traffic_trends(struct measurement *m, struct scaling_info *si)
 {
-	if (m->avg_cpu_util < UTIL_THRESHOLD_DOWN) {
-		/// Increment policy according to deviation from threshold?
-		/// Check DPDK solution
-		m->scale_down_count += 1;
-		m->scale_up_count = 0;
-		if (m->scale_down_count > COUNTER_THRESHOLD) {
-			int pstate;
-			pstate = calc_pstate(m, f);
-			if (pstate != f->pstate) {
-				set_pstate(f, pstate);
-			}
-			m->scale_down_count = 0;
+	if (m->empty_cnt > MAX_EMPTY_CNT) {
+		si->scale_min = true; /// for c1 later
+	}
+	if (m->wma_cpu_util > (m->sma_cpu_util + m->sma_std_err)) {
+		si->up_trend = true;
+		si->down_trend = false;
+	}
+	if (m->wma_cpu_util <
+	    (m->sma_cpu_util - (m->sma_std_err * TINTERVAL))) {
+		si->down_trend = true;
+		si->up_trend = false;
+	}
+}
+
+void check_frequency_scaling(struct measurement *m, struct freq_info *f,
+			     struct scaling_info *si)
+{
+	if (m->wma_cpu_util > HARD_UP_THRESHOLD) {
+		si->scale_up_cnt += HARD_INCREASE;
+		si->scale_down_cnt = 0;
+		if (si->scale_up_cnt > COUNTER_THRESHOLD) {
+			si->need_scale = true;
+			si->scale_up_cnt = 0;
 		}
-	} else if (m->avg_cpu_util > UTIL_THRESHOLD_UP) {
-		m->scale_up_count += 1;
-		m->scale_down_count = 0;
-		if (m->scale_up_count > COUNTER_THRESHOLD) {
-			int pstate;
-			pstate = calc_pstate(m, f);
-			if (pstate != f->pstate) {
-				set_pstate(f, pstate);
-			}
-			m->scale_up_count = 0;
+		/// Check for up trend first and then against lower threshold
+	} else if (m->wma_cpu_util > UTIL_THRESHOLD_UP) {
+		si->scale_down_cnt = 0;
+		if (si->up_trend) {
+			si->scale_up_cnt += TREND_INCREASE;
+		} else {
+			si->scale_up_cnt += 1;
+		}
+		if (si->scale_up_cnt > COUNTER_THRESHOLD) {
+			si->need_scale = true;
+			si->scale_up_cnt = 0;
+		}
+	} else if (m->wma_cpu_util < HARD_DOWN_THRESHOLD) {
+		si->scale_down_cnt += HARD_DECREASE;
+		si->scale_up_cnt = 0;
+		if (si->scale_down_cnt > COUNTER_THRESHOLD) {
+			si->need_scale = true;
+			si->scale_down_cnt = 0;
+		}
+	} else if (m->wma_cpu_util < UTIL_THRESHOLD_DOWN) {
+		si->scale_up_cnt = 0;
+		if (si->down_trend) {
+			si->scale_down_cnt += TREND_DECREASE;
+		} else {
+			si->scale_down_cnt += 1;
+		}
+		if (si->scale_down_cnt > COUNTER_THRESHOLD) {
+			si->need_scale = true;
+			si->scale_down_cnt = 0;
 		}
 	}
 }
 
 void get_cpu_utilization(struct measurement *m, struct freq_info *f)
 {
+	if (m->empty_cnt == 0) {
+		m->cpu_util[m->idx] =
+			CPU_UTIL(m->inter_arrival_time, f->freq * 1e3);
+	} else {
+		m->cpu_util[m->idx] = 0.0;
+	}
+	printf("CPU frequency %d kHz\n", f->freq);
+	printf("Current CPU utilization: %f\n", m->cpu_util[m->idx]);
+}
+
+void calc_sma(struct measurement *m)
+{
 	int i;
 	double sum = 0.0;
-	// double cpu_freq = get_cpu_frequency(m->lcore);
-	m->cpu_util[m->idx] = CPU_UTIL(m->inter_arrival_time, f->freq);
-	/// Is the moving average beneficial or are counters sufficent
-	/// The inter-arrival time is aready an average
-	// set @NUM_READINGS to 1 for tests, don't remove directly ;)
-	if (m->count >= NUM_READINGS) {
-		for (i = 0; i < NUM_READINGS; i++) {
+	if (m->valid_vals >= NUM_READINGS_SMA) {
+		for (i = 0; i < NUM_READINGS_SMA; i++) {
 			sum += m->cpu_util[i];
 		}
-		m->avg_cpu_util = sum / NUM_READINGS;
-		check_frequency_scaling(m, f);
+		m->sma_cpu_util = sum / NUM_READINGS_SMA;
+		// Sample std
+		sum = 0.0;
+		for (i = 0; i < NUM_READINGS_SMA; i++) {
+			sum += ((m->cpu_util[i] - m->sma_cpu_util) *
+				(m->cpu_util[i] - m->sma_cpu_util));
+		}
+		// m->sma_std_err = (sqrt(sum / (NUM_READINGS_SMA - 1)) *
+		//   (1 + (1 / (2 * NUM_READINGS_SMA))));
+		m->sma_std_err =
+			(sqrt(sum / (NUM_READINGS_SMA)) * /// flex a bit;)
+			 (1 + (1 / (2 * NUM_READINGS_SMA))));
+	} else {
+		for (i = 0; i < m->valid_vals; i++) {
+			sum += m->cpu_util[i];
+		}
+		m->sma_cpu_util = sum / m->valid_vals;
+		// Sample std
+		sum = 0.0;
+		for (i = 0; i < m->valid_vals; i++) {
+			sum += ((m->cpu_util[i] - m->sma_cpu_util) *
+				(m->cpu_util[i] - m->sma_cpu_util));
+		}
+		m->sma_std_err = (sqrt(sum / (m->valid_vals - 1)) *
+				  (1 + (1 / (2 * m->valid_vals))));
 	}
-	printf("CPU frequency %f Hz\n", get_cpu_frequency(m->lcore));
-	printf("Current CPU utilization: %f\nAverage CPU utilization: %f\n\n",
-	       m->cpu_util[m->idx], m->avg_cpu_util);
+	printf("SMA: %f, std error: %'1.15f\n", m->sma_cpu_util,
+	       m->sma_std_err);
+}
+
+void calc_wma(struct measurement *m)
+{
+	int i;
+	double sum = 0.0;
+	if (m->valid_vals >= NUM_READINGS_WMA) {
+		for (i = 0; i < 5; i++) {
+			if ((m->idx - i) >= 0) {
+				sum += m->cpu_util[m->idx - i] *
+				       (NUM_READINGS_WMA - i);
+			} else {
+				int idx = 10 + (m->idx - i);
+				sum += m->cpu_util[idx] *
+				       (NUM_READINGS_WMA - i);
+			}
+		}
+		m->wma_cpu_util =
+			sum / ((NUM_READINGS_WMA * (NUM_READINGS_WMA + 1)) / 2);
+	} else {
+		for (i = 0; i < m->valid_vals; i++) {
+			sum += m->cpu_util[m->idx - i] * (m->valid_vals - i);
+		}
+		m->wma_cpu_util =
+			sum / ((m->valid_vals * (m->valid_vals + 1)) / 2);
+	}
+	printf("WMA: %f\n", m->wma_cpu_util);
+}
+
+void restore_last_stream_settings(struct last_stream_settings *lss,
+				  struct freq_info *f, struct scaling_info *si)
+{
+	/// Make a quick check against the current cpu utilization to
+	/// see if the same frequency is needed
+	si->next_pstate = lss->last_pstate;
+	set_pstate(f, si);
+	si->restore_settings = false;
+}
+
+void calc_traffic_stats(struct measurement *m, struct record *r,
+			struct record *p, struct traffic_stats *t_s,
+			struct scaling_info *si)
+{
+	t_s->period = calc_period(r, p);
+	t_s->packets = r->total.rx_packets - p->total.rx_packets;
+	t_s->pps = t_s->packets / t_s->period;
+
+	if (t_s->packets > 0) {
+		if (m->had_first_packet) {
+			m->inter_arrival_time =
+				(r->total.rx_time - p->total.rx_time) /
+				(t_s->packets * 1e9);
+			m->empty_cnt = 0,
+			m->idx = m->valid_vals % /// Maybe change to valid_vals
+				 m->min_cnts; /// Remove min_cnts and use macro
+			m->cnt += 1;
+			m->valid_vals += 1;
+
+			// was this the first packet after an isg?
+			if (si->scaled_to_min) {
+				/// Maybe tweak idx and valid_vals here to avoid
+				/// extra flag and checking. If restore does checking
+				/// on frequency
+				printf("Set restore flag\n");
+				si->scaled_to_min = false;
+				si->restore_settings = true;
+			}
+		} else {
+			m->had_first_packet = true;
+			g_csv_saved_stream = false; /// global
+		}
+	} else if (t_s->packets == 0 && m->had_first_packet) {
+		m->empty_cnt += 1; /// Reset if next poll brings a packet
+		m->inter_arrival_time = 0.0;
+		m->cnt += 1;
+		if (!si->scaled_to_min) {
+			m->idx = m->valid_vals %
+				 m->min_cnts; /// Remove min_cnts and use macro
+			m->valid_vals += 1;
+		}
+	}
 }
 
 double calc_period(struct record *r, struct record *p)

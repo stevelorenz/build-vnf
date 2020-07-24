@@ -19,6 +19,16 @@ if [[ $1 == "-t" ]]; then
                 --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
                 --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
                 -- -p 0x03 --no-mac-updating --no-pm -T 0
+elif [[ $1 == "-m" ]]; then
+        ./ffpp_l2fwd_power -l 1,3 \
+                --vdev net_af_packet0,iface=eno2 --vdev net_af_packet1,iface=eno3 \
+                --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
+                -- -p 0x03 --no-mac-updating --no-pm -T 0
+elif [[ $1 == "-p" ]]; then
+        ./ffpp_l2fwd_power -l 1,3 \
+                --vdev net_af_packet0,iface=eno2 --vdev net_af_packet1,iface=eno3 \
+                --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
+                -- -p 0x03 --no-mac-updating -T 0
 else
         xdp-loader unload vnf-in
         xdp-loader unload vnf-out

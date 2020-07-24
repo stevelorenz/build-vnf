@@ -29,13 +29,15 @@ endif
 
 cc = meson.get_compiler('c')
 
+# Find math.h dependency
+math_dep = cc.find_library('m')
+
 # Find DPDK dependency using pkg-config (by default.)
 dpdk_dep = dependency('libdpdk')
 
 bpf_dep = dependency('libbpf')
 zmq_dep = dependency('libzmq')
 json_dep = dependency('jansson')
-
 inc = include_directories('include')
 
 subdir('include')

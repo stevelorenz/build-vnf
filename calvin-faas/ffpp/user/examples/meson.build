@@ -1,4 +1,5 @@
 ffpp_dep = dependency('libffpp')
+# m_dep = cc.find_library('m', required : true)
 
 all_examples = [
   'frequency_manager',
