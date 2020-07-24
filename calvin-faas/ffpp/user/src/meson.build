@@ -11,18 +11,19 @@ ffpp_sources = [
   'scaling_helpers_user.c',
   'task.c',
   'utils.c',
-]
+  'general_helpers_user.c',
+  ]
 
 ffpplib_shared = shared_library('ffpp',
   ffpp_sources,
   include_directories: inc,
-  dependencies: [dpdk_dep, bpf_dep],
+  dependencies: [dpdk_dep, bpf_dep, math_dep],
   install: true
 )
 
 ffpplib_static = static_library('ffpp',
   ffpp_sources,
   include_directories: inc,
-  dependencies: [dpdk_dep, bpf_dep],
+  dependencies: [dpdk_dep, bpf_dep, math_dep],
   install: true
 )

@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
 	}
 
 	struct freq_info freq_info = { 0 };
-	get_frequency_info(CORE_OFFSET, &freq_info, false);
+	get_frequency_info(CORE_OFFSET, &freq_info, true);
 
 	char *ptr; // dummy pointer for function @strtoul
 	unsigned int freq;

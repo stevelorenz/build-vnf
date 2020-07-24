@@ -499,6 +499,7 @@ static void l2fwd_main_loop_legacy(void)
 	}
 
 	while (!force_quit) {
+		//rte_delay_us_block(1);
 		stats[lcore_id].nb_iteration_looped++;
 
 		cur_tsc = rte_rdtsc();
@@ -615,6 +616,7 @@ static void l2fwd_main_loop_legacy(void)
 					RTE_LOG(INFO, L2FWD,
 						"WARN: interrupt handling is not implemented.");
 				}
+				// MARK: This line makes the code fast !!!
 				rte_delay_us_sleep(qconf->pm_conf.idle_hint);
 			}
 			stats[lcore_id].sleep_time += qconf->pm_conf.idle_hint;
@@ -655,6 +657,9 @@ static void l2fwd_main_loop_no_pm(void)
 	}
 
 	while (!force_quit) {
+		if (rte_power_set_freq) {
+			rte_power_set_freq(lcore_id, 1);
+		}
 		stats[lcore_id].nb_iteration_looped++;
 
 		cur_tsc = rte_rdtsc();
@@ -673,7 +678,9 @@ static void l2fwd_main_loop_no_pm(void)
 				if (sent)
 					port_statistics[port_id].tx += sent;
 			}
-
+			if (rte_power_set_freq) {
+				rte_power_set_freq(lcore_id, 1);
+			}
 			/* if timer is enabled */
 			if (timer_period > 0) {
 				/* advance the timer */
@@ -698,6 +705,9 @@ static void l2fwd_main_loop_no_pm(void)
 		 * Read packet from RX queues
 		 */
 		for (i = 0; i < qconf->n_rx_port; i++) {
+			if (rte_power_set_freq) {
+				rte_power_set_freq(lcore_id, 1);
+			}
 			port_id = qconf->rx_port_list[i];
 			nb_rx = rte_eth_rx_burst(port_id, 0, pkts_burst,
 						 MAX_PKT_BURST);
@@ -1162,9 +1172,8 @@ int main(int argc, char **argv)
 	printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
 
 	check_lcores();
-	if (app_mode != APP_MODE_NO_PM) {
-		init_power_library();
-	}
+
+	init_power_library();
 
 	/* convert to number of cycles */
 	timer_period *= rte_get_timer_hz();
@@ -1462,9 +1471,8 @@ int main(int argc, char **argv)
 		printf(" Done\n");
 	}
 
-	if (app_mode != APP_MODE_NO_PM) {
-		exit_power_library();
-	}
+	exit_power_library();
+
 	ret = rte_eal_cleanup();
 	if (ret) {
 		RTE_LOG(ERR, EAL,
