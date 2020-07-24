@@ -36,8 +36,8 @@ void dpdk_recv_into(uint16_t port_id, uint16_t queue_id,
 		rx_ed_nb += rte_eth_rx_burst(port_id, queue_id,
 					     rx_buf + offset + rx_ed_nb,
 					     rx_nb - rx_ed_nb);
-		rte_delay_us(FFPP_IO_SLEEP);
 	}
+	rte_delay_us(FFPP_IO_SLEEP);
 }
 
 /*********************

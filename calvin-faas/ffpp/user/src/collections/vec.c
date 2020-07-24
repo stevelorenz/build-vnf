@@ -1,5 +1,5 @@
 /*
- * collections.c
+ * vec.c
  */
 
 #include <rte_byteorder.h>

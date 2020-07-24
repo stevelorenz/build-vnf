@@ -13,7 +13,7 @@
 /**
  * @file
  *
- * Container datatype collections
+ * Container datatype collections.
  *
  */
 
