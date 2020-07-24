@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	printf("Request message: %s\n", req_msg);
 
 	void *context = zmq_ctx_new();
-	void *requester = zmq_socket(context, ZMQ_REQ);
+	void *req = zmq_socket(context, ZMQ_REQ);
 	char buf[10];
 	uint64_t prev_tsc = 0, diff_tsc;
 	float dur = 0.0;
@@ -40,9 +40,10 @@ int main(int argc, char *argv[])
 
 	for (i = 0; i < 5; ++i) {
 		prev_tsc = rte_rdtsc();
-		zmq_connect(requester, "tcp://127.0.0.1:9999");
-		zmq_send(requester, req_msg, strlen(req_msg), 0);
-		zmq_recv(requester, buf, 10, 0);
+		// ipc uses unix domain socket.
+		zmq_connect(req, "ipc:///tmp/ffpp.sock");
+		zmq_send(req, req_msg, strlen(req_msg), 0);
+		zmq_recv(req, buf, 10, 0);
 		diff_tsc = rte_rdtsc() - prev_tsc;
 		dur = ((float)(diff_tsc) / rte_get_timer_hz()) * 1000;
 		printf("The cost of one REQ-REP. Cycles: %lu, time: %fms\n",
@@ -50,7 +51,7 @@ int main(int argc, char *argv[])
 		printf("Response message: %s\n", buf);
 	}
 
-	zmq_close(requester);
+	zmq_close(req);
 	zmq_ctx_destroy(context);
 	free(req_msg);
 	// Decrease reference counting to trigger free.
