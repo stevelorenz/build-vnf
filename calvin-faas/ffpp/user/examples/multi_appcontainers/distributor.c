@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 		rte_exit(EXIT_FAILURE, "Error: ONLY support one port! \n");
 
 	mbuf_pool =
-		dpdk_init_mempool("distributor_pool", NUM_MBUFS * nb_ports,
+		ffpp_init_mempool("distributor_pool", NUM_MBUFS * nb_ports,
 				  rte_socket_id(), RTE_MBUF_DEFAULT_BUF_SIZE);
 	out_queue =
 		rte_ring_create("distributor_outqueue", OUT_QUEUE_SIZE,

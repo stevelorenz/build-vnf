@@ -7,7 +7,7 @@ ffpp_headers = files(
   'ffpp/flow.h',
   'ffpp/handler.h',
   'ffpp/io.h',
-  'ffpp/ipc.h',
+  # 'ffpp/ipc.h',
   'ffpp/memory.h',
   'ffpp/mp.h',
   'ffpp/scaling_defines_user.h',

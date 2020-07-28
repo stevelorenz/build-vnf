@@ -23,10 +23,6 @@ struct ffpp_cpu_rsc {
 	uint64_t cfs_period_us;
 };
 
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
-
 /**
  * @brief ffpp_docker_update_cpu_rsc
  *
@@ -37,5 +33,9 @@ struct ffpp_cpu_rsc {
  */
 int ffpp_docker_update_cpu_rsc(const char *container_id,
 			       struct ffpp_cpu_rsc *rsc);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !OS_CONTAINER_H */

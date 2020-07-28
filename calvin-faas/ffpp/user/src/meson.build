@@ -1,11 +1,11 @@
 ffpp_sources = [
   'bpf_helpers_user.c',
-  'collections/vec.c',
+  'collections/mvec.c',
   'device.c',
   'handler/arp.c',
   'handler/dispatch.c',
   'io.c',
-  'ipc.c',
+  # 'ipc.c',
   'memory.c',
   'mp.c',
   'scaling_helpers_user.c',
