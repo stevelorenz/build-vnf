@@ -52,6 +52,7 @@ POWER_MANAGER_OPTS_DEFAULT = {
     "nano_cpus": int(1e9),
 }
 
+
 def loadXDP(iface):
     print("* Load xdp-pass on ingress interface ", iface)
     xdp_pass_dir = os.path.abspath("../kern/xdp_time/")

@@ -59,10 +59,16 @@
 #include <rte_power_empty_poll.h>
 #include <rte_metrics.h>
 
+#include <ffpp/aes.h>
+
 static volatile bool force_quit;
 
 /* MAC updating enabled by default */
 static int mac_updating = 1;
+
+// Disable Crypto function by default.
+static bool crypto_enabled = false;
+static uint16_t crypto_number = 1;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER1
 
@@ -229,6 +235,15 @@ static uint8_t freq_tlb[] = { 14, 9, 1 };
 
 // -----------------------------------------------------------------------------
 
+uint8_t aes_key[] = { 0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe,
+		      0x2b, 0x73, 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81,
+		      0x1f, 0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7,
+		      0x2d, 0x98, 0x10, 0xa3, 0x09, 0x14, 0xdf, 0xf4 };
+uint8_t aes_iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+		     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+
+struct AES_ctx aes_ctx;
+
 struct lcore_queue_conf {
 	unsigned n_rx_port;
 	unsigned rx_port_list[MAX_RX_QUEUE_PER_LCORE];
@@ -293,7 +308,7 @@ static void print_stats(void)
 	printf("\n====================================================\n");
 }
 
-static void l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_port_id)
+static inline void l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_port_id)
 {
 	struct rte_ether_hdr *eth;
 	void *tmp;
@@ -308,6 +323,17 @@ static void l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_port_id)
 	rte_ether_addr_copy(&l2fwd_ports_eth_addr[dest_port_id], &eth->s_addr);
 }
 
+static inline void l2fwd_aes256_cbc_encrypt_decrypt(struct rte_mbuf *m)
+{
+	uint16_t i = 0;
+	uint8_t *head;
+	head = rte_pktmbuf_mtod(m, uint8_t *);
+	for (i = 0; i < crypto_number; ++i) {
+		AES_CBC_encrypt_buffer(&aes_ctx, head, 1000);
+		AES_CBC_decrypt_buffer(&aes_ctx, head, 1000);
+	}
+}
+
 static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned port_id)
 {
 	unsigned dst_port;
@@ -315,6 +341,10 @@ static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned port_id)
 	struct rte_eth_dev_tx_buffer *buffer;
 
 	dst_port = l2fwd_dst_ports[port_id];
+
+	if (unlikely(crypto_enabled == true)) {
+		l2fwd_aes256_cbc_encrypt_decrypt(m);
+	}
 
 	if (mac_updating)
 		l2fwd_mac_updating(m, dst_port);
@@ -746,12 +776,14 @@ static void l2fwd_usage(const char *prgname)
 	printf("%s [EAL options] -- -p PORTMASK [-q NQ]\n"
 	       "  -p PORTMASK: hexadecimal bitmask of ports to configure\n"
 	       "  -q NQ: number of queue (=ports) per lcore (default is 1)\n"
+	       "  -m MODE: Power management mode\n"
+	       "       - 0: No power management\n"
+	       "       - 1: Legacy power management\n"
 	       "  -T PERIOD: statistics will be refreshed each PERIOD seconds (0 to disable, 10 default, 86400 maximum)\n"
 	       "  --[no-]mac-updating: Enable or disable MAC addresses updating (enabled by default)\n"
 	       "      When enabled:\n"
 	       "       - The source MAC address is replaced by the TX port MAC address\n"
-	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n"
-	       "  --no-pm: Disable power management mechanisms\n",
+	       "       - The destination MAC address is replaced by 02:00:00:00:00:TX_PORT_ID\n",
 	       prgname);
 }
 
@@ -783,6 +815,39 @@ static unsigned int l2fwd_parse_nqueue(const char *q_arg)
 	if (n == 0)
 		return 0;
 	if (n >= MAX_RX_QUEUE_PER_LCORE)
+		return 0;
+
+	return n;
+}
+
+static unsigned int l2fwd_parse_mode(const char *q_arg)
+{
+	char *end = NULL;
+	unsigned long n;
+
+	n = strtoul(q_arg, &end, 10);
+	if ((q_arg[0] == '\0') || (end == NULL) || (*end != '\0'))
+		return -1;
+	if (n == 0) {
+		return APP_MODE_NO_PM;
+	} else if (n == 1) {
+		return APP_MODE_LEGACY;
+	} else if (n == 2) {
+		return APP_MODE_EMPTY_POLL;
+	} else {
+		return -1;
+	}
+}
+
+static unsigned int l2fwd_parse_crypto_arg(const char *q_arg)
+{
+	char *end = NULL;
+	unsigned long n;
+
+	n = strtoul(q_arg, &end, 10);
+	if ((q_arg[0] == '\0') || (end == NULL) || (*end != '\0'))
+		return 0;
+	if (n == 0)
 		return 0;
 
 	return n;
@@ -855,7 +920,8 @@ static int parse_ep_config(const char *q_arg)
 static const char short_options[] = "p:" /* portmask */
 				    "q:" /* number of queues */
 				    "T:" /* timer period */
-	;
+				    "m:" /* power management mode */
+				    "h";
 
 #define CMD_LINE_OPT_MAC_UPDATING "mac-updating"
 #define CMD_LINE_OPT_NO_MAC_UPDATING "no-mac-updating"
@@ -872,7 +938,8 @@ static const struct option lgopts[] = {
 	{ CMD_LINE_OPT_MAC_UPDATING, no_argument, &mac_updating, 1 },
 	{ CMD_LINE_OPT_NO_MAC_UPDATING, no_argument, &mac_updating, 0 },
 	{ "empty-poll", 1, 0, 0 },
-	{ "no-pm", no_argument, (int *)(&app_mode), APP_MODE_NO_PM },
+	{ "enable-crypto", 1, (int *)(&crypto_enabled), true },
+	{ "disable-crypto", no_argument, (int *)(&crypto_enabled), false },
 	{ NULL, 0, 0, 0 }
 };
 
@@ -920,6 +987,20 @@ static int l2fwd_parse_args(int argc, char **argv)
 			timer_period = timer_secs;
 			break;
 
+		case 'm':
+			ret = l2fwd_parse_mode(optarg);
+			if (ret < -1) {
+				printf("invalid power management mode.\n");
+				l2fwd_usage(prgname);
+				return -1;
+			}
+			app_mode = ret;
+			break;
+
+		case 'h':
+			l2fwd_usage(prgname);
+			break;
+
 		/* long options */
 		case 0:
 			if (!strncmp(lgopts[option_index].name, "empty-poll",
@@ -927,6 +1008,17 @@ static int l2fwd_parse_args(int argc, char **argv)
 				app_mode = APP_MODE_EMPTY_POLL;
 				ret = parse_ep_config(optarg);
 				if (ret) {
+					l2fwd_usage(prgname);
+					return -1;
+				}
+			}
+
+			if (!strncmp(lgopts[option_index].name, "enable-crypto",
+				     10)) {
+				crypto_enabled = true;
+				crypto_number = l2fwd_parse_crypto_arg(optarg);
+				if (crypto_number == 0) {
+					printf("invalid crypto operation number");
 					l2fwd_usage(prgname);
 					return -1;
 				}
@@ -1171,8 +1263,14 @@ int main(int argc, char **argv)
 
 	printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
 
-	check_lcores();
+	if (crypto_enabled == true) {
+		printf("Crypto operation is enabled. The operation number is %u\n",
+		       crypto_number);
+		printf("Crypto method: AES256 CBC\n");
+		AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
+	}
 
+	check_lcores();
 	init_power_library();
 
 	/* convert to number of cycles */
