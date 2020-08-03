@@ -1,5 +1,6 @@
 all_related_works = [
   'l2fwd_power',
+  'power_hw_ctr',
 ]
 
 foreach work: all_related_works

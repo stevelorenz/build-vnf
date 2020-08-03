@@ -127,7 +127,6 @@ enum app_mode {
 	APP_MODE_NO_PM = 0,
 	APP_MODE_LEGACY = 1,
 	APP_MODE_EMPTY_POLL = 2,
-	// TODO: Add mode based branch predictions.
 };
 
 // INFO: Legacy mode is used since empty poll require access to the hardware
@@ -256,12 +255,12 @@ struct lcore_queue_conf lcore_queue_conf[RTE_MAX_LCORE];
 static __inline__ const char *get_app_mode_string(enum app_mode app_mode)
 {
 	switch (app_mode) {
+	case APP_MODE_NO_PM:
+		return "NO_PM";
 	case APP_MODE_LEGACY:
 		return "LEGACY_MODE";
 	case APP_MODE_EMPTY_POLL:
 		return "EMPTY_POLL_MODE";
-	case APP_MODE_NO_PM:
-		return "APP_MODE_NO_PM";
 	}
 	return "unknown";
 }
