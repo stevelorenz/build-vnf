@@ -113,8 +113,9 @@ void calc_pstate(struct measurement *m, struct freq_info *f,
 	// First, calc which frequency is needed for a good CPU utilization
 	unsigned int new_freq;
 	/// Up scaling with larger margin
-	// new_freq = (C_PACKET / (m->inter_arrival_time * UTIL_THRESHOLD_UP);
-	new_freq = (unsigned int)(CPU_FREQ(m->inter_arrival_time) * 1e-3);
+	/// Calc inter arrival time from cpu_util
+	// new_freq = (unsigned int)(CPU_FREQ(m->inter_arrival_time) * 1e-3);
+	new_freq = (unsigned int)(CPU_FREQ(m->wma_cpu_util, f->freq));
 
 	// Now, choose the next highest frequency
 	if (new_freq >= f->freqs[0]) {
@@ -165,7 +166,7 @@ void check_frequency_scaling(struct measurement *m, struct freq_info *f,
 		} else {
 			si->scale_up_cnt += 1;
 		}
-		if (si->scale_up_cnt > COUNTER_THRESHOLD) {
+		if (si->scale_up_cnt >= COUNTER_THRESHOLD) {
 			si->need_scale = true;
 			si->scale_up_cnt = 0;
 		}
@@ -290,6 +291,7 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 			m->inter_arrival_time =
 				(r->total.rx_time - p->total.rx_time) /
 				(t_s->packets * 1e9);
+			t_s->pps = 1 / m->inter_arrival_time;
 			m->empty_cnt = 0,
 			m->idx = m->valid_vals % /// Maybe change to valid_vals
 				 m->min_cnts; /// Remove min_cnts and use macro

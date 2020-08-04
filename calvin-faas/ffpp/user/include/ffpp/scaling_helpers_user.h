@@ -26,7 +26,7 @@ double cur_time;
 
 /**
  * Obtain number of p-states and respective frequencies of the given lcore
- *
+ * 
  * @param lcore: Core for that the info is needed
  * @param f: Struct to store the information
  * @param debug: Prints the obtained information if true
@@ -45,14 +45,14 @@ double get_cpu_frequency(int lcore);
 
 /**
  * Calculate simple moving averager over the last NUM_READINGS_SMA values
- *
+ * 
  * @param m: struct of the current measurement status and values
  */
 void calc_sma(struct measurement *m);
 
 /**
  * Calculate weighted moving averager over the last NUM_READINGS_SMA values
- *
+ * 
  * @param m: struct of the current measurement status and values
  */
 void calc_wma(struct measurement *m);
@@ -96,14 +96,14 @@ void calc_pstate(struct measurement *m, struct freq_info *f,
 
 /**
  * Check if the traffic follows certain trends
- *
+ * 
  * @param m: struct of the current measurement status and values
  * @param si: struct for scaling informations
  */
 void check_traffic_trends(struct measurement *m, struct scaling_info *si);
 
 /**
- * Checks the current CPU utilization and increnebts the
+ * Checks the current CPU utilization and increnebts the 
  * respective counter
  *
  * @param m: struct of the current measurement status and values
@@ -116,7 +116,7 @@ void check_frequency_scaling(struct measurement *m, struct freq_info *f,
 /**
  * Brings the frequency back-up to the one of the previous stream after
  * an ISG was detected
- *
+ * 
  * @param lss: struct with settings of last stream
  * @param f: struct with frequency information of the CPU
  * @param si: struct with flags and counters for scaling decisions
@@ -126,7 +126,7 @@ void restore_last_stream_settings(struct last_stream_settings *lss,
 
 /**
  * Get some statistics one the received traffic
- *
+ * 
  * @param m: struct of the current measurement status and values
  * @param r: struct of the current reading
  * @param p: struct of the previous reading

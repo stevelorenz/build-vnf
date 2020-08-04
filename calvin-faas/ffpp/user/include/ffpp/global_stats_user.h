@@ -12,6 +12,7 @@ gloabls_stats_user.h
 
 extern double g_csv_pps[TOTAL_VALS];
 extern double g_csv_ts[TOTAL_VALS];
+extern double g_csv_iat[TOTAL_VALS];
 extern double g_csv_cpu_util[TOTAL_VALS];
 extern unsigned int g_csv_freq[TOTAL_VALS];
 extern unsigned int g_csv_num_val;

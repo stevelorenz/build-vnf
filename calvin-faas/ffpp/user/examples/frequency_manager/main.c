@@ -34,6 +34,38 @@ static int init_power_library(void)
 	return ret;
 }
 
+static int init_power_library_test(void)
+{
+	int ret = 0;
+	int lcore_id = 0;
+	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id += CORE_MASK) {
+		ret = rte_power_init(lcore_id);
+		if (ret) {
+			RTE_LOG(ERR, POWER,
+				"Can't init power library on core: %u.\n",
+				lcore_id);
+		}
+	}
+	return ret;
+}
+
+static int exit_power_library(void)
+{
+	int ret = 0;
+	int lcore_id = 0;
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
+		if (rte_lcore_is_enabled(lcore_id)) {
+			ret = rte_power_exit(lcore_id);
+			if (ret)
+				RTE_LOG(ERR, POWER,
+					"Library exit failed on core %u\n",
+					lcore_id);
+		}
+	}
+	return ret;
+}
+
 static void check_lcore_power_caps(void)
 {
 	int ret = 0;
@@ -123,6 +155,18 @@ static void set_freq(int pstate)
 	}
 }
 
+static void set_test_freq(int pstate)
+{
+	int ret;
+	int lcore_id;
+	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id += CORE_MASK) {
+		ret = rte_power_set_freq(lcore_id, pstate);
+		if (ret < 0) {
+			RTE_LOG(ERR, POWER, "Failed to scale CPU frequency.\n");
+		}
+	}
+}
+
 static void check_freq(unsigned int freq, struct freq_info *f)
 {
 	if (freq >= f->freqs[0]) {
@@ -202,7 +246,7 @@ int main(int argc, char *argv[])
 	int i;
 	// @optind < 2: process only the first argument
 	// Lets hope the compiler does not change the condition order ;)
-	while ((optind < 2) && ((c = getopt(argc, argv, "f:hlp:t")) != -1)) {
+	while ((optind < 2) && ((c = getopt(argc, argv, "f:hlp:ts:")) != -1)) {
 		// Or just set a flag here
 		switch (c) {
 		case 'f':
@@ -221,6 +265,15 @@ int main(int argc, char *argv[])
 			break;
 		case 't':
 			freq_turbo();
+			break;
+		case 's':
+			pstate = strtoul(optarg, &ptr, 10);
+			if (init_power_library_test()) {
+				rte_exit(EXIT_FAILURE,
+					 "Failed to init the power library.\n");
+			}
+			set_test_freq(pstate);
+			exit_power_library();
 			break;
 		case '?':
 			if (optopt == 'f' || optopt == 'p') {

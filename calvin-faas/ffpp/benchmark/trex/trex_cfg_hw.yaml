@@ -1,15 +1,16 @@
 - port_limit: 2
   version: 2
-  interfaces: ["41:00.0", "42:00.0"]
+  #interfaces: ["41:00.0", "42:00.0"]
+  interfaces: ["41:00.0", "41:00.1"]
   # interfaces: ['--vdev=net_af_packet0,iface=enp65s0', '--vdev=net_af_packet1,iface=enp66s0']
   prefix: trex
   limit_memory: 2048
   #c: 4 # Number of cores per interface pair
   port_info:
-    - dest_mac: 68:05:ca:82:99:6c # MAC OF LOOPBACK TO IT'S DUAL INTERFACE
-      src_mac: 68:05:ca:82:99:9a
-    - dest_mac: 68:05:ca:82:99:9a # MAC OF LOOPBACK TO IT'S DUAL INTERFACE
-      src_mac: 68:05:ca:82:99:6c
+    - dest_mac: 0c:42:a1:51:41:d9 #68:05:ca:82:99:6c # MAC OF LOOPBACK TO IT'S DUAL INTERFACE
+      src_mac: 0c:42:a1:51:41:d8 #68:05:ca:82:99:9a
+    - dest_mac: 0c:42:a1:51:41:d9 #68:05:ca:82:99:9a # MAC OF LOOPBACK TO IT'S DUAL INTERFACE
+      src_mac: 0c:42:a1:51:41:d9 #68:05:ca:82:99:6c
 
   platform:
     master_thread_id: 0
