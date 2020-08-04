@@ -157,7 +157,7 @@ terminal 1 > ./t-rex-64 -i
 # Run DPDK l2fwd program in vnf
 terminal 2 > sudo docker attach vnf
 # Use AF_Packet PMD just for test
-terminal 2 > ./util/run_dpdk_l2fwd_af_xdp.sh -t
+terminal 2 > ./util/run_dpdk_l2fwd_af_xdp.sh
 # The screen should show the port statistics of port 0 and port 1
 
 # Run a basic stateless UDP latency test using Trex's Python API.
@@ -165,7 +165,7 @@ terminal 3 > sudo docker exec -it pktgen bash
 terminal 3 > cd /trex/v2.81/local
 # Copy Python scripts from /ffpp directly (synced with the host os) to trex's local directory
 terminal 3 > cp /ffpp/benchmark/trex/* ./
-terminal 3 > python3 ./run_stateless_test.py
+terminal 3 > python3 ./run_stateless_test.py --total_pkts 1000 --pps 100 --monitor_dur 10
 ```
 
 If everything is configured correctly, you should see latency test results as follows:

@@ -18,7 +18,7 @@ from subprocess import run, PIPE
 
 import docker
 
-with open ("../VERSION", "r") as vfile:
+with open("../VERSION", "r") as vfile:
     FFPP_VER = vfile.read().strip()
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
@@ -72,14 +72,12 @@ def run():
 
 def stop():
     client = docker.from_env()
-    c_list = client.containers.list(
-        all=True, filters={"label": "group=ffpp-vnf"}
-    )
+    c_list = client.containers.list(all=True, filters={"label": "group=ffpp-vnf"})
     for c in c_list:
         print("Remove container: ", c.name)
         c.remove(force=True)
     client.close()
-    
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

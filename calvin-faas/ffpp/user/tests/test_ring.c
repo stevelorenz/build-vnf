@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 	out_que = rte_ring_create("OUT_QUE", OUT_QUE_SIZE, rte_socket_id(),
 				  RING_F_SP_ENQ | RING_F_SC_DEQ);
 	mbuf_pool =
-		dpdk_init_mempool("test_ring_pool", NUM_MBUFS * nb_ports,
+		ffpp_init_mempool("test_ring_pool", NUM_MBUFS * nb_ports,
 				  rte_socket_id(), RTE_MBUF_DEFAULT_BUF_SIZE);
 
 	// Init the device with port_id 0

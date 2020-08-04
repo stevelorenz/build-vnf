@@ -1,18 +1,19 @@
 ffpp_sources = [
+  # 'ipc.c',
+  'aes.c',
   'bpf_helpers_user.c',
-  'collections/vec.c',
+  'collections/mvec.c',
   'device.c',
+  'general_helpers_user.c',
   'handler/arp.c',
   'handler/dispatch.c',
   'io.c',
-  'ipc.c',
   'memory.c',
   'mp.c',
   'scaling_helpers_user.c',
   'task.c',
   'utils.c',
-  'general_helpers_user.c',
-  ]
+]
 
 ffpplib_shared = shared_library('ffpp',
   ffpp_sources,

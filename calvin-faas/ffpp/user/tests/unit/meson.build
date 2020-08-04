@@ -3,3 +3,9 @@ test_dummy = executable(
   include_directories : inc,
   dependencies: [dpdk_dep, bpf_dep],
   link_with : [ffpplib_shared])
+
+test_mvec = executable(
+  'test_mvec', 'test_mvec.c',
+  include_directories : inc,
+  dependencies: [dpdk_dep],
+  link_with : [ffpplib_shared])

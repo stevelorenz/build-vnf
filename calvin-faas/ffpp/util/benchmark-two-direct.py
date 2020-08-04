@@ -7,14 +7,13 @@ About: Minimal benchmark setups.
 """
 
 import argparse
+import multiprocessing
 import os
+import shlex
 import shutil
+import subprocess
 import sys
 import time
-import multiprocessing
-
-from shlex import split
-from subprocess import run, PIPE
 
 import docker
 
@@ -119,7 +118,7 @@ def setup_two_direct_veth(pktgen_image):
         "docker exec pktgen ping -q -c 2 192.168.18.2",
     ]
     for c in cmds:
-        run(split(c), check=True)
+        subprocess.run(shlex.split(c), check=True)
 
     print(
         "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."
@@ -154,7 +153,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
         "docker exec pktgen ip addr add 192.168.18.1/24 dev pktgen-in",
     ]
     for c in cmds:
-        run(split(c), check=True)
+        subprocess.run(shlex.split(c), check=True)
 
     client = docker.from_env()
     c_vnf = client.containers.list(
@@ -221,38 +220,38 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     os.chdir(xdp_fwd_prog_dir)
     if not os.path.exists(os.path.join(xdp_fwd_prog_dir, "./xdp_fwd_kern.o")):
         print("\tINFO: Compile programs in xdp_fwd_kern.")
-        run(split("make"), check=True)
+        subprocess.run(shlex.split("make"), check=True)
     print("\t- Load xdp_fwd kernel programs.")
-    run(split("./xdp_fwd_loader vnf-in-root"), check=True)
-    run(split("./xdp_fwd_loader vnf-out-root"), check=True)
-    run(split("./xdp_fwd_loader pktgen-in-root"), check=True)
-    run(split("./xdp_fwd_loader pktgen-out-root"), check=True)
+    subprocess.run(shlex.split("./xdp_fwd_loader vnf-in-root"), check=True)
+    subprocess.run(shlex.split("./xdp_fwd_loader vnf-out-root"), check=True)
+    subprocess.run(shlex.split("./xdp_fwd_loader pktgen-in-root"), check=True)
+    subprocess.run(shlex.split("./xdp_fwd_loader pktgen-out-root"), check=True)
 
     print("\t- Add forwarding between pktgen-out-root to vnf-in-root")
-    run(
-        split(
+    subprocess.run(
+        shlex.split(
             "./xdp_fwd_user -i pktgen-out-root -r vnf-in-root -s {} -d {} -w {}".format(
                 pktgen_out_mac, vnf_in_mac, vnf_in_root_mac
             )
         )
     )
-    run(
-        split(
+    subprocess.run(
+        shlex.split(
             "./xdp_fwd_user -i vnf-in-root -r pktgen-out-root -s {} -d {} -w {}".format(
                 vnf_in_mac, pktgen_out_mac, pktgen_out_root_mac
             )
         )
     )
     print("\t- Add forwarding between vnf-out-root to pktgen-in-root")
-    run(
-        split(
+    subprocess.run(
+        shlex.split(
             "./xdp_fwd_user -i vnf-out-root -r pktgen-in-root -s {} -d {} -w {}".format(
                 vnf_out_mac, pktgen_in_mac, pktgen_in_root_mac
             )
         )
     )
-    run(
-        split(
+    subprocess.run(
+        shlex.split(
             "./xdp_fwd_user -i pktgen-in-root -r vnf-out-root -s {} -d {} -w {}".format(
                 pktgen_in_mac, vnf_out_mac, vnf_out_root_mac
             )
@@ -260,7 +259,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     )
 
     print("* Current XDP status in root namespace: ")
-    run(split("xdp-loader status"), check=True)
+    subprocess.run(shlex.split("xdp-loader status"), check=True)
 
     client.close()
 

@@ -71,9 +71,7 @@ def run():
 
 def stop():
     client = docker.from_env()
-    c_list = client.containers.list(
-        all=True, filters={"label": "group=ffpp-pktgen"}
-    )
+    c_list = client.containers.list(all=True, filters={"label": "group=ffpp-pktgen"})
     for c in c_list:
         print("Remove container: ", c.name)
         c.remove(force=True)

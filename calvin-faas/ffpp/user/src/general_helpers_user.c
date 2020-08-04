@@ -31,7 +31,6 @@ void write_csv_file()
 	}
 	fclose(fptr);
 }
-
 double get_time_of_day()
 {
 	struct timeval tv;

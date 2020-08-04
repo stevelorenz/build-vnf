@@ -336,12 +336,8 @@ def main():
         if args.out:
             savedir = "/home/" + args.out
             print("Results: ", savedir)
-            save_rx_stats(err_cntrs_results, 
-                        savedir + "_error.json",
-                        stream_params)
-            save_rx_stats(latency_results, 
-                        savedir + "_latency.json",
-                        stream_params)
+            save_rx_stats(err_cntrs_results, savedir + "_error.json", stream_params)
+            save_rx_stats(latency_results, savedir + "_latency.json", stream_params)
 
     except STLError as error:
         print(error)

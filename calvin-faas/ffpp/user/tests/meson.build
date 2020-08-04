@@ -1,9 +1,9 @@
 subdir('unit')
 
-ffpp_dep = dependency('libffpp')
-
 # All auto unit tests
-test('FFPP Unit Tests', [test_dummy])
+# MARK: Primary process is used to run the tests, so parallel need to be disabled.
+test('test_dummy', test_dummy, args:['-l 0'], is_parallel : false)
+test('test_mvec', test_mvec, args:['-l 0'], is_parallel : false)
 
 # Extra non-auto and non-unit tests
 extra_tests = [
@@ -13,6 +13,6 @@ extra_tests = [
 
 foreach extra_test: extra_tests
   executable(extra_test, files(extra_test+'.c'),
-    dependencies: [dpdk_dep, bpf_dep, ffpp_dep],
+    dependencies: [dpdk_dep],
     link_with : [ffpplib_shared])
 endforeach

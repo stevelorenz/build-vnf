@@ -1,18 +1,19 @@
 project('ffpp', 'c',
   version: run_command(find_program('cat', 'more'),files('../VERSION')).stdout().strip(),
   license: 'MIT',
-  meson_version: '>= 0.47.1',
+  meson_version: '>= 0.53.0',
   default_options: [
     'c_std=gnu99',
     'buildtype=release',
     'warning_level=3',
     'default_library=both',
-    ],
+  ],
 )
 
 add_project_arguments(
     [
         '-Wall',
+        '-Wextra',
         '-Wundef',
         '-Wvla',
 
@@ -29,6 +30,8 @@ endif
 
 cc = meson.get_compiler('c')
 
+inc = include_directories('include')
+
 # Find math.h dependency
 math_dep = cc.find_library('m')
 
@@ -38,7 +41,18 @@ dpdk_dep = dependency('libdpdk')
 bpf_dep = dependency('libbpf')
 zmq_dep = dependency('libzmq')
 json_dep = dependency('jansson')
-inc = include_directories('include')
+
+ffpp_deps = [
+  bpf_dep,
+  dpdk_dep,
+  json_dep,
+  math_dep,
+  zmq_dep,
+]
+
+ffpp_dep = declare_dependency(
+  dependencies: ffpp_deps,
+)
 
 subdir('include')
 subdir('src')

@@ -91,8 +91,22 @@ if __name__ == "__main__":
         default="192.168.17.2",
         help="Destination IP address for all packets in the stream.",
     )
+    parser.add_argument(
+        "--total_pkts", type=int, default=int(1e7), help="Total packets to send."
+    )
+    parser.add_argument(
+        "--pps", type=int, default=int(1e4), help="Packet-Per-Second (PPS)."
+    )
+    parser.add_argument(
+        "--monitor_dur", type=int, default=60, help="Monitor duration in seconds."
+    )
 
     args = parser.parse_args()
+
+    TOTAL_PKTS = args.total_pkts
+    PPS = args.pps
+    MONITOR_DUR = args.monitor_dur
+    print(f"Total TX packets: {TOTAL_PKTS}, PPS: {PPS},Monitor duration: {MONITOR_DUR}")
 
     # Create a client for stateless tests.
     clt = STLClient()
