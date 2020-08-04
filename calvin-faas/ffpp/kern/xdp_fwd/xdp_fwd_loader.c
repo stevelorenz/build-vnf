@@ -29,7 +29,7 @@
 
 static const char *pin_basedir = "/sys/fs/bpf";
 static const char *map_name = "xdp_stats_map";
-static const char *default_filename = "xdp_fwd_kern.o";
+static char *default_filename = "xdp_fwd_kern.o";
 
 int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, const char *subdir)
 {
@@ -70,7 +70,7 @@ int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, const char *subdir)
 
 int main(int argc, char *argv[])
 {
-	if (argc != 2) {
+	if (argc < 2) {
 		fprintf(stderr,
 			"ERR: Invalid option! Missing interface name.\n");
 		fprintf(stdout, "Usage: xdp_count_loader <ifname>\n");
@@ -86,6 +86,10 @@ int main(int argc, char *argv[])
 		.do_unload = false,
 		.ifname = argv[1],
 	};
+
+	if (argc > 2) {
+		default_filename = argv[2];
+	}
 
 	snprintf(cfg.filename, sizeof(cfg.filename), "%s", default_filename);
 	cfg.ifindex = if_nametoindex(cfg.ifname);
