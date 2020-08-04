@@ -36,6 +36,7 @@ POWER_MANAGER_OPTS_DEFAULT = {
         "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw"},
         "/sys/devices/system/cpu": {"bind": "/sys/devices/system/cpu", "mode": "rw"},
         "/dev": {"bind": "/dev", "mode": "rw"},
+        "/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"},
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
         BPF_MAP_BASEDIR: {"bind": BPF_MAP_BASEDIR, "mode": "rw"},
     },
@@ -115,8 +116,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-i",
-        default="eno2",
-        const="eno2",
+        default="enp5s0f0",
+        const="enp5s0f0",
         nargs="?",
         type=str,
         help="Interface to attach XDP to.",
