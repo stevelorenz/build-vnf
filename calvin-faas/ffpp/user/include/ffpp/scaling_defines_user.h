@@ -10,8 +10,8 @@
 #include <ffpp/bpf_helpers_user.h>
 
 // Hyper-parameter for scaling decision
-#define INTERVAL 250000
-#define MAX_EMPTY_CNT 1
+#define INTERVAL 100000
+#define MAX_EMPTY_CNT 1	// So, after two empty polls we sleep :)
 #define UTIL_THRESHOLD_UP 0.80
 #define UTIL_THRESHOLD_DOWN 0.70
 #define HARD_UP_THRESHOLD 0.90
@@ -32,7 +32,8 @@
 #define MAX_PSTATES 32 // Max possible p-states
 
 #define CPU_UTIL(INTER_TIME, FREQ) (C_PACKET / (INTER_TIME * FREQ))
-#define CPU_FREQ(INTER_TIME) (C_PACKET / (INTER_TIME * UTIL_THRESHOLD_UP))
+// #define CPU_FREQ(INTER_TIME) (C_PACKET / (INTER_TIME * UTIL_THRESHOLD_UP))
+#define CPU_FREQ(CUR_UTIL, CUR_FREQ) ((CUR_FREQ * CUR_UTIL) / UTIL_THRESHOLD_UP)
 
 struct measurement {
 	int lcore;

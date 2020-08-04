@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #include <locale.h>
 #include <cpufreq.h>
@@ -27,17 +28,29 @@
 #include <ffpp/global_stats_user.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
+static volatile bool force_quit;
+
 double g_csv_pps[TOTAL_VALS];
 double g_csv_ts[TOTAL_VALS];
+double g_csv_iat[TOTAL_VALS];
 double g_csv_cpu_util[TOTAL_VALS];
 unsigned int g_csv_freq[TOTAL_VALS];
 unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
-int g_csv_empty_cnt_threshold = 10; // Calc depending on interval
+int g_csv_empty_cnt_threshold = 50; // Calc depending on interval
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
+
+static void signal_handler(int signum)
+{
+	if (signum == SIGINT || SIGTERM) {
+		printf("\n\nSignal %d received, preparing to exit...\n",
+		       signum);
+		force_quit = true;
+	}
+}
 
 static int init_power_library(void)
 {
@@ -50,6 +63,23 @@ static int init_power_library(void)
 			RTE_LOG(ERR, POWER,
 				"Can not init power library on core: %u\n",
 				lcore_id);
+		}
+	}
+	return ret;
+}
+
+static int exit_power_library(void)
+{
+	int ret = 0;
+	int lcore_id = 0;
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
+		if (rte_lcore_is_enabled(lcore_id)) {
+			ret = rte_power_exit(lcore_id);
+			if (ret)
+				RTE_LOG(ERR, POWER,
+					"Library exit failed on core %u\n",
+					lcore_id);
 		}
 	}
 	return ret;
@@ -102,6 +132,7 @@ static void stats_print(struct stats_record *stats_rec,
 			// Collect stats
 			g_csv_ts[g_csv_num_val] = get_time_of_day();
 			g_csv_pps[g_csv_num_val] = t_s.pps;
+			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
 			g_csv_num_val++;
 			g_csv_empty_cnt = 0;
 		}
@@ -109,6 +140,7 @@ static void stats_print(struct stats_record *stats_rec,
 		if (!g_csv_saved_stream) {
 			g_csv_ts[g_csv_num_val] = get_time_of_day();
 			g_csv_pps[g_csv_num_val] = t_s.pps;
+			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
 			g_csv_num_val++;
 			g_csv_empty_cnt++;
 		}
@@ -155,7 +187,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 	stats_collect(map_fd, &record);
 	usleep(1000000 / 4);
 
-	while (1) {
+	while (!force_quit) {
 		prev = record;
 		stats_collect(map_fd, &record);
 		stats_print(&record, &prev, &m, &si);
@@ -180,16 +212,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 			calc_wma(&m);
 			check_traffic_trends(&m, &si);
 			check_frequency_scaling(&m, freq_info, &si);
-			if (si.need_scale) {
-				calc_pstate(&m, freq_info, &si);
-				/// Check timestamp or so if we're allowed to scale
-				if (si.next_pstate != freq_info->pstate) {
-					set_pstate(freq_info, &si);
-					m.valid_vals = 0;
-				} else {
-					si.need_scale = false;
-				}
-			}
+			/// Rename scale_min with scale_to_min
 			if (si.scale_min) {
 				// Store settings of last stream
 				lss.last_pstate = freq_info->pstate;
@@ -214,6 +237,17 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 				m.valid_vals = 0;
 				//m.had_first_packet = false;
 			}
+			/// Check for empty_cnt and wait with scaling if !=0?
+			if (si.need_scale) {
+				calc_pstate(&m, freq_info, &si);
+				/// Check timestamp or so if we're allowed to scale
+				if (si.next_pstate != freq_info->pstate) {
+					set_pstate(freq_info, &si);
+					m.valid_vals = 0;
+				} else {
+					si.need_scale = false;
+				}
+			}
 		}
 		printf("\n");
 		usleep(INTERVAL);
@@ -222,6 +256,10 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 
 int main(int argc, char *argv[])
 {
+	force_quit = false;
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+
 	struct bpf_map_info xdp_stats_map_info = { 0 };
 	const struct bpf_map_info xdp_stats_map_expect = {
 		.key_size = sizeof(__u32),
@@ -324,6 +362,10 @@ int main(int argc, char *argv[])
 	freq_info.freq = freq_info.freqs[freq_info.pstate];
 	stats_poll(xdp_stats_map_fd, &freq_info);
 
+	/// Save global stats here --> less signaling between single sessions
+	/// Get PID with ffpp_power and the simply kill PID
+	exit_power_library();
+	printf("\nBye..\n");
 	return 0;
 }
 
