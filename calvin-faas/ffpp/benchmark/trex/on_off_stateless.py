@@ -36,7 +36,7 @@ PREAMBLE_SIZE = 8  # bytes
 # the line.
 IFG_SIZE = 12  # bytes
 # Full Ethernet frame size including Ether, IP and UDP headers and the payload.
-FRAME_SIZE = 64  # bytes
+FRAME_SIZE = 512  # bytes
 
 # Fixed PPS for latency monitoring flows.
 # 0.1 MPPS, so the resolution is ( 1 / (0.1 * 10 ** 6)) * 10 ** 6  = 10 usec
