@@ -29,7 +29,6 @@ LOCKED_IN_MEMORY_SIZE = 4 * 65536  # kbytes
 
 FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "auto_remove": True,
-    # "cap_add": "ALL",
     "detach": True,  # -d
     "init": True,
     # I know --privileged is a bad/danger option. It is just used for tests.
@@ -38,11 +37,8 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "stdin_open": True,  # -i
     "volumes": {
         "/sys/bus/pci/drivers": {"bind": "/sys/bus/pci/drivers", "mode": "rw"},
-        # "/sys/bus/pci/devices": {"bind": "/sys/bus/pci/devices", "mode": "rw"},
         "/sys/kernel/mm/hugepages": {"bind": "/sys/kernel/mm/hugepages", "mode": "rw"},
         "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw"},
-        # "/lib/modules": {"bind": "/lib/modules", "mode": "rw"},
-        # "/mnt/huge": {"bind": "/mnt/huge", "mode": "rw"},
         "/dev": {"bind": "/dev", "mode": "rw"},
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
@@ -60,7 +56,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
 }
 
 
-def start(host_nw):
+def start(host_nw, load_pm):
     client = docker.from_env()
 
     vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
@@ -80,10 +76,10 @@ def start(host_nw):
     client.close()
 
     if host_nw:
-        setup_host_network(c_vnf_pid)
+        setup_host_network(c_vnf_pid, load_pm)
 
 
-def setup_host_network(c_vnf_pid):
+def setup_host_network(c_vnf_pid, load_pm):
     # Setup Veth peers
     cmds = [
         "mkdir -p /var/run/netns",
@@ -151,12 +147,21 @@ def setup_host_network(c_vnf_pid):
         print("ERR: Can not find the xdp_fwd program.")
         sys.exit(1)
     os.chdir(xdp_fwd_dir)
-    if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
-        print("\tINFO: Compile xdp_fwd program")
-        run(split("make"), check=True)
-    print("\t- Load xdp_fwd kernel programs.")
-    run(split("sudo ./xdp_fwd_loader enp5s0f0"), check=True)
-    run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
+    # @load_pm load setup for power management
+    if load_pm:
+        if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_time_kern.o")):
+            print("\tINFO: Compile xdp_fwd program")
+            run(split("make"), check=True)
+        print("\t- Load xdp_fwd kernel programs.")
+        run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_time_kern.o"), check=True)
+        run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
+    else:
+        if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
+            print("\tINFO: Compile xdp_fwd program")
+            run(split("make"), check=True)
+        print("\t- Load xdp_fwd kernel programs.")
+        run(split("sudo ./xdp_fwd_loader enp5s0f0"), check=True)
+        run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
 
     print("\t- Add forwarding between physical and virtual interface")
     run(
@@ -170,7 +175,8 @@ def setup_host_network(c_vnf_pid):
     run(
         split(
             "./xdp_fwd_user -i vnf-out-root -r enp5s0f1 -s {} -d {} -w {}".format(
-                vnf_in_root_mac, vnf_in_mac, vnf_out_phy_mac
+                #vnf_in_root_mac, vnf_in_mac, vnf_out_phy_mac
+                vnf_out_mac, pktgen_in_phy_mac, vnf_out_phy_mac
             )
         )
     )
@@ -220,10 +226,18 @@ if __name__ == "__main__":
         const=True,
         help="Weather to setup the Veth peers or not; default is to setup",
     )
+    parser.add_argument(
+        "--no_pm",
+        type=bool,
+        nargs="?",
+        default=False,
+        const=True,
+        help="Load the xdp forwarder without traffic monitoring",
+    )
 
     args = parser.parse_args()
 
     if args.action == "run":
-        start(not (args.no_host_network))
+        start(not (args.no_host_network), not (args.no_pm))
     elif args.action == "stop":
         stop(not (args.no_host_network))

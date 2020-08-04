@@ -152,7 +152,6 @@ static void stats_print(struct stats_record *stats_rec,
 			g_csv_num_round++;
 			si->scaled_to_min = false;
 			m->had_first_packet = false;
->>>>>>> dev-malte
 		}
 	}
 

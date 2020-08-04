@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 
 XDP_TARGETS := xdp_fwd_kern
+XDP_TARGETS += xdp_fwd_time_kern
 USER_TARGETS := xdp_fwd_user
 USER_TARGETS += xdp_fwd_loader
 
