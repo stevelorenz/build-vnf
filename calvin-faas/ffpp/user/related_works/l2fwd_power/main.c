@@ -73,7 +73,7 @@ static uint16_t crypto_number = 1;
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER1
 
 // Rx burst read at maximum 32 entries per iteration.
-#define MAX_PKT_BURST 32
+#define MAX_PKT_BURST 4
 #define BURST_TX_DRAIN_US 100 /* TX drain every ~100us */
 #define MEMPOOL_CACHE_SIZE 256
 
@@ -646,7 +646,7 @@ static void l2fwd_main_loop_legacy(void)
 						"WARN: interrupt handling is not implemented.");
 				}
 				// MARK: This line makes the code fast !!!
-				rte_delay_us_sleep(qconf->pm_conf.idle_hint);
+				// rte_delay_us_sleep(qconf->pm_conf.idle_hint);
 			}
 			stats[lcore_id].sleep_time += qconf->pm_conf.idle_hint;
 		}

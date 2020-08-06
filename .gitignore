@@ -218,3 +218,15 @@ calvin-fass/ffpp/docs/latex
 calvin-fass/ffpp/docs/build
 calvin-fass/ffpp/docs/.build
 calvin-fass/ffpp/MoonGen
+
+-----------
+-  Malte  -
+-----------
+calvin-faas/ffpp/kern/xdp-tutorial/
+calvin-faas/ffpp/user/examples/freq_scale/
+calvin-faas/ffpp/user/examples/frequency_manager/*.txt
+calvin-faas/ffpp/user/include/ffpp/csvwriter.h
+calvin-faas/ffpp/user/run.sh
+calvin-faas/ffpp/user/src/csvwriter.c
+calvin-faas/ffpp/util/config.sh
+

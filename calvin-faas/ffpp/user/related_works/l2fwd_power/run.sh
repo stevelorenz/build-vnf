@@ -25,6 +25,11 @@ if [[ $1 == "-t" ]]; then
         --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
         -- -p 0x03 -m 0 -T 0
+elif [[ $1 == "-tm" ]]; then # Test Malte (to screen vnf-in)
+    ./ffpp_l2fwd_power -l 1,3 \
+        --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
+        --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
+        -- -p 0x03 -m 0 -T 0 <<< 'y'
 elif [[ $1 == "-tc" ]]; then
     ./ffpp_l2fwd_power -l 0,1 \
         --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
@@ -36,14 +41,14 @@ elif [[ $1 == "-m" ]]; then
     ./ffpp_l2fwd_power -l 1,3 \
         --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
-        -- -p 0x03 -m 0 -T 0
+        -- -p 0x03 -m 0 -T 0 <<< 'y'
 elif [[ $1 == "-p" ]]; then
     xdp-loader unload vnf-in
     xdp-loader unload vnf-out
     ./ffpp_l2fwd_power -l 1,3 \
         --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
-        -- -p 0x03 -m 1 -T 0
+        -- -p 0x03 -m 1 -T 0 <<< 'y'
 else
     xdp-loader unload vnf-in
     xdp-loader unload vnf-out

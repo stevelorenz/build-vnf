@@ -36,7 +36,7 @@ PREAMBLE_SIZE = 8  # bytes
 # the line.
 IFG_SIZE = 12  # bytes
 # Full Ethernet frame size including Ether, IP and UDP headers and the payload.
-FRAME_SIZE = 512  # bytes
+PAYLOAD_SIZE = 1400  # bytes
 
 # Fixed PPS for latency monitoring flows.
 # 0.1 MPPS, so the resolution is ( 1 / (0.1 * 10 ** 6)) * 10 ** 6  = 10 usec
@@ -103,7 +103,7 @@ def get_rx_stats(client, tx_port, rx_port, stream_params):
 def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
     """Create a list of STLStream objects."""
 
-    udp_payload_size = FRAME_SIZE - len(Ether()) - len(IP()) - len(UDP())
+    udp_payload_size = PAYLOAD_SIZE
     if udp_payload_size < 16:
         raise RuntimeError("The minimal payload size is 16 bytes.")
     print(f"UDP payload size: {udp_payload_size}")
@@ -189,7 +189,7 @@ def create_stream_params(
     pps_list = [
         np.floor(
             (utilization * max_bit_rate * 10 ** 9)
-            / ((FRAME_SIZE + PREAMBLE_SIZE + IFG_SIZE) * 8)
+            / ((PAYLOAD_SIZE + PREAMBLE_SIZE + IFG_SIZE) * 8)
         )
         for utilization in np.arange(0.1, 1.1, 0.1)
         # for utilization in [1.0] * 10
@@ -226,6 +226,7 @@ def create_stream_params(
 
 
 def main():
+    global PAYLOAD_SIZE
 
     parser = argparse.ArgumentParser(
         description="On/Off traffic of a deterministic and stateless stream profile."
@@ -274,11 +275,19 @@ def main():
         "--out",
         type=str,
         default="",
-        help="The name of the output file, stored in /home if given",
+        help="The name of the output file, stored in /home/malte/malte/latency if given",
+    )
+    parser.add_argument(
+        "--payload_size",
+        type=int,
+        default=PAYLOAD_SIZE,
+        help="Payload size of the packets",
     )
 
     args = parser.parse_args()
 
+    PAYLOAD_SIZE = args.payload_size
+    
     stream_params = create_stream_params(
         args.max_bit_rate,
         args.on_time,
@@ -290,8 +299,9 @@ def main():
     pprint.pp(stream_params)
     print()
 
-    core_mask = get_core_mask(args.numa_node)
-    print(f"The core mask for RX and TX: {hex(core_mask)}")
+    # Does not work on the blackbox
+    # core_mask = get_core_mask(args.numa_node)
+    # print(f"The core mask for RX and TX: {hex(core_mask)}")
 
     streams = create_streams(stream_params, args.ip_src, args.ip_dst)
     if args.test:
@@ -299,7 +309,7 @@ def main():
         pprint.pp([s.to_json() for s in streams])
 
     RX_DELAY_S = sum([s["on_time"] for s in stream_params]) + 3
-    RX_DELAY_MS = 1000 * RX_DELAY_S
+    RX_DELAY_MS = 3 * 1000 # Time after last Tx to wait for the last packet at Rx side
 
     try:
         client = STLClient()
@@ -312,10 +322,11 @@ def main():
         client.clear_stats()
         # All cores in the core_mask is used by the tx_port and its adjacent
         # port, so it is the rx_port normally.
-        client.start(ports=[tx_port], core_mask=[core_mask], force=True)
+        # client.start(ports=[tx_port], core_mask=[core_mask], force=True)
+        client.start(ports=[tx_port], force=True)
 
-        print(f"The estimated RX delay: {RX_DELAY_S} seconds.")
-        client.wait_on_traffic(rx_delay_ms=1000 * 3)
+        print(f"The estimated RX delay: {RX_DELAY_MS / 1000} seconds.")
+        client.wait_on_traffic(rx_delay_ms=RX_DELAY_MS)
         end_ts = time.time()
         test_dur = end_ts - start_ts
         print(f"Total test duration: {test_dur} seconds")
@@ -334,10 +345,11 @@ def main():
             print(err_cntrs_results[index])
             print(latency_results[index])
         if args.out:
-            savedir = "/home/" + args.out
-            print("Results: ", savedir)
-            save_rx_stats(err_cntrs_results, savedir + "_error.json", stream_params)
-            save_rx_stats(latency_results, savedir + "_latency.json", stream_params)
+            savedir_latency = "/home/malte/malte/latency/" + args.out + "_latency.json"
+            savedir_error = "/home/malte/malte/error/" + args.out + "_error.json"
+            print("Results: ", savedir_latency, ", ", savedir_error)
+            save_rx_stats(err_cntrs_results, savedir_error, stream_params)
+            save_rx_stats(latency_results, savedir_latency, stream_params)
 
     except STLError as error:
         print(error)

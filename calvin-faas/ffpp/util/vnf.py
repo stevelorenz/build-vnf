@@ -47,7 +47,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "command": "bash",
     "labels": {"group": "ffpp-vnf"},
     "nano_cpus": int(1e9),
-    "cpuset_cpus": "1,3",
+    "cpuset_cpus": "0,1,3,7",
     "ulimits": [
         docker.types.Ulimit(
             name="memlock", hard=LOCKED_IN_MEMORY_SIZE, soft=LOCKED_IN_MEMORY_SIZE
@@ -135,6 +135,11 @@ def setup_host_network(c_vnf_pid, load_pm):
     pktgen_in_phy_mac = "0c:42:a1:51:41:d9"  # dst enp65s0f1
     vnf_in_phy_mac = "0c:42:a1:51:42:bc"  # enp5s0f0
     vnf_out_phy_mac = "0c:42:a1:51:42:bd"  # enp5s0f1
+    ## For VNF on blackbox
+    # vnf_out_phy_mac = "0c:42:a1:51:41:d8"  # src enp65s0f0
+    # vnf_in_phy_mac = "0c:42:a1:51:41:d9"  # dst enp65s0f1
+    # pktgen_in_phy_mac = "0c:42:a1:51:42:bd"  # enp5s0f0
+    # pktgen_out_phy_mac = "0c:42:a1:51:42:bc"  # enp5s0f1
 
     print("- The MAC address of vnf-in in vnf: {}".format(vnf_in_mac))
     print("- The MAC address of vnf-out in vnf: {}".format(vnf_out_mac))
@@ -154,7 +159,8 @@ def setup_host_network(c_vnf_pid, load_pm):
             run(split("make"), check=True)
         print("\t- Load xdp_fwd kernel programs.")
         run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_time_kern.o"), check=True)
-        run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
+        # run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
+        run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
     else:
         if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
             print("\tINFO: Compile xdp_fwd program")
@@ -224,7 +230,7 @@ if __name__ == "__main__":
         nargs="?",
         default=False,
         const=True,
-        help="Weather to setup the Veth peers or not; default is to setup",
+        help="Wether to setup the Veth peers or not; default is to setup",
     )
     parser.add_argument(
         "--no_pm",

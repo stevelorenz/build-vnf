@@ -2,7 +2,7 @@
 #
 # About: Setup pktgen, vnf and power-manager and loads the XDP hook
 
-IFACE="eno2"
+IFACE="enp5s0f0"
 CORE="5" # For XDP program
 SETUP=true
 PM=true
@@ -42,19 +42,21 @@ if [ "$SETUP" = true ]; then
     echo "* Setup test environment."
 
     sudo ./setup_hugepage.sh
-    sudo ./pktgen.py run
-    sudo ./vnf.py run
+    # sudo ./pktgen.py run
     if [ "$PM" = true ]; then
+        sudo ./vnf.py run
         sudo ./power_manager.py run -i $IFACE -c $CORE
         cd $KERN_DIR
         # sudo xdp-loader load -m skb -p /sys/fs/bpf/ enp0s25 ./../kern/xdp_time/xdp_time_kern.o
         taskset --cpu-list $CORE sudo ./xdp_time_loader $IFACE
+    else
+        sudo ./vnf.py run --no_pm
     fi
 else
     echo "* Teardown test environment."
 
-    sudo ./pktgen.py stop
+    # sudo ./pktgen.py stop
     sudo ./vnf.py stop
     sudo ./power_manager.py stop -i $IFACE
-    sudo xdp-loader unload $IFACE
+    # sudo xdp-loader unload $IFACE
 fi
