@@ -2,7 +2,8 @@ all_examples = [
   'frequency_manager',
   'frequency_switcher',
   'power_manager',
-  'zmq'
+  'zmq',
+  'traffic_monitor',
 ]
 
 foreach example: all_examples

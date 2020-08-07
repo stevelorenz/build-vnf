@@ -159,8 +159,8 @@ def setup_host_network(c_vnf_pid, load_pm):
             run(split("make"), check=True)
         print("\t- Load xdp_fwd kernel programs.")
         run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_time_kern.o"), check=True)
-        # run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
-        run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
+        run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
+        # run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
     else:
         if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
             print("\tINFO: Compile xdp_fwd program")

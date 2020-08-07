@@ -32,6 +32,28 @@ void write_csv_file()
 	fclose(fptr);
 }
 
+void write_csv_file_tm()
+{
+	int len;
+	const char *file_dir = "/home";
+	char save_path[1024] = "";
+	len = snprintf(save_path, 1024, "%s/tm-%d.csv", file_dir,
+		       g_csv_num_round);
+	printf("File: %s\n", save_path);
+	FILE *fptr;
+	fptr = fopen(save_path, "w+");
+	if (fptr == NULL) {
+		printf("File does not exists.\n");
+		return;
+	}
+	int i;
+	for (i = 0; i < g_csv_num_val; i++) {
+		fprintf(fptr, "%f,%f,%'1.10f\n", g_csv_ts[i], g_csv_pps[i],
+			g_csv_iat[i]);
+	}
+	fclose(fptr);
+}
+
 double get_time_of_day()
 {
 	struct timeval tv;

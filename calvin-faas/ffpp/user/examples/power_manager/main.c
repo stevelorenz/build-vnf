@@ -206,12 +206,13 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 			get_cpu_utilization(&m, freq_info);
 			g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
 			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
-		}
-		if (m.valid_vals > 1) {
+		// }
+		// if (m.valid_vals > 1) {
 			calc_sma(&m);
 			calc_wma(&m);
 			check_traffic_trends(&m, &si);
 			check_frequency_scaling(&m, freq_info, &si);
+			/// Move scaling to beginning => nicer plots ;)
 			/// Rename scale_min with scale_to_min
 			if (si.scale_min) {
 				// Store settings of last stream
