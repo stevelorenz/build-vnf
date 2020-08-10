@@ -7,8 +7,8 @@ test('test_mvec', test_mvec, args:['-l 0'], is_parallel : false)
 
 # Extra non-auto and non-unit tests
 extra_tests = [
-  'test_power',
-  'test_ring',
+  # 'test_power',
+  # 'test_ring',
 ]
 
 foreach extra_test: extra_tests

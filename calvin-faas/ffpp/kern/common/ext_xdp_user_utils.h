@@ -27,4 +27,13 @@ int open_bpf_map_file(const char *pin_dir, const char *mapname,
  */
 __u64 gettime(void);
 
+/**
+ * @ Set the memlock limitation to unlimited.
+ *
+ * @return
+ * - 0: upon successful completion.
+ *- -1: error.
+ */
+int ulimit_memlock_rlimit(void);
+
 #endif /* __XDP_USER_UTILS */

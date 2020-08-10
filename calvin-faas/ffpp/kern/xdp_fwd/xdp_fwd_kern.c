@@ -6,6 +6,8 @@
 
 #include <linux/bpf.h>
 #include <linux/in.h>
+#include <linux/ip.h>
+#include <linux/udp.h>
 
 #include "../common/rewrite_helpers.h"
 #include "common_kern_user.h"

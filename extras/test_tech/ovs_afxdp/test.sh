@@ -44,7 +44,15 @@ ip addr add "10.1.1.2/24" dev p1
 ip link set dev p1 up
 NS_EXEC_HEREDOC
 
-    ip netns exec at_ns0 ping -i .2 10.1.1.2
+    ip netns exec at_ns0 ping -i .2 -c 3 10.1.1.2
+
+    echo "Test unload and reload XDP pass program."
+    xdp-loader unload afxdp-p0
+    xdp-loader unload afxdp-p1
+    xdp-loader load -m native afxdp-p0 ../../../calvin-faas/ffpp/kern/xdp_pass/xdp_pass_kern.o
+    xdp-loader load -m native afxdp-p1 ../../../calvin-faas/ffpp/kern/xdp_pass/xdp_pass_kern.o
+    # ISSUE: Does not work after reloading...
+    ip netns exec at_ns0 ping -i .2 -c 3 10.1.1.2
 
 else
     echo "Teardown test environment."

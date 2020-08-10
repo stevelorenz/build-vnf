@@ -149,7 +149,8 @@ void check_traffic_trends(struct measurement *m, struct scaling_info *si)
 	}
 }
 
-void check_frequency_scaling(struct measurement *m, struct freq_info *f,
+void check_frequency_scaling(struct measurement *m,
+			     __attribute__((unused)) struct freq_info *f,
 			     struct scaling_info *si)
 {
 	if (m->wma_cpu_util > HARD_UP_THRESHOLD) {
@@ -240,8 +241,7 @@ void calc_sma(struct measurement *m)
 		m->sma_std_err = (sqrt(sum / (m->valid_vals)) * /// here as well
 				  (1 + (1 / (2 * m->valid_vals))));
 	}
-	printf("SMA: %f, std error: %'1.15f\n", m->sma_cpu_util,
-	       m->sma_std_err);
+	printf("SMA: %f, std error: %1.15f\n", m->sma_cpu_util, m->sma_std_err);
 }
 
 void calc_wma(struct measurement *m)

@@ -287,7 +287,7 @@ def main():
     args = parser.parse_args()
 
     PAYLOAD_SIZE = args.payload_size
-    
+
     stream_params = create_stream_params(
         args.max_bit_rate,
         args.on_time,
@@ -309,7 +309,7 @@ def main():
         pprint.pp([s.to_json() for s in streams])
 
     RX_DELAY_S = sum([s["on_time"] for s in stream_params]) + 3
-    RX_DELAY_MS = 3 * 1000 # Time after last Tx to wait for the last packet at Rx side
+    RX_DELAY_MS = 3 * 1000  # Time after last Tx to wait for the last packet at Rx side
 
     try:
         client = STLClient()

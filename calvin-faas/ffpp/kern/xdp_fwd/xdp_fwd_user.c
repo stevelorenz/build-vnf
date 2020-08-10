@@ -69,9 +69,9 @@ static int write_redirect_params(int map_fd, unsigned char const *src,
 }
 
 static int write_eth_new_src_params(int map_fd, unsigned char const *src,
-				    unsigned char const *new_src)
+				    unsigned char const *new_mac_src)
 {
-	if (bpf_map_update_elem(map_fd, src, new_src, 0) < 0) {
+	if (bpf_map_update_elem(map_fd, src, new_mac_src, 0) < 0) {
 		fprintf(stderr,
 			"ERR: Failed to update redirect map file with err: %s\n",
 			strerror(errno));
@@ -79,8 +79,9 @@ static int write_eth_new_src_params(int map_fd, unsigned char const *src,
 	}
 
 	printf("forward: %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x\n",
-	       src[0], src[1], src[2], src[3], src[4], src[5], new_src[0],
-	       new_src[1], new_src[2], new_src[3], new_src[4], new_src[5]);
+	       src[0], src[1], src[2], src[3], src[4], src[5], new_mac_src[0],
+	       new_mac_src[1], new_mac_src[2], new_mac_src[3], new_mac_src[4],
+	       new_mac_src[5]);
 	return 0;
 }
 
@@ -95,11 +96,17 @@ void print_usage(void)
 int main(int argc, char *argv[])
 {
 	int opt = 0;
+	int long_index = 0;
 	struct config cfg = { 0 };
-	char new_src_str[18];
-	uint8_t new_src[ETH_ALEN];
+	char new_src_mac_str[18];
+	uint8_t new_mac_src[ETH_ALEN];
 
-	while ((opt = getopt(argc, argv, "hi:r:s:d:w:")) != -1) {
+	static struct option long_options[] = {
+		{ "dst_port", required_argument, 0, 0 },
+	};
+
+	while ((opt = getopt_long(argc, argv, "hi:r:s:d:w:", long_options,
+				  &long_index)) != -1) {
 		switch (opt) {
 		case 'h':
 			print_usage();
@@ -122,7 +129,9 @@ int main(int argc, char *argv[])
 			snprintf(cfg.dest_mac, 18, "%s", optarg);
 			break;
 		case 'w':
-			snprintf(new_src_str, 18, "%s", optarg);
+			snprintf(new_src_mac_str, 18, "%s", optarg);
+			break;
+		case 0:
 			break;
 		default:
 			print_usage();
@@ -134,7 +143,7 @@ int main(int argc, char *argv[])
 	printf("Source MAC: %s, Destination MAC: %s\n", cfg.src_mac,
 	       cfg.dest_mac);
 	printf("The source MAC will be rewrited to new address: %s\n",
-	       new_src_str);
+	       new_src_mac_str);
 
 	int len;
 	char pin_dir[PATH_MAX];
@@ -156,10 +165,10 @@ int main(int argc, char *argv[])
 			"ERR: Can't parse destination MAC address: %s\n",
 			cfg.dest_mac);
 	}
-	if (parse_mac(new_src_str, new_src) != 0) {
+	if (parse_mac(new_src_mac_str, new_mac_src) != 0) {
 		fprintf(stderr,
 			"ERR: Can't parse the to be rewrite new source MAC address: %s\n",
-			new_src_str);
+			new_src_mac_str);
 	}
 
 	int map_fd;
@@ -187,7 +196,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "ERR: Can not open eth_new_src_params map!\n");
 		return EXIT_FAIL_BPF;
 	}
-	if (write_eth_new_src_params(map_fd, src, new_src) < 0) {
+	if (write_eth_new_src_params(map_fd, src, new_mac_src) < 0) {
 		fprintf(stderr, "Can not add new src parameter.\n");
 		return EXIT_FAIL_BPF;
 	}

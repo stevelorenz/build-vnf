@@ -95,7 +95,9 @@ __u64 gettime(void)
 void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
 {
 	unsigned int nr_cpus = libbpf_num_possible_cpus();
-	struct datarec values[nr_cpus];
+	struct datarec *values;
+	values = calloc(nr_cpus, sizeof(struct datarec));
+
 	__u64 sum_pkts = 0;
 	__u64 latest_time = 0;
 	__u32 i;
@@ -117,6 +119,7 @@ void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
 
 	value->rx_packets = sum_pkts;
 	value->rx_time = latest_time;
+	free(values);
 }
 
 bool map_collect(int fd, __u32 key, struct record *rec)

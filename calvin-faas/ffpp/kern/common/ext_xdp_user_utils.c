@@ -10,6 +10,8 @@
 #include <linux/if_link.h> /* Need XDP flags */
 #include <linux/err.h>
 
+#include <sys/resource.h>
+
 #include "common_defines.h"
 #include "ext_xdp_user_utils.h"
 
@@ -383,4 +385,13 @@ __u64 gettime(void)
 		exit(EXIT_FAIL);
 	}
 	return (__u64)t.tv_sec * NANOSEC_PER_SEC + t.tv_nsec;
+}
+
+int ulimit_memlock_rlimit(void)
+{
+	struct rlimit rlim_new = {
+		.rlim_cur = RLIM_INFINITY,
+		.rlim_max = RLIM_INFINITY,
+	};
+	return setrlimit(RLIMIT_MEMLOCK, &rlim_new);
 }

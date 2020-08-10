@@ -5,9 +5,11 @@
 #include <errno.h>
 #include <time.h>
 
-#include <ffpp/scaling_helpers_user.h>
+#include <sys/time.h>
+
 #include <ffpp/bpf_helpers_user.h> // NANOSEC_PER_SEC
 #include <ffpp/general_helpers_user.h>
+#include <ffpp/scaling_helpers_user.h>
 
 void write_csv_file()
 {
@@ -16,6 +18,9 @@ void write_csv_file()
 	char save_path[1024] = "";
 	len = snprintf(save_path, 1024, "%s/test-%d.csv", file_dir,
 		       g_csv_num_round);
+	if (len < 0) {
+		fprintf(stderr, "Failed to generate csv save path.\n");
+	}
 	printf("File: %s\n", save_path);
 	FILE *fptr;
 	// name test-num.csv for each num
@@ -24,7 +29,7 @@ void write_csv_file()
 		printf("File does not exist.\n");
 		return;
 	}
-	int i;
+	unsigned int i;
 	for (i = 0; i < g_csv_num_val; i++) {
 		fprintf(fptr, "%f,%f,%f,%u\n", g_csv_ts[i], g_csv_pps[i],
 			g_csv_cpu_util[i], g_csv_freq[i]);
@@ -39,6 +44,9 @@ void write_csv_file_tm()
 	char save_path[1024] = "";
 	len = snprintf(save_path, 1024, "%s/tm-%d.csv", file_dir,
 		       g_csv_num_round);
+	if (len < 0) {
+		fprintf(stderr, "Failed to generate csv save path.\n");
+	}
 	printf("File: %s\n", save_path);
 	FILE *fptr;
 	fptr = fopen(save_path, "w+");
@@ -46,9 +54,9 @@ void write_csv_file_tm()
 		printf("File does not exists.\n");
 		return;
 	}
-	int i;
+	unsigned int i;
 	for (i = 0; i < g_csv_num_val; i++) {
-		fprintf(fptr, "%f,%f,%'1.10f\n", g_csv_ts[i], g_csv_pps[i],
+		fprintf(fptr, "%f,%f,%1.10f\n", g_csv_ts[i], g_csv_pps[i],
 			g_csv_iat[i]);
 	}
 	fclose(fptr);

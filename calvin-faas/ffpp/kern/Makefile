@@ -34,6 +34,12 @@ C_ALL_SRCS := $(C_XDP_SRCS)
 C_ALL_HEADERS := $(C_XDP_SHARED_HEADERS)
 C_ALL_SRCS_AND_HEADERS := $(C_ALL_SRCS) $(C_ALL_HEADERS)
 
+codecheck: $(C_ALL_SRCS_AND_HEADERS)
+	@echo "* Run basic static checkers..."
+	@echo "- Run cppcheck: "
+	cppcheck --enable=warning,style,performance,information --force \
+		-I /usr/local/include $(C_ALL_SRCS_AND_HEADERS)
+
 flawcheck: $(C_ALL_SRCS_AND_HEADERS)
 	@echo "* Check torrential flaws and vulnerabilities with static checker..."
 	flawfinder --minlevel 2 $(C_ALL_SRCS_AND_HEADERS)

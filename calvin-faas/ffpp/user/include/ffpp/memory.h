@@ -5,6 +5,8 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include <rte_mempool.h>
+
 /**
  * @brief ffpp_init_mempool
  *

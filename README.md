@@ -40,6 +40,23 @@ This is a PhD student's work, so the code is definitely not production-ready.
 However, I will try my best to adapt my work to the latest high performance softwarization data plane and management
 technologies including DPDK, eBPF/XDP; Containerization, Serverless computation etc.
 
+## Citing Our Works
+
+If you like tools inside this repository, please cite our papers.
+
+```
+@article{xiang2019reducing,
+  title={Reducing latency in virtual machines: Enabling tactile internet for human-machine co-working},
+  author={Xiang, Zuo and Gabriel, Frank and Urbano, Elena and Nguyen, Giang T and Reisslein, Martin and Fitzek, Frank HP},
+  journal={IEEE Journal on Selected Areas in Communications},
+  volume={37},
+  number={5},
+  pages={1098--1116},
+  year={2019},
+  publisher={IEEE}
+}
+```
+
 ## Catalog
 
 1.  [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
