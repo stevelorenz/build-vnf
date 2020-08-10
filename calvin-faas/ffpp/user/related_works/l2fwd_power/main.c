@@ -73,6 +73,7 @@ static bool crypto_enabled = false;
 static uint16_t crypto_number = 1;
 
 #define RTE_LOGTYPE_L2FWD RTE_LOGTYPE_USER1
+#define MAX_MTU_SIZE 1500
 
 // Rx burst read at maximum 32 entries per iteration.
 #define MAX_PKT_BURST 4
@@ -328,30 +329,29 @@ static inline void l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_port_id)
  * @ Encrypt and decrypt the whole IPv4 packet (IP header + IP payload) ONLY for
  * UDP packets.
  */
-static inline void l2fwd_aes256_cbc_encrypt_decrypt_ip(struct rte_mbuf *m)
+static inline void l2fwd_aes256_cbc_encrypt_decrypt_ip_udp(struct rte_mbuf *m)
 {
 	uint16_t i = 0;
+	uint8_t *data;
 	struct rte_ether_hdr *eth;
 	struct rte_ipv4_hdr *iph;
+	uint16_t total_length = 0;
 
 	eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
 	if (eth->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4)) {
 		return;
 	}
-
 	iph = rte_pktmbuf_mtod_offset(m, struct rte_ipv4_hdr *,
 				      RTE_ETHER_HDR_LEN);
-	if (iph->next_proto_id == IPPROTO_UDP) {
-		printf("The total IP length: %u\n",
-		       rte_be_to_cpu_16(iph->total_length));
-		for (i = 0; i < crypto_number; ++i) {
-			AES_CBC_encrypt_buffer(
-				&aes_ctx, (uint8_t *)iph,
-				rte_be_to_cpu_16(iph->total_length));
-			AES_CBC_decrypt_buffer(
-				&aes_ctx, (uint8_t *)iph,
-				rte_be_to_cpu_16(iph->total_length));
-		}
+	if (iph->next_proto_id != IPPROTO_UDP) {
+		return;
+	}
+
+	total_length = rte_be_to_cpu_16(iph->total_length);
+	for (i = 0; i < crypto_number; ++i) {
+		data = rte_pktmbuf_mtod_offset(m, uint8_t *, RTE_ETHER_HDR_LEN);
+		AES_CBC_encrypt_buffer(&aes_ctx, data, total_length);
+		AES_CBC_decrypt_buffer(&aes_ctx, data, total_length);
 	}
 }
 
@@ -360,11 +360,19 @@ static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned port_id)
 	unsigned dst_port;
 	int sent;
 	struct rte_eth_dev_tx_buffer *buffer;
+	uint32_t data_len;
 
+	data_len = rte_pktmbuf_data_len(m);
+	if (data_len > MAX_MTU_SIZE) {
+		RTE_LOG(INFO, L2FWD,
+			"Warn: data length: %u is larger than MTU: %u\n",
+			data_len, MAX_MTU_SIZE);
+		return;
+	}
 	dst_port = l2fwd_dst_ports[port_id];
 
 	if (unlikely(crypto_enabled == true)) {
-		l2fwd_aes256_cbc_encrypt_decrypt_ip(m);
+		l2fwd_aes256_cbc_encrypt_decrypt_ip_udp(m);
 	}
 
 	if (mac_updating)
