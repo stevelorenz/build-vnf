@@ -53,6 +53,8 @@
 #include <rte_ethdev.h>
 #include <rte_mempool.h>
 #include <rte_mbuf.h>
+#include <rte_ip.h>
+#include <rte_udp.h>
 
 #include <rte_power.h>
 #include <rte_spinlock.h>
@@ -322,14 +324,34 @@ static inline void l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_port_id)
 	rte_ether_addr_copy(&l2fwd_ports_eth_addr[dest_port_id], &eth->s_addr);
 }
 
-static inline void l2fwd_aes256_cbc_encrypt_decrypt(struct rte_mbuf *m)
+/**
+ * @ Encrypt and decrypt the whole IPv4 packet (IP header + IP payload) ONLY for
+ * UDP packets.
+ */
+static inline void l2fwd_aes256_cbc_encrypt_decrypt_ip(struct rte_mbuf *m)
 {
 	uint16_t i = 0;
-	uint8_t *head;
-	head = rte_pktmbuf_mtod(m, uint8_t *);
-	for (i = 0; i < crypto_number; ++i) {
-		AES_CBC_encrypt_buffer(&aes_ctx, head, 1000);
-		AES_CBC_decrypt_buffer(&aes_ctx, head, 1000);
+	struct rte_ether_hdr *eth;
+	struct rte_ipv4_hdr *iph;
+
+	eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
+	if (eth->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4)) {
+		return;
+	}
+
+	iph = rte_pktmbuf_mtod_offset(m, struct rte_ipv4_hdr *,
+				      RTE_ETHER_HDR_LEN);
+	if (iph->next_proto_id == IPPROTO_UDP) {
+		printf("The total IP length: %u\n",
+		       rte_be_to_cpu_16(iph->total_length));
+		for (i = 0; i < crypto_number; ++i) {
+			AES_CBC_encrypt_buffer(
+				&aes_ctx, (uint8_t *)iph,
+				rte_be_to_cpu_16(iph->total_length));
+			AES_CBC_decrypt_buffer(
+				&aes_ctx, (uint8_t *)iph,
+				rte_be_to_cpu_16(iph->total_length));
+		}
 	}
 }
 
@@ -342,7 +364,7 @@ static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned port_id)
 	dst_port = l2fwd_dst_ports[port_id];
 
 	if (unlikely(crypto_enabled == true)) {
-		l2fwd_aes256_cbc_encrypt_decrypt(m);
+		l2fwd_aes256_cbc_encrypt_decrypt_ip(m);
 	}
 
 	if (mac_updating)
@@ -433,45 +455,60 @@ static void power_freq_scale_down_cb()
 {
 	uint64_t hz;
 	float sleep_time_ratio;
-	uint16_t lcore_id = rte_lcore_id();
+	uint16_t lcore_id = 0;
+	uint16_t cur_lcore_id = rte_lcore_id();
 
-	sleep_time_ratio =
-		(float)(stats[lcore_id].sleep_time) / (float)(SCALING_PERIOD);
+	sleep_time_ratio = (float)(stats[cur_lcore_id].sleep_time) /
+			   (float)(SCALING_PERIOD);
 
 	if (sleep_time_ratio >= SCALING_DOWN_TIME_RATIO_THRESHOLD) {
 		if (rte_power_freq_down) {
-			rte_power_freq_down(lcore_id);
+			RTE_LCORE_FOREACH(lcore_id)
+			{
+				rte_power_freq_down(lcore_id);
+			}
 		}
-	} else if ((uint16_t)(stats[lcore_id].nb_rx_processed /
-			      stats[lcore_id].nb_iteration_looped) <
+	} else if ((uint16_t)(stats[cur_lcore_id].nb_rx_processed /
+			      stats[cur_lcore_id].nb_iteration_looped) <
 		   MAX_PKT_BURST) {
 		// Scale down frequency if average packet per interation is less
 		// than full burst size.
 		if (rte_power_freq_down) {
-			rte_power_freq_down(lcore_id);
+			RTE_LCORE_FOREACH(lcore_id)
+			{
+				rte_power_freq_down(lcore_id);
+			}
 		}
 	}
 
 	// INFO: Reset and start another single timer with current CPU frequency
 	// to ensure the period is FIXED.
 	hz = rte_get_timer_hz();
-	rte_timer_reset_sync(&power_timers[lcore_id],
-			     hz / TIMER_NUMBER_PER_SECOND, SINGLE, lcore_id,
+	rte_timer_reset_sync(&power_timers[cur_lcore_id],
+			     hz / TIMER_NUMBER_PER_SECOND, SINGLE, cur_lcore_id,
 			     power_freq_scale_down_cb, NULL);
 
-	stats[lcore_id].nb_rx_processed = 0;
-	stats[lcore_id].nb_iteration_looped = 0;
-	stats[lcore_id].sleep_time = 0;
+	stats[cur_lcore_id].nb_rx_processed = 0;
+	stats[cur_lcore_id].nb_iteration_looped = 0;
+	stats[cur_lcore_id].sleep_time = 0;
 }
 
-/* main processing loop */
-// ISSUE !!!: It runs 10 times faster than the no-pm loop...
+/* Main processing loop of the legacy power management.
+ *
+ * - In order to make the scaling work on "old" Intel CPUs, scaling function is
+ *   called on ALL RUNNING LCORES (including the master lcore), instead of the
+ *   current lcore running the forwarding function.
+ *
+ * - ISSUE !!!: It runs 10 times faster than the no-pm loop, if the system sleep
+ *   function is called.
+ * */
 static void l2fwd_main_loop_legacy(void)
 {
 	struct rte_mbuf *pkts_burst[MAX_PKT_BURST];
 	struct rte_mbuf *m;
 	int sent;
 	unsigned lcore_id;
+	unsigned cur_lcore_id;
 	uint64_t prev_tsc = 0, diff_tsc, cur_tsc, timer_tsc;
 	unsigned i, j, port_id, nb_rx;
 	struct lcore_queue_conf *qconf;
@@ -492,20 +529,21 @@ static void l2fwd_main_loop_legacy(void)
 
 	timer_tsc = 0;
 
-	lcore_id = rte_lcore_id();
-	qconf = &lcore_queue_conf[lcore_id];
+	cur_lcore_id = rte_lcore_id();
+	qconf = &lcore_queue_conf[cur_lcore_id];
 
 	if (qconf->n_rx_port == 0) {
-		RTE_LOG(INFO, L2FWD, "lcore %u has nothing to do\n", lcore_id);
+		RTE_LOG(INFO, L2FWD, "lcore %u has nothing to do\n",
+			cur_lcore_id);
 		return;
 	}
 
-	RTE_LOG(INFO, L2FWD, "entering main loop on lcore %u\n", lcore_id);
+	RTE_LOG(INFO, L2FWD, "entering main loop on lcore %u\n", cur_lcore_id);
 
 	for (i = 0; i < qconf->n_rx_port; i++) {
 		port_id = qconf->rx_port_list[i];
-		RTE_LOG(INFO, L2FWD, " -- lcoreid=%u port_id=%u\n", lcore_id,
-			port_id);
+		RTE_LOG(INFO, L2FWD, " -- lcoreid=%u port_id=%u\n",
+			cur_lcore_id, port_id);
 	}
 
 	if (event_register(qconf) == 0) {
@@ -529,7 +567,7 @@ static void l2fwd_main_loop_legacy(void)
 
 	while (!force_quit) {
 		//rte_delay_us_block(1);
-		stats[lcore_id].nb_iteration_looped++;
+		stats[cur_lcore_id].nb_iteration_looped++;
 
 		cur_tsc = rte_rdtsc();
 		// Ignore the cycles in the TX loop.
@@ -558,7 +596,7 @@ static void l2fwd_main_loop_legacy(void)
 				/* if timer has reached its timeout */
 				if (unlikely(timer_tsc >= timer_period)) {
 					/* do this only on master core */
-					if (lcore_id ==
+					if (cur_lcore_id ==
 					    rte_get_master_lcore()) {
 						print_stats();
 						/* reset the timer */
@@ -587,7 +625,7 @@ static void l2fwd_main_loop_legacy(void)
 						 MAX_PKT_BURST);
 
 			port_statistics[port_id].rx += nb_rx;
-			stats[lcore_id].nb_rx_processed += nb_rx;
+			stats[cur_lcore_id].nb_rx_processed += nb_rx;
 
 			if (unlikely(nb_rx == 0)) {
 				// Try to sleep for a while and hope the CPU
@@ -604,7 +642,7 @@ static void l2fwd_main_loop_legacy(void)
 				qconf->pm_conf.zero_rx_packet_count = 0;
 				qconf->pm_conf.freq_scale_up_hint =
 					power_freq_scaleup_heuristic(
-						lcore_id,
+						cur_lcore_id,
 						qconf->pm_conf.port_id,
 						qconf->pm_conf.queue_id,
 						sup_rx_desp_cnt);
@@ -622,12 +660,18 @@ static void l2fwd_main_loop_legacy(void)
 			// Scale up with P-stats.
 			if (qconf->pm_conf.freq_scale_up_hint == FREQ_HIGHEST) {
 				if (rte_power_freq_max) {
-					rte_power_freq_max(lcore_id);
+					RTE_LCORE_FOREACH(lcore_id)
+					{
+						rte_power_freq_max(lcore_id);
+					}
 				}
 			} else if (qconf->pm_conf.freq_scale_up_hint ==
 				   FREQ_HIGHER) {
 				if (rte_power_freq_up) {
-					rte_power_freq_up(lcore_id);
+					RTE_LCORE_FOREACH(lcore_id)
+					{
+						rte_power_freq_up(lcore_id);
+					}
 				}
 			}
 		} else {
@@ -648,7 +692,8 @@ static void l2fwd_main_loop_legacy(void)
 				// MARK: This line makes the code fast !!!
 				// rte_delay_us_sleep(qconf->pm_conf.idle_hint);
 			}
-			stats[lcore_id].sleep_time += qconf->pm_conf.idle_hint;
+			stats[cur_lcore_id].sleep_time +=
+				qconf->pm_conf.idle_hint;
 		}
 	}
 }

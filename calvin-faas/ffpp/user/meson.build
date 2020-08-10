@@ -12,8 +12,6 @@ project('ffpp', 'c',
 
 add_project_arguments(
     [
-        '-Wall',
-        '-Wextra',
         '-Wundef',
         '-Wvla',
 

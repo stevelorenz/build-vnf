@@ -113,7 +113,7 @@ if __name__ == "__main__":
     passed = True
 
     try:
-        udp_payload = "A" * 50
+        udp_payload = "A" * 1400
         pkt = STLPktBuilder(
             pkt=Ether()
             / IP(src=args.ip_src, dst=args.ip_dst)
