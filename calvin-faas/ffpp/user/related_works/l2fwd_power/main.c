@@ -62,6 +62,7 @@
 #include <rte_metrics.h>
 
 #include <ffpp/aes.h>
+#include <ffpp/utils.h>
 
 static volatile bool force_quit;
 
@@ -350,7 +351,11 @@ static inline void l2fwd_aes256_cbc_encrypt_decrypt_ip_udp(struct rte_mbuf *m)
 	total_length = rte_be_to_cpu_16(iph->total_length);
 	for (i = 0; i < crypto_number; ++i) {
 		data = rte_pktmbuf_mtod_offset(m, uint8_t *, RTE_ETHER_HDR_LEN);
+		AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
 		AES_CBC_encrypt_buffer(&aes_ctx, data, total_length);
+		// MARK: The AES context MUST be re-initialized before running
+		// the decryption.
+		AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
 		AES_CBC_decrypt_buffer(&aes_ctx, data, total_length);
 	}
 }
@@ -1319,7 +1324,6 @@ int main(int argc, char **argv)
 		printf("Crypto operation is enabled. The operation number is %u\n",
 		       crypto_number);
 		printf("Crypto method: AES256 CBC\n");
-		AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
 	}
 
 	check_lcores();
