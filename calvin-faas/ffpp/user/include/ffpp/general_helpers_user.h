@@ -25,6 +25,8 @@ double cur_time;
 
 void write_csv_file();
 
+void write_csv_file_tm();
+
 double get_time_of_day();
 
 #endif /* !GENERAL_HELPERS_USER_H */

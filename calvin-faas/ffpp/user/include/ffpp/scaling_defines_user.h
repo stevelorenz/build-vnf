@@ -12,9 +12,9 @@
 // Hyper-parameter for scaling decision
 #define INTERVAL 100000
 #define MAX_EMPTY_CNT 1 // So, after two empty polls we sleep :)
-#define UTIL_THRESHOLD_UP 0.80
-#define UTIL_THRESHOLD_DOWN 0.70
-#define HARD_UP_THRESHOLD 0.90
+#define UTIL_THRESHOLD_UP 0.75 // We don't actually want tu surpass the 0.8
+#define UTIL_THRESHOLD_DOWN 0.65
+#define HARD_UP_THRESHOLD 0.85
 #define HARD_DOWN_THRESHOLD 0.4
 #define HARD_INCREASE 5
 #define HARD_DECREASE 4
@@ -28,7 +28,7 @@
 #define NUM_CORES 8 // Total cores of the system
 #define CORE_MASK 2 // Cores to initialize
 #define CORE_OFFSET 1 // First core to initialize
-#define C_PACKET 92600 // 27650 // CPU cycles for one packet
+#define C_PACKET 3300 // CPU cycles for one packet
 #define MAX_PSTATES 32 // Max possible p-states
 
 #define CPU_UTIL(INTER_TIME, FREQ) (C_PACKET / (INTER_TIME * FREQ))

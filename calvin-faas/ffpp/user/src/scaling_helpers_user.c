@@ -82,29 +82,30 @@ void set_turbo()
 
 void set_pstate(struct freq_info *f, struct scaling_info *si)
 {
+	// Do not use turbo boost
 	if (si->next_pstate == 0) {
+		si->next_pstate = 1;
 		/// Do we want to use Turbo Boost?
-		set_turbo();
-		f->pstate = si->next_pstate;
-		f->freq =
-			f->freqs[f->pstate]; // Actual frequency will be higher
-	} else {
-		int ret;
-		int lcore_id;
-		for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
-		     lcore_id += CORE_MASK) {
-			ret = rte_power_set_freq(lcore_id, si->next_pstate);
-			if (ret < 0) {
-				RTE_LOG(ERR, POWER,
-					"Failed to scale frequency of lcore %d.\n",
-					lcore_id);
-			}
-		}
-		si->last_scale = get_time_of_day();
-		si->need_scale = false;
-		f->pstate = si->next_pstate;
-		f->freq = f->freqs[f->pstate];
+		// set_turbo();
+		// f->pstate = si->next_pstate;
+		// f->freq =
+		// f->freqs[f->pstate]; // Actual frequency will be higher
 	}
+	int ret;
+	int lcore_id;
+	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	     lcore_id += CORE_MASK) {
+		ret = rte_power_set_freq(lcore_id, si->next_pstate);
+		if (ret < 0) {
+			RTE_LOG(ERR, POWER,
+				"Failed to scale frequency of lcore %d.\n",
+				lcore_id);
+		}
+	}
+	si->last_scale = get_time_of_day();
+	si->need_scale = false;
+	f->pstate = si->next_pstate;
+	f->freq = f->freqs[f->pstate];
 }
 
 void calc_pstate(struct measurement *m, struct freq_info *f,
@@ -234,7 +235,9 @@ void calc_sma(struct measurement *m)
 			sum += ((m->cpu_util[i] - m->sma_cpu_util) *
 				(m->cpu_util[i] - m->sma_cpu_util));
 		}
-		m->sma_std_err = (sqrt(sum / (m->valid_vals - 1)) *
+		// m->sma_std_err = (sqrt(sum / (m->valid_vals - 1)) *
+		//   (1 + (1 / (2 * m->valid_vals))));
+		m->sma_std_err = (sqrt(sum / (m->valid_vals)) * /// here as well
 				  (1 + (1 / (2 * m->valid_vals))));
 	}
 	printf("SMA: %f, std error: %'1.15f\n", m->sma_cpu_util,
