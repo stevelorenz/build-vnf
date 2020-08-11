@@ -46,8 +46,8 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "image": "ffpp-dev:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-vnf"},
-    "nano_cpus": int(1e9),
-    "cpuset_cpus": "0,1,3,7",
+    # "nano_cpus": int(1e9),
+    "cpuset_cpus": "1,3,5,7",
     "ulimits": [
         docker.types.Ulimit(
             name="memlock", hard=LOCKED_IN_MEMORY_SIZE, soft=LOCKED_IN_MEMORY_SIZE
@@ -108,15 +108,15 @@ def setup_host_network(c_vnf_pid, load_pm):
         print("ERR: Failed to compile xdp-pass program in vnf.")
         sys.exit(1)
     for iface in ["vnf-in", "vnf-out"]:
-        exit_code, out = c_vnf.exec_run(
-            cmd="xdp-loader load -m native {} ./xdp_pass_kern.o".format(iface),
-            workdir="/ffpp/kern/xdp_pass",
-        )
+        # exit_code, out = c_vnf.exec_run(
+            # cmd="xdp-loader load -m native {} ./xdp_pass_kern.o".format(iface),
+            # workdir="/ffpp/kern/xdp_pass",
+        # )
         ## Load traffic monitoring on the vnf-in interface
         ## Also add cpu 5 to cpu set then
-        # exit_code, out = c_vnf.exec_run(
-        # cmd="./xdp_time_loader {}".format(iface),
-        # workdir="/ffpp/kern/xdp_time/",)
+        exit_code, out = c_vnf.exec_run(
+        cmd="./xdp_time_loader {}".format(iface),
+        workdir="/ffpp/kern/xdp_time/",)
         if exit_code != 0:
             print("ERR: Failed to load xdp-pass program on interface {}".format(iface))
             sys.exit(1)
@@ -159,8 +159,8 @@ def setup_host_network(c_vnf_pid, load_pm):
             run(split("make"), check=True)
         print("\t- Load xdp_fwd kernel programs.")
         run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_time_kern.o"), check=True)
-        run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
-        # run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
+        # run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
+        run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
     else:
         if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
             print("\tINFO: Compile xdp_fwd program")

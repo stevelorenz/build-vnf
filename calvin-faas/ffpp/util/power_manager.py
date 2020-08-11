@@ -50,7 +50,7 @@ POWER_MANAGER_OPTS_DEFAULT = {
             name="memlock", hard=LOCKED_IN_MEMORY_SIZE, soft=LOCKED_IN_MEMORY_SIZE
         )
     ],
-    "nano_cpus": int(1e9),
+    # "nano_cpus": int(1e9),
 }
 
 
