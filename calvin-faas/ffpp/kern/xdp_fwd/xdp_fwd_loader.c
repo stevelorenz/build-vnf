@@ -77,6 +77,9 @@ int main(int argc, char *argv[])
 		return EXIT_FAIL_OPTION;
 	}
 
+	/* TODO:  <12-08-20, Zuo> Use BPF skeleton to share global variables
+	 * between kernel and userspace programs. This can avoid the unnecessary
+	 * map lookup (e.g. destination interface) for the XDP program. */
 	struct config cfg = {
 		// Use XDP native mode
 		// For skb mode, use XDP_FLAGS_SKB_MODE instead.

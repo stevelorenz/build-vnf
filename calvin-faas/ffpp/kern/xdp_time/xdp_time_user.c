@@ -120,12 +120,12 @@ static void scale_cpu_frequency(struct measurement *measurement)
 static void get_cpu_utilization(struct measurement *measurement)
 {
 	__u32 c_packet = 100; // CPU cycles per processed packet
-	int i;
-	double sum = 0.0;
 	double cpu_freq = get_cpu_frequency();
 	measurement->cpu_util[measurement->idx] =
 		c_packet / (measurement->inter_arrival_time * cpu_freq);
 	if (measurement->count >= measurement->min_counts) {
+		int i;
+		double sum = 0.0;
 		for (i = 0; i < measurement->min_counts; i++) {
 			sum += measurement->cpu_util[i];
 		}
