@@ -28,6 +28,11 @@
 #include <ffpp/global_stats_user.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
+#define RELEASE 1
+#ifdef RELEASE
+#define printf(fmt, ...) (0)
+#endif
+
 static volatile bool force_quit;
 
 double g_csv_pps[TOTAL_VALS];
@@ -51,7 +56,6 @@ static void signal_handler(int signum)
 		force_quit = true;
 	}
 }
-
 
 static void stats_print(struct stats_record *stats_rec,
 			struct stats_record *stats_prev, struct measurement *m,

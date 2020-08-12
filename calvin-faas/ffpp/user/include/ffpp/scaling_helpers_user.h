@@ -44,6 +44,16 @@ void get_frequency_info(int lcore, struct freq_info *f, bool debug);
 double get_cpu_frequency(int lcore);
 
 /**
+ * Enables Turbo Boost for the CPU
+ */
+void set_turbo();
+
+/**
+ * Send or wake up VNF to/from c1
+ */
+void set_c1();
+
+/**
  * Calculate simple moving averager over the last NUM_READINGS_SMA values
  * 
  * @param m: struct of the current measurement status and values
@@ -75,11 +85,6 @@ double calc_period(struct record *r, struct record *p);
  * @param pstate: pstate the CPU shall enter
  */
 void set_pstate(struct freq_info *f, struct scaling_info *si);
-
-/**
- * Enables Turbo Boost for the CPU
- */
-void set_turbo();
 
 /**
  * Calculates the p-state that is required for the current inter-arrival

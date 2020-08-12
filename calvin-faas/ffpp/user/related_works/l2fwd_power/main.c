@@ -351,6 +351,7 @@ static inline void l2fwd_aes256_cbc_encrypt_decrypt_ip_udp(struct rte_mbuf *m)
 	total_length = rte_be_to_cpu_16(iph->total_length);
 	for (i = 0; i < crypto_number; ++i) {
 		data = rte_pktmbuf_mtod_offset(m, uint8_t *, RTE_ETHER_HDR_LEN);
+
 		AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
 		AES_CBC_encrypt_buffer(&aes_ctx, data, total_length);
 		// MARK: The AES context MUST be re-initialized before running

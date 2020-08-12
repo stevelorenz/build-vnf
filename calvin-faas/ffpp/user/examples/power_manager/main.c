@@ -12,6 +12,8 @@
 
 #include <locale.h>
 #include <cpufreq.h>
+#include <zmq.h>
+#include <jansson.h>
 
 #include <rte_common.h>
 #include <rte_eal.h>
@@ -27,6 +29,11 @@
 #include <ffpp/general_helpers_user.h>
 #include <ffpp/global_stats_user.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
+
+// #define RELEASE 1
+#ifdef RELEASE
+#define printf(fmt, ...) (0)
+#endif
 
 static volatile bool force_quit;
 
@@ -152,6 +159,7 @@ static void stats_print(struct stats_record *stats_rec,
 			g_csv_num_round++;
 			si->scaled_to_min = false;
 			m->had_first_packet = false;
+			set_c1("on"); // Don't introduce dealy for the first stream
 		}
 	}
 
@@ -178,7 +186,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 	m.had_first_packet = false;
 	si.up_trend = false; /// Do we have to set them to false explicitly?
 	si.down_trend = false;
-	si.scale_min = false;
+	si.scale_to_min = false;
 	si.need_scale = false;
 	si.scaled_to_min = false;
 	si.restore_settings = false;
@@ -206,31 +214,34 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 			get_cpu_utilization(&m, freq_info);
 			g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
 			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
-		// }
-		// if (m.valid_vals > 1) {
+			// }
+			// if (m.valid_vals > 1) {
 			calc_sma(&m);
 			calc_wma(&m);
 			check_traffic_trends(&m, &si);
 			check_frequency_scaling(&m, freq_info, &si);
 			/// Move scaling to beginning => nicer plots ;)
-			/// Rename scale_min with scale_to_min
-			if (si.scale_min) {
+			/// Rename scale_to_min with set_c1 etc.
+			if (si.scale_to_min) {
 				// Store settings of last stream
 				lss.last_pstate = freq_info->pstate;
 				lss.last_sma = m.sma_cpu_util;
 				lss.last_sma_std_err = m.sma_std_err;
 				lss.last_wma = m.wma_cpu_util;
-				if (freq_info->pstate !=
-				    (freq_info->num_freqs - 1)) {
-					printf("Scale due to empty polls\n");
-					si.next_pstate =
-						freq_info->num_freqs - 1,
-					set_pstate(freq_info, &si);
-				} else {
-					printf("Already at min\n");
-				}
+				/// Scale down before sleep? -> c1e
+				/// else just c1
+				// if (freq_info->pstate !=
+				// (freq_info->num_freqs - 1)) {
+				// printf("Scale due to empty polls\n");
+				// si.next_pstate =
+				// freq_info->num_freqs - 1,
+				// set_pstate(freq_info, &si);
+				// } else {
+				// printf("Already at min\n");
+				// }
+				set_c1("off");
 				// Reset flags
-				si.scale_min = false;
+				si.scale_to_min = false;
 				si.scaled_to_min = true;
 				si.up_trend = false;
 				si.down_trend = false;

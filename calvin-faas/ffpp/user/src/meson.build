@@ -15,13 +15,13 @@ ffpp_sources = [
 ffpplib_shared = shared_library('ffpp',
   ffpp_sources,
   include_directories: inc,
-  dependencies: [dpdk_dep, bpf_dep, math_dep],
+  dependencies: [dpdk_dep, bpf_dep, math_dep, json_dep, zmq_dep],
   install: true
 )
 
 ffpplib_static = static_library('ffpp',
   ffpp_sources,
   include_directories: inc,
-  dependencies: [dpdk_dep, bpf_dep, math_dep],
+  dependencies: [dpdk_dep, bpf_dep, math_dep, json_dep, zmq_dep],
   install: true
 )

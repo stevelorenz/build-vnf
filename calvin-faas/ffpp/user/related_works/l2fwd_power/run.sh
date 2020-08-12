@@ -35,6 +35,13 @@ elif [[ $1 == "-tc" ]]; then
         --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
         -- -p 0x03 -m 0 -T 0 --enable-crypto 2
+elif [[ $1 == "-c" ]]; then
+    xdp-loader unload vnf-in
+    xdp-loader unload vnf-out
+    ./ffpp_l2fwd_power -l 1,3 \
+        --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
+        --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
+        -- -p 0x03 -m 0 -T 0 --enable-crypto 5 <<< 'y'
 elif [[ $1 == "-m" ]]; then
     xdp-loader unload vnf-in
     xdp-loader unload vnf-out
@@ -45,7 +52,7 @@ elif [[ $1 == "-m" ]]; then
 elif [[ $1 == "-p" ]]; then
     xdp-loader unload vnf-in
     xdp-loader unload vnf-out
-    ./ffpp_l2fwd_power -l 1,3 \
+    ./ffpp_l2fwd_power -l 1,3,5,7 \
         --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
         -- -p 0x03 -m 1 -T 0 <<< 'y'

@@ -6,9 +6,17 @@
 #include <math.h>
 #include <stdbool.h>
 
+#include <zmq.h>
+#include <jansson.h>
+
 #include <ffpp/scaling_helpers_user.h>
 #include <ffpp/bpf_helpers_user.h> // NANOSEC_PER_SEC
 #include <ffpp/general_helpers_user.h>
+
+// #define RELEASE 1
+#ifdef RELEASE
+#define printf(fmt, ...) (0)
+#endif
 
 void get_frequency_info(int lcore, struct freq_info *f, bool debug)
 {
@@ -80,6 +88,31 @@ void set_turbo()
 	}
 }
 
+void set_c1(char *msg)
+{
+	int ret;
+	json_t *root = json_object();
+	char *req_msg;
+
+	ret = json_object_set_new(root, "action", json_string(msg));
+	req_msg = json_dumps(root, 0);
+	printf("Request message: %s\n", req_msg);
+
+	void *context = zmq_ctx_new();
+	void *req = zmq_socket(context, ZMQ_REQ);
+	char buf[10];
+
+	zmq_connect(req, "ipc:///tmp/ffpp.sock");
+	zmq_send(req, req_msg, strlen(req_msg), 0);
+	zmq_recv(req, buf, 10, 0);
+	printf("Response message: %s\n", buf);
+
+	zmq_close(req);
+	zmq_ctx_destroy(context);
+	free(req_msg);
+	json_decref(root);
+}
+
 void set_pstate(struct freq_info *f, struct scaling_info *si)
 {
 	// Do not use turbo boost
@@ -136,7 +169,7 @@ void calc_pstate(struct measurement *m, struct freq_info *f,
 void check_traffic_trends(struct measurement *m, struct scaling_info *si)
 {
 	if (m->empty_cnt > MAX_EMPTY_CNT) {
-		si->scale_min = true; /// for c1 later
+		si->scale_to_min = true; /// for c1 later
 	}
 	if (m->wma_cpu_util > (m->sma_cpu_util + m->sma_std_err)) {
 		si->up_trend = true;
@@ -276,8 +309,14 @@ void restore_last_stream_settings(struct last_stream_settings *lss,
 {
 	/// Make a quick check against the current cpu utilization to
 	/// see if the same frequency is needed
+	set_c1("on");
+	// f->pstate = rte_power_get_freq(CORE_OFFSET);
+	// f->freq = f->freqs[f->pstate];
+	// printf("Frequency %d and p-state %d after wake up\n", f->freq,
+	//    f->pstate);
+	/// Do we need to scale up after c1?
 	si->next_pstate = lss->last_pstate;
-	set_pstate(f, si);
+	// set_pstate(f, si);
 	si->restore_settings = false;
 }
 
@@ -313,6 +352,7 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 		} else {
 			m->had_first_packet = true;
 			g_csv_saved_stream = false; /// global
+			// set_c1("on"); /// Doesn't belong here, just for measurements
 		}
 	} else if (t_s->packets == 0 && m->had_first_packet) {
 		m->empty_cnt += 1; /// Reset if next poll brings a packet

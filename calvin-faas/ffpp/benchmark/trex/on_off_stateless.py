@@ -84,20 +84,30 @@ def get_rx_stats(client, tx_port, rx_port, stream_params):
     pgids = client.get_active_pgids()
     print("Currently used pgids: {0}".format(pgids))
     stats = client.get_pgid_stats(pgids["latency"])
+    # stats = client.get_pgid_stats()
 
     # A list of dictionary
+    flow_results = [dict()] * len(stream_params)
     err_cntrs_results = [dict()] * len(stream_params)
     latency_results = [dict()] * len(stream_params)
     for index, _ in enumerate(stream_params):
-        all_stats = stats["latency"].get(index)
-        if not all_stats:
+        # all_stats = stats["latency"].get(index)
+        lat_stats = stats["latency"].get(index)
+        flow_stats = stats["flow_stats"].get(index)
+        # if not all_stats:
+        if not lat_stats or not flow_stats:
             print(f"No stats available for PG ID {index}!")
             continue
         else:
-            latency_results[index] = all_stats["latency"]
-            err_cntrs_results[index] = all_stats["err_cntrs"]
+            # latency_results[index] = all_stats["latency"]
+            # err_cntrs_results[index] = all_stats["err_cntrs"]
+            print("Rx pps: ", flow_stats["rx_pps"])
+            latency_results[index] = lat_stats["latency"]
+            err_cntrs_results[index] = lat_stats["err_cntrs"]
+            flow_results[index] = flow_stats
 
-    return (err_cntrs_results, latency_results)
+    # return (err_cntrs_results, latency_results)
+    return (err_cntrs_results, latency_results, flow_results)
 
 
 def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
@@ -168,6 +178,22 @@ def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
                 self_start=self_start,
             )
         )
+
+        # # Add flow stat stream
+        # streams.append(
+            # STLStream(
+                    # name=f"s{index}",
+                    # isg=stp["isg"],
+                    # packet=pkt,
+                    # flow_stats=STLFlowStats(pg_id=index),
+                    # mode=STLTXSingleBurst(
+                        # pps=LATENCY_FLOW_PPS,
+                        # total_pkts=int(LATENCY_FLOW_PPS * stp["on_time"]),
+                    # ),
+                    # next=next_st_name,
+                    # self_start=self_start,
+            # )
+        # )
 
     return streams
 
@@ -333,7 +359,10 @@ def main():
 
         # Check RX stats.
         # MARK: All latency results are in usec.
-        err_cntrs_results, latency_results = get_rx_stats(
+        # err_cntrs_results, latency_results = get_rx_stats(
+            # client, tx_port, rx_port, stream_params
+        # )
+        err_cntrs_results, latency_results, flow_results = get_rx_stats(
             client, tx_port, rx_port, stream_params
         )
         print("--- The latency results of all streams:")
@@ -344,6 +373,7 @@ def main():
             err_cntrs_results[index]["end_ts"] = end_ts
             print(err_cntrs_results[index])
             print(latency_results[index])
+            print(flow_results[index])
         if args.out:
             savedir_latency = "/home/malte/malte/latency/" + args.out + "_latency.json"
             savedir_error = "/home/malte/malte/error/" + args.out + "_error.json"

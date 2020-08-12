@@ -28,7 +28,7 @@
 #define NUM_CORES 8 // Total cores of the system
 #define CORE_MASK 2 // Cores to initialize
 #define CORE_OFFSET 1 // First core to initialize
-#define C_PACKET 3300 // CPU cycles for one packet
+#define C_PACKET 3170 // CPU cycles for one packet
 #define MAX_PSTATES 32 // Max possible p-states
 
 #define CPU_UTIL(INTER_TIME, FREQ) (C_PACKET / (INTER_TIME * FREQ))
@@ -62,7 +62,7 @@ struct scaling_info {
 	int next_pstate;
 	bool up_trend;
 	bool down_trend;
-	bool scale_min;
+	bool scale_to_min;
 	bool need_scale;
 	bool scaled_to_min;
 	bool restore_settings;

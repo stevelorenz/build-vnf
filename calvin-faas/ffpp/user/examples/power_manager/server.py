@@ -42,8 +42,10 @@ if __name__ == "__main__":
                 # MARK: This action takes more than 50ms on my laptop (Core
                 # i7-7600U 2.8GHz).
                 container.update(cpu_quota=0)
+                print("VNF off")
             elif action == "on" and not args.no_update:
                 container.update(cpu_quota=-1)
+                print("VNF on")
             sock.send("OK".encode())
         except KeyboardInterrupt:
             docker_clt.close()
