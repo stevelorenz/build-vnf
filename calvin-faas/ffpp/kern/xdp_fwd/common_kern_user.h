@@ -7,6 +7,7 @@
 #define __COMMON_KERN_USER_H
 
 #include <linux/if_ether.h>
+#include <net/if.h>
 
 /**
  * @brief Data record stored in the map.
@@ -17,14 +18,18 @@ struct datarec {
 };
 
 // Naming ref: man ovs-fields.
-struct match_fileds {
-	__u8 eth_src[ETH_ALEN];
-	__u16 udp_src;
-};
+// ISSUE: The match filed CAN NOT be a struct.
+// struct match_fileds {
+// 	__u8 eth_src[ETH_ALEN];
+// 	__u16 udp_src;
+// };
 
-struct action_fields {
+struct fwd_params {
+	__u8 eth_src[ETH_ALEN];
 	__u8 eth_dst[ETH_ALEN];
 	__u8 eth_new_src[ETH_ALEN];
+	__u8 eth_new_dst[ETH_ALEN];
+	char redirect_ifname_buf[IF_NAMESIZE];
 };
 
 #ifndef XDP_ACTION_MAX

@@ -92,13 +92,13 @@ if __name__ == "__main__":
         help="Destination IP address for all packets in the stream.",
     )
     parser.add_argument(
-        "--total_pkts", type=int, default=int(1e7), help="Total packets to send."
+        "--total_pkts", type=int, default=int(50), help="Total packets to send."
     )
     parser.add_argument(
-        "--pps", type=int, default=int(1e4), help="Packet-Per-Second (PPS)."
+        "--pps", type=int, default=int(10), help="Packet-Per-Second (PPS)."
     )
     parser.add_argument(
-        "--monitor_dur", type=int, default=60, help="Monitor duration in seconds."
+        "--monitor_dur", type=int, default=5, help="Monitor duration in seconds."
     )
 
     args = parser.parse_args()

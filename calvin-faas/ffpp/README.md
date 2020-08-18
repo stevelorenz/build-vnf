@@ -89,7 +89,7 @@ actions:
     changes in the code base without any copy. This script also configures Docker parameters (e.g. privilege and
     volumes) to run DPDK and XDP programs. So you do not need to remember and configure them everytime.
 
-*   `sudo ./benchmark-two-direct.py setup` or `sudo ./benchmark-two-direct.py teardown`: Setup/teardown a minimal setup
+*   `sudo ./benchmark-local.py setup` or `sudo ./benchmark-local.py teardown`: Setup/teardown a minimal setup
     to benchmark the performance of a VNF (inside a container) with a pktgen container. Two containers are directly
     conntected using a veth pair.
 
@@ -141,7 +141,7 @@ topology using in this benchmark. Please check or modify the configuration if re
 1.  Setup the benchmark:
 
 ```bash
-sudo ./benchmark-two-direct.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 setup
+sudo ./benchmark-local.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 setup
 ```
 
 2.  Attach to pktgen and vnf container and start programs. This step needs multiple terminals, Tmux or Screen can be
@@ -181,7 +181,7 @@ Latency test is passed!
 3.  Tear down the setup with cleanups.
 
 ```bash
-sudo ./benchmark-two-direct.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 teardown
+sudo ./benchmark-local.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 teardown
 ```
 
 ## Run benchmarks on hardware testbed

@@ -8,12 +8,12 @@ About: FFPP library Docker container development environment utility.
 
 import argparse
 import os
+import shlex
+import subprocess
 import sys
 import time
 
 from pathlib import Path
-from shlex import split
-from subprocess import run, PIPE
 
 import docker
 
@@ -47,6 +47,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
         "/sys/kernel/mm/hugepages": {"bind": "/sys/kernel/mm/hugepages", "mode": "rw"},
         "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw"},
         "/dev": {"bind": "/dev", "mode": "rw"},
+        "/sys/fs/bpf/": {"bind": "/sys/fs/bpf", "mode": "rw"},
         "/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"},
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
@@ -95,7 +96,7 @@ def run_interactive():
     # Ref: https://github.com/xdp-project/xdp-tutorial/tree/master/basic04-pinning-maps
     c_vnf.exec_run("mount -t bpf bpf /sys/fs/bpf/")
     client.close()
-    run(split("docker attach {}".format(opts["name"])))
+    subprocess.run(shlex.split("docker attach {}".format(opts["name"])))
 
 
 parser = argparse.ArgumentParser(

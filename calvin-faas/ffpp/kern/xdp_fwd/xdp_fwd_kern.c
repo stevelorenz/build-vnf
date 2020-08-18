@@ -16,25 +16,18 @@
 #define memcpy(dest, src, n) __builtin_memcpy((dest), (src), (n))
 #endif
 
+struct bpf_map_def SEC("maps") fwd_params_map = {
+	.type = BPF_MAP_TYPE_PERCPU_HASH,
+	.key_size = ETH_ALEN,
+	.value_size = sizeof(struct fwd_params),
+	.max_entries = 64,
+};
+
 struct bpf_map_def SEC("maps") tx_port = {
 	.type = BPF_MAP_TYPE_DEVMAP,
 	.key_size = sizeof(int),
 	.value_size = sizeof(int),
 	.max_entries = 256,
-};
-
-struct bpf_map_def SEC("maps") redirect_params = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = ETH_ALEN,
-	.value_size = ETH_ALEN,
-	.max_entries = 1,
-};
-
-struct bpf_map_def SEC("maps") eth_new_src_params = {
-	.type = BPF_MAP_TYPE_HASH,
-	.key_size = ETH_ALEN,
-	.value_size = ETH_ALEN,
-	.max_entries = 1,
 };
 
 SEC("xdp_redirect_map")
@@ -45,30 +38,34 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	struct hdr_cursor nh;
 	int eth_type;
 	struct ethhdr *eth;
-	unsigned char *dst;
-	unsigned char *new_eth_h_source;
 	int action = XDP_PASS;
+
+	struct fwd_params *fwd_params;
+	int tx_port_key = 0;
 
 	nh.pos = data;
 	eth_type = parse_ethhdr(&nh, data_end, &eth);
-	if (eth_type == -1) {
+	if (eth_type < 0) {
+		return XDP_ABORTED;
+	}
+
+	action = XDP_PASS;
+
+	// MARK: The overhead of map lookup is not negligible.
+	fwd_params = bpf_map_lookup_elem(&fwd_params_map, eth->h_source);
+	if (!fwd_params) {
 		return action;
 	}
 
-	dst = bpf_map_lookup_elem(&redirect_params, eth->h_source);
-	if (!dst) {
-		return action;
-	}
+	// Store the original source and destination MAC
+	memcpy(fwd_params->eth_src, eth->h_source, ETH_ALEN);
+	memcpy(fwd_params->eth_dst, eth->h_dest, ETH_ALEN);
+	// Update source and destination MAC addresses.
+	memcpy(eth->h_source, fwd_params->eth_new_src, ETH_ALEN);
+	memcpy(eth->h_dest, fwd_params->eth_new_dst, ETH_ALEN);
 
-	// Set the proper source and destination MAC address.
-	memcpy(eth->h_dest, dst, ETH_ALEN);
-	new_eth_h_source =
-		bpf_map_lookup_elem(&eth_new_src_params, eth->h_source);
-	if (new_eth_h_source) {
-		memcpy(eth->h_source, new_eth_h_source, ETH_ALEN);
-	}
-
-	action = bpf_redirect_map(&tx_port, 0, 0);
+	tx_port_key = fwd_params->eth_src[ETH_ALEN - 1];
+	action = bpf_redirect_map(&tx_port, tx_port_key, 0);
 	return action;
 }
 

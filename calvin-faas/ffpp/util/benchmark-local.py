@@ -3,7 +3,10 @@
 # vim:fenc=utf-8
 
 """
-About: Minimal benchmark setups.
+About: Minimal local benchmark setups on a single machine using Docker containers.
+
+       Only used to prototype and test functionalities of programs, not designed
+       for latency performance.
 """
 
 import argparse
@@ -266,6 +269,10 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     print(
         "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."
     )
+
+
+def setup_two_cnfs_veth_xdp_fwd(pktgen_image):
+    pass
 
 
 def teardown_common():

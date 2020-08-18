@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Run DPDK L2 forwarding sample application INSIDE the virtual setup managed by ./benchmark-two-direct.py
+# Run DPDK L2 forwarding sample application INSIDE the virtual setup managed by ./benchmark-local.py
 #
 
 if [[ ! -d /opt/dpdk/examples/l2fwd ]]; then

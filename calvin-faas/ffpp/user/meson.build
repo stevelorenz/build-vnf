@@ -7,13 +7,21 @@ project('ffpp', 'c',
     'buildtype=release',
     'warning_level=3',
     'default_library=both',
+    # TODO: Enable it to avoid any warnings.
+    # 'werror=true',
   ],
 )
 
 add_project_arguments(
     [
+        '-Wformat-nonliteral',
+        '-Wformat-security',
+        '-Wnested-externs',
+        '-Wpointer-arith',
+        '-Wsign-compare',
         '-Wundef',
         '-Wvla',
+        '-Wwrite-strings',
 
         # ABI stability of DPDK is not considered here.
         # Because the test container always uses a specific DPDK version.
@@ -30,15 +38,12 @@ cc = meson.get_compiler('c')
 
 inc = include_directories('include')
 
-# Find math.h dependency
-math_dep = cc.find_library('m')
+math_dep = cc.find_library('m', required: true)
 
-# Find DPDK dependency using pkg-config (by default.)
-dpdk_dep = dependency('libdpdk')
-
-bpf_dep = dependency('libbpf')
-zmq_dep = dependency('libzmq')
-json_dep = dependency('jansson')
+bpf_dep = dependency('libbpf', required: true)
+dpdk_dep = dependency('libdpdk', required: true)
+json_dep = dependency('jansson', required: false)
+zmq_dep = dependency('libzmq', required: false)
 
 ffpp_deps = [
   bpf_dep,
