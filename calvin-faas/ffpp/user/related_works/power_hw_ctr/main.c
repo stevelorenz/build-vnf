@@ -427,6 +427,12 @@ int main(int argc, char *argv[])
 	argc -= ret;
 	argv += ret;
 
+	if (rte_eal_process_type() == RTE_PROC_PRIMARY) {
+		rte_eal_cleanup();
+		rte_exit(EXIT_FAILURE,
+			 "Dummpy VNF must run as secondary process.\n");
+	}
+
 	int opt = 0;
 	float branch_ratio = 0.01;
 	float branch_ratio_threshold = 0.1;
