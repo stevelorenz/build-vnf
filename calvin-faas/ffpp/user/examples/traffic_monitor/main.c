@@ -77,7 +77,7 @@ static void stats_print(struct stats_record *stats_rec,
 	calc_traffic_stats(m, rec, prev, &t_s, si);
 
 	// Collect stats in global buffers
-	if (t_s.packets > 0) {
+	if (t_s.delta_packets > 0) {
 		if (m->had_first_packet) {
 			// Collect stats
 			g_csv_ts[g_csv_num_val] = get_time_of_day();
@@ -86,7 +86,7 @@ static void stats_print(struct stats_record *stats_rec,
 			g_csv_num_val++;
 			g_csv_empty_cnt = 0;
 		}
-	} else if (t_s.packets == 0 && m->had_first_packet) {
+	} else if (t_s.delta_packets == 0 && m->had_first_packet) {
 		if (!g_csv_saved_stream) {
 			g_csv_ts[g_csv_num_val] = get_time_of_day();
 			g_csv_pps[g_csv_num_val] = t_s.pps;

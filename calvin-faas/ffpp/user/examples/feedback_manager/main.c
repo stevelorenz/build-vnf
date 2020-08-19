@@ -28,24 +28,25 @@
 #include <ffpp/scaling_defines_user.h>
 #include <ffpp/general_helpers_user.h>
 #include <ffpp/global_stats_user.h>
+#include <math.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
-// #define RELEASE 1
 #ifdef RELEASE
 #define printf(fmt, ...) (0)
 #endif
 
 static volatile bool force_quit;
 
-double g_csv_pps[TOTAL_VALS];
+double g_csv_in_pps[TOTAL_VALS];
+double g_csv_out_pps[TOTAL_VALS];
 double g_csv_ts[TOTAL_VALS];
-double g_csv_iat[TOTAL_VALS];
-double g_csv_cpu_util[TOTAL_VALS];
 unsigned int g_csv_freq[TOTAL_VALS];
+int g_csv_out_delta[TOTAL_VALS];
 unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
-int g_csv_empty_cnt_threshold = (3 * 1e6) / INTERVAL;//50; // Calc depending on interval
+int g_csv_empty_cnt_threshold =
+	(3 * 1e6) / INTERVAL; //50; // Calc depending on interval
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -114,12 +115,45 @@ static void check_lcore_power_caps(void)
 	}
 }
 
+static void collect_global_stats(struct traffic_stats *ts, struct freq_info *f,
+				 struct feedback_info *fb,
+				 struct measurement *m, struct scaling_info *si)
+{
+	if (m->had_first_packet) {
+		g_csv_ts[g_csv_num_val] = get_time_of_day();
+		// Ingress
+		g_csv_in_pps[g_csv_num_val] = ts[0].pps;
+		g_csv_freq[g_csv_num_val] = f->freq;
+		// Egress
+		g_csv_out_pps[g_csv_num_val] = ts[1].pps;
+		g_csv_out_delta[g_csv_num_val] = fb->delta_packets;
+		g_csv_num_val++;
+		if (ts[0].delta_packets > 0) {
+			g_csv_empty_cnt = 0;
+		} else {
+			if (!g_csv_saved_stream) {
+				g_csv_empty_cnt += 1;
+			}
+			if (g_csv_empty_cnt > g_csv_empty_cnt_threshold) {
+				write_csv_file_fb_in();
+				// write_csv_file_fb_out();
+				g_csv_saved_stream = true;
+				g_csv_empty_cnt = 0;
+				g_csv_num_val = 0;
+				g_csv_num_round++;
+				si->scaled_to_min = false;
+				m->had_first_packet = false;
+			}
+		}
+	}
+}
+
 static void stats_print(struct stats_record *stats_rec,
 			struct stats_record *stats_prev, struct measurement *m,
-			struct scaling_info *si)
+			struct scaling_info *si, struct traffic_stats *t_s)
 {
 	struct record *rec, *prev;
-	struct traffic_stats t_s = { 0 };
+	// struct traffic_stats t_s = { 0 };
 
 	char *fmt = // "%-12s"
 		"%d"
@@ -131,41 +165,20 @@ static void stats_print(struct stats_record *stats_rec,
 	rec = &stats_rec->stats;
 	prev = &stats_prev->stats;
 
-	calc_traffic_stats(m, rec, prev, &t_s, si);
-
-	// Collect stats in global buffers
-	if (t_s.delta_packets > 0) {
-		if (m->had_first_packet) {
-			// Collect stats
-			g_csv_ts[g_csv_num_val] = get_time_of_day();
-			g_csv_pps[g_csv_num_val] = t_s.pps;
-			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
-			g_csv_num_val++;
-			g_csv_empty_cnt = 0;
-		}
-	} else if (t_s.delta_packets == 0 && m->had_first_packet) {
-		if (!g_csv_saved_stream) {
-			g_csv_ts[g_csv_num_val] = get_time_of_day();
-			g_csv_pps[g_csv_num_val] = t_s.pps;
-			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
-			g_csv_num_val++;
-			g_csv_empty_cnt++;
-		}
-		if (g_csv_empty_cnt >= g_csv_empty_cnt_threshold) {
-			write_csv_file();
-			g_csv_saved_stream = true;
-			g_csv_empty_cnt = 0;
-			g_csv_num_val = 0;
-			g_csv_num_round++;
-			si->scaled_to_min = false;
-			m->had_first_packet = false;
-			// set_c1("on"); // Don't introduce dealy for the first stream
-		}
-	}
+	calc_traffic_stats(m, rec, prev, t_s, si);
 
 	printf(fmt, //action,
-	       m->cnt, rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
-	       t_s.period);
+	       m->cnt, rec->total.rx_packets, t_s->pps, m->inter_arrival_time,
+	       t_s->period);
+}
+
+static void print_feedback(int count, struct traffic_stats *ts)
+{
+	char *fmt = "%d"
+		    "%'11lld pkts (%'10.0f pps)"
+		    " \t\t\tperiod:%f\n";
+
+	printf(fmt, count, ts->total_packets, ts->pps, ts->period);
 }
 
 static void stats_collect(int map_fd, struct stats_record *stats_rec)
@@ -174,60 +187,60 @@ static void stats_collect(int map_fd, struct stats_record *stats_rec)
 	map_collect(map_fd, key, &stats_rec->stats);
 }
 
-static void stats_poll(int map_fd, struct freq_info *freq_info)
+static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 {
-	struct stats_record prev, record = { 0 };
+	/// @2 -> ingress and egress map
+	int i;
+	struct stats_record prev[2], record[2] = { 0 };
 	struct measurement m = { 0 };
+	struct feedback_info fb = { 0 };
+	struct traffic_stats ts[2] = { 0 };
 	struct scaling_info si = { 0 };
 	struct last_stream_settings lss = { 0 };
 
 	m.lcore = rte_lcore_id();
 	m.min_cnts = NUM_READINGS_SMA;
 	m.had_first_packet = false;
-	si.up_trend = false; /// Do we have to set them to false explicitly?
-	si.down_trend = false;
-	si.scale_to_min = false;
-	si.need_scale = false;
-	si.scaled_to_min = false;
-	si.restore_settings = false;
 
 	setlocale(LC_NUMERIC, "en_US");
-	stats_collect(map_fd, &record);
+	for (i = 0; i < 2; i++) {
+		stats_collect(stats_map_fd[i], &record[i]);
+	}
+	fb.packet_offset = record[0].stats.total.rx_packets -
+			   record[1].stats.total.rx_packets;
+	printf("Initial packet offset %d\n", fb.packet_offset);
 	usleep(1000000 / 4);
 
 	while (!force_quit) {
-		prev = record;
-		stats_collect(map_fd, &record);
-		stats_print(&record, &prev, &m, &si);
-		if (m.had_first_packet) {
-			g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
+		/// Do the full thing only for the ingress
+		/// Egress is just total packets (and pps)
+		for (i = 0; i < 2; i++) {
+			/// Put a small break between the reading of the two
+			/// interfaces -> reduce difference
+			// if (i == 0) {
+				// usleep(floor(10000)); // Avg. vnf latency
+			// }
+			prev[i] = record[i];
+			stats_collect(stats_map_fd[i], &record[i]);
 		}
+		stats_print(&record[0], &prev[0], &m, &si, &ts[0]);
+		// get_feedback_stats(&ts[1], &record[1].stats, &prev[1].stats);
+		get_feedback_stats(ts, &fb, &record[1].stats, &prev[1].stats);
+		print_feedback(m.cnt, &ts[1]);
+		si.empty_cnt = m.empty_cnt;
+
+		collect_global_stats(ts, freq_info, &fb, &m, &si);
+
 		if (si.restore_settings) {
 			restore_last_stream_settings(&lss, freq_info, &si);
-			m.valid_vals = 0;
-			// get_cpu_utilization(&m, freq_info);
-			// g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
+			// m.valid_vals = 0;
 		}
-		// if (m.cnt > 0 && m.had_first_packet) {
-		// The first meas
+		/// Go here directly after ISG? -> We do :)
 		if (m.valid_vals > 0) {
-			get_cpu_utilization(&m, freq_info);
-			g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
-			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
-			// }
-			// if (m.valid_vals > 1) {
-			calc_sma(&m);
-			calc_wma(&m);
-			check_traffic_trends(&m, &si);
-			check_frequency_scaling(&m, freq_info, &si);
-			/// Move scaling to beginning => nicer plots ;)
-			/// Rename scale_to_min with set_c1 etc.
+			check_feedback(ts, &fb, &si);
 			if (si.scale_to_min) {
 				// Store settings of last stream
 				lss.last_pstate = freq_info->pstate;
-				lss.last_sma = m.sma_cpu_util;
-				lss.last_sma_std_err = m.sma_std_err;
-				lss.last_wma = m.wma_cpu_util;
 				/// Scale down before sleep? -> c1e
 				/// else just c1
 				if (freq_info->pstate !=
@@ -243,23 +256,28 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 				// Reset flags
 				si.scale_to_min = false;
 				si.scaled_to_min = true;
-				si.up_trend = false;
-				si.down_trend = false;
 				si.need_scale = false;
 				m.valid_vals = 0;
+				fb.freq_down = false;
+				fb.freq_up = false;
+				si.scale_down_cnt = 0;
+				si.scale_up_cnt = 0;
 				//m.had_first_packet = false;
+			} else if (fb.freq_down) {
+				si.next_pstate = freq_info->pstate + 1;
+				set_pstate(freq_info, &si);
+				fb.freq_down = false;
+				si.scale_down_cnt = 0;
+			} else if (fb.freq_up) {
+				si.next_pstate = floor(freq_info->pstate / 2);
+				set_pstate(freq_info, &si);
+				fb.freq_up = false;
+				si.scale_up_cnt = 0;
 			}
-			/// Check for empty_cnt and wait with scaling if !=0?
-			if (si.need_scale) {
-				calc_pstate(&m, freq_info, &si);
-				/// Check timestamp or so if we're allowed to scale
-				if (si.next_pstate != freq_info->pstate) {
-					set_pstate(freq_info, &si);
-					m.valid_vals = 0;
-				} else {
-					si.need_scale = false;
-				}
-			}
+			fb.packet_offset =
+				ts[0].total_packets - ts[1].total_packets;
+			printf("Packet offset %d\n", fb.packet_offset);
+			printf("CPU frequency %d kHz\n", freq_info->freq);
 		}
 		printf("\n");
 		usleep(INTERVAL);
@@ -268,11 +286,16 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 
 int main(int argc, char *argv[])
 {
+	if (argc < 2) {
+		fprintf(stderr,
+			"Please supply ingress and egress interface, resepectively");
+		return -1;
+	}
 	force_quit = false;
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
-	struct bpf_map_info xdp_stats_map_info = { 0 };
+	struct bpf_map_info xdp_stats_map_info[2] = { 0 };
 	const struct bpf_map_info xdp_stats_map_expect = {
 		.key_size = sizeof(__u32),
 		.value_size = sizeof(struct datarec),
@@ -280,33 +303,37 @@ int main(int argc, char *argv[])
 	};
 
 	char pin_dir[PATH_MAX] = "";
-	int xdp_stats_map_fd = 0;
-
-	// MARK: Currently hard-coded to avoid conflicts with DPDK's CLI parser.
-	// const char *ifname = "eno2";
-	const char *ifname = argv[1];
-
-	int len = 0;
-	len = snprintf(pin_dir, PATH_MAX, "%s/%s", pin_basedir, ifname);
-	if (len < 0) {
-		fprintf(stderr, "ERR: creating pin dirname\n");
+	int xdp_stats_map_fd[2] = { 0 };
+	int i;
+	int len;
+	int err;
+	const char *ifname = NULL;
+	for (i = 0; i < 2; i++) {
+		memset(&pin_dir[0], 0, sizeof(pin_dir));
+		ifname = argv[i + 1];
+		printf("Interface %d: %s\n", i, ifname);
+		len = snprintf(pin_dir, PATH_MAX, "%s/%s", pin_basedir, ifname);
+		if (len < 0) {
+			fprintf(stderr, "ERR: creating pin dirname %d.\n", i);
+		}
+		xdp_stats_map_fd[i] = open_bpf_map_file(
+			pin_dir, "xdp_stats_map", &xdp_stats_map_info[i]);
+		if (xdp_stats_map_fd[i] < 0) {
+			fprintf(stderr,
+				"ERR: Can not open the XDP stats map file %d.\n",
+				i);
+			return EXIT_FAIL_BPF;
+		}
+		err = check_map_fd_info(&xdp_stats_map_info[i],
+					&xdp_stats_map_expect);
+		if (err) {
+			fprintf(stderr,
+				"ERR: XDP stats map %d via FD not compatible.\n",
+				i);
+		}
+		printf("Successfully opened the map file of xdp stats map from %s.\n",
+		       ifname);
 	}
-
-	// Open xdp_stats_map from @ifname interface
-	int err = 0;
-	xdp_stats_map_fd = open_bpf_map_file(pin_dir, "xdp_stats_map",
-					     &xdp_stats_map_info);
-	if (xdp_stats_map_fd < 0) {
-		fprintf(stderr, "ERR: Can not open the XDP stats map file.\n");
-		return EXIT_FAIL_BPF;
-	}
-
-	err = check_map_fd_info(&xdp_stats_map_info, &xdp_stats_map_expect);
-	if (err) {
-		fprintf(stderr, "ERR: XDP stats map via FD not compatible.\n");
-		return err;
-	}
-	printf("Successfully open the map file of xdp stats!\n");
 
 	if (init_power_library()) {
 		rte_exit(EXIT_FAILURE, "Failed to init the power library.\n");
@@ -321,6 +348,7 @@ int main(int argc, char *argv[])
 		if (ret == 1) {
 			printf("Turbo boost is enabled on lcore %d.\n",
 			       lcore_id);
+			disable_turbo_boost(); // Does it for all cores at once
 		} else if (ret == 0) {
 			printf("Turbo boost is disabled on lcore %d.\n",
 			       lcore_id);
@@ -334,27 +362,6 @@ int main(int argc, char *argv[])
 	// Get some frequency infos about the core
 	struct freq_info freq_info = { 0 };
 	get_frequency_info(CORE_OFFSET, &freq_info, true);
-
-	// Test if scaling works
-	// int i = 0;
-	// uint32_t freq_index = 0;
-	// printf("Try to scale down the frequency of current lcore.\n");
-	// for (i = 0; i < 6; ++i) {
-	// for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
-	//  lcore_id += CORE_MASK) {
-	// // ret = rte_power_freq_up(rte_lcore_id());
-	// ret = rte_power_freq_down(lcore_id);
-	// if (ret < 0) {
-	// RTE_LOG(ERR, POWER,
-	// "Failed to scale down the CPU frequency.");
-	// }
-	// }
-	// sleep(6);
-	// freq_index = rte_power_get_freq(CORE_OFFSET);
-	// printf("Current frequency index: %u.\n", freq_index);
-	// printf("Current frequency: %d kHz\n",
-	//    freq_info.freqs[freq_index]);
-	// }
 
 	printf("Scale frequency down to minimum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
@@ -380,41 +387,3 @@ int main(int argc, char *argv[])
 	printf("\nBye..\n");
 	return 0;
 }
-
-// --- Load of BPF tx_port map and ini of EAL ---
-// - Currently not needed
-// struct bpf_map_info tx_port_map_info = { 0 };
-// const struct bpf_map_info tx_port_map_expect = {
-// .key_size = sizeof(int),
-// .value_size = sizeof(int),
-// .max_entries = 256,
-// };
-// int tx_port_map_fd = 0;
-
-// tx_port_map_fd =
-// open_bpf_map_file(pin_dir, "tx_port", &tx_port_map_info);
-// if (tx_port_map_fd < 0) {
-// fprintf(stderr, "ERR: Can not open the tx-port map file.\n");
-// return EXIT_FAIL_BPF;
-// }
-
-// int err = 0;
-// err = check_map_fd_info(&tx_port_map_info, &tx_port_map_expect);
-// if (err) {
-// fprintf(stderr, "ERR: tx-port map via FD not compatible\n");
-// return err;
-// }
-// printf("Successfully open the map file of tx_port!\n");
-
-// // Test if rte_power works.
-// int ret = 0;
-// ret = rte_eal_init(argc, argv);
-// if (ret < 0) {
-// rte_exit(EXIT_FAILURE, "Invalid EAL arguements\n");
-// }
-// argc -= ret;
-// argv += ret;
-
-// rte_timer_subsystem_init();
-
-// rte_eal_cleanup();

@@ -49,6 +49,12 @@ double get_cpu_frequency(int lcore);
 void set_turbo();
 
 /**
+ * Disables Turbo Boost 
+ * 
+ */
+void disable_turbo_boost();
+
+/**
  * Send or wake up VNF to/from c1
  */
 void set_c1();
@@ -66,17 +72,6 @@ void calc_sma(struct measurement *m);
  * @param m: struct of the current measurement status and values
  */
 void calc_wma(struct measurement *m);
-
-/**
- * Calculates the time between two map readings
- *
- * @param r: struct of the current reading
- * @param p: struct of the previous reading
- *
- * @return
- *  - user space time between current and previous reading
- */
-double calc_period(struct record *r, struct record *p);
 
 /**
  * Sends CPU to the given p-state
@@ -119,6 +114,15 @@ void check_frequency_scaling(struct measurement *m, struct freq_info *f,
 			     struct scaling_info *si);
 
 /**
+ * Compares the pnumber of packets at the ingress and egress interface
+ * 
+ * @param t_s: struct of traffic stats (pkt counf and pps)
+ * @param fb: struct with information regarding the feedback mechanism
+ */
+void check_feedback(struct traffic_stats *ts, struct feedback_info *fb,
+		    struct scaling_info *si);
+
+/**
  * Brings the frequency back-up to the one of the previous stream after
  * an ISG was detected
  * 
@@ -140,6 +144,27 @@ void restore_last_stream_settings(struct last_stream_settings *lss,
 void calc_traffic_stats(struct measurement *m, struct record *r,
 			struct record *p, struct traffic_stats *t_s,
 			struct scaling_info *si);
+
+/**
+ * Get stats of the egress interface
+ * 
+ * @param ts 
+ * @param r 
+ * @param p 
+ */
+void get_feedback_stats(struct traffic_stats *ts, struct feedback_info *fb,
+			struct record *r, struct record *p);
+
+/**
+ * Calculates the time between two map readings
+ *
+ * @param r: struct of the current reading
+ * @param p: struct of the previous reading
+ *
+ * @return
+ *  - user space time between current and previous reading
+ */
+double calc_period(struct record *r, struct record *p);
 
 /**
  * Calculates the CPU utilization according to the recent traffic

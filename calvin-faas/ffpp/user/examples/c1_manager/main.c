@@ -30,7 +30,6 @@
 #include <ffpp/global_stats_user.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
-// #define RELEASE 1
 #ifdef RELEASE
 #define printf(fmt, ...) (0)
 #endif
@@ -45,7 +44,8 @@ unsigned int g_csv_freq[TOTAL_VALS];
 unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
-int g_csv_empty_cnt_threshold = (3 * 1e6) / INTERVAL;//50; // Calc depending on interval
+int g_csv_empty_cnt_threshold =
+	(3 * 1e6) / INTERVAL; //50; // Calc depending on interval
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -159,7 +159,7 @@ static void stats_print(struct stats_record *stats_rec,
 			g_csv_num_round++;
 			si->scaled_to_min = false;
 			m->had_first_packet = false;
-			// set_c1("on"); // Don't introduce dealy for the first stream
+			set_c1("on"); // Don't introduce dealy for the first stream
 		}
 	}
 
@@ -203,10 +203,16 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 			g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
 		}
 		if (si.restore_settings) {
-			restore_last_stream_settings(&lss, freq_info, &si);
+			set_c1("on");
+			freq_info->pstate = rte_power_get_freq(CORE_OFFSET);
+			freq_info->freq = freq_info->freqs[freq_info->pstate];
+			printf("Frequency %d and p-state %d after wake up\n",
+			       freq_info->freq, freq_info->pstate);
+
+			// restore_last_stream_settings(&lss, freq_info, &si);
+			si.next_pstate = lss.last_pstate; // from function
+			si.restore_settings = false; // from function
 			m.valid_vals = 0;
-			// get_cpu_utilization(&m, freq_info);
-			// g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
 		}
 		// if (m.cnt > 0 && m.had_first_packet) {
 		// The first meas
@@ -230,16 +236,16 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 				lss.last_wma = m.wma_cpu_util;
 				/// Scale down before sleep? -> c1e
 				/// else just c1
-				if (freq_info->pstate !=
-				    (freq_info->num_freqs - 1)) {
-					printf("Scale due to empty polls\n");
-					si.next_pstate =
-						freq_info->num_freqs - 1,
-					set_pstate(freq_info, &si);
-				} else {
-					printf("Already at min\n");
-				}
-				// set_c1("off");
+				// if (freq_info->pstate !=
+				// (freq_info->num_freqs - 1)) {
+				// printf("Scale due to empty polls\n");
+				// si.next_pstate =
+				// freq_info->num_freqs - 1,
+				// set_pstate(freq_info, &si);
+				// } else {
+				// printf("Already at min\n");
+				// }
+				set_c1("off");
 				// Reset flags
 				si.scale_to_min = false;
 				si.scaled_to_min = true;

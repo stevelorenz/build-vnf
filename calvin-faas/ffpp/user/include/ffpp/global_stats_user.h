@@ -15,6 +15,11 @@ extern double g_csv_ts[TOTAL_VALS];
 extern double g_csv_iat[TOTAL_VALS];
 extern double g_csv_cpu_util[TOTAL_VALS];
 extern unsigned int g_csv_freq[TOTAL_VALS];
+// Feedback
+extern double g_csv_in_pps[TOTAL_VALS];
+extern double g_csv_out_pps[TOTAL_VALS];
+extern int g_csv_out_delta[TOTAL_VALS];
+// Flags and counters
 extern unsigned int g_csv_num_val;
 extern int g_csv_num_round;
 extern int g_csv_empty_cnt;
