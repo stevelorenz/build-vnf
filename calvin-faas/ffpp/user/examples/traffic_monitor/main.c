@@ -28,7 +28,6 @@
 #include <ffpp/global_stats_user.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
-#define RELEASE 1
 #ifdef RELEASE
 #define printf(fmt, ...) (0)
 #endif
@@ -64,11 +63,10 @@ static void stats_print(struct stats_record *stats_rec,
 	struct record *rec, *prev;
 	struct traffic_stats t_s = { 0 };
 
-	char *fmt = // "%-12s"
-		"%d"
-		"%'11lld pkts (%'10.0f pps)"
-		" \t%'10.8f s"
-		" \tperiod:%f\n";
+	const char *fmt = "%d"
+			  "%'11lld pkts (%'10.0f pps)"
+			  " \t%'10.8f s"
+			  " \tperiod:%f\n";
 	// const char *action = action2str(2); // @2: xdp_pass
 
 	rec = &stats_rec->stats;
@@ -121,7 +119,7 @@ static void stats_poll(int map_fd)
 	struct stats_record prev, record = { 0 };
 	struct measurement m = { 0 };
 	struct scaling_info si = { 0 };
-	struct last_stream_settings lss = { 0 };
+	// struct last_stream_settings lss = { 0 };
 
 	m.had_first_packet = false;
 	m.min_cnts = NUM_READINGS_SMA;
@@ -141,6 +139,10 @@ static void stats_poll(int map_fd)
 
 int main(int argc, char *argv[])
 {
+	if (argc < 1) {
+		fprintf(stderr, "Please supply ingress interface name");
+		return -1;
+	}
 	force_quit = false;
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);

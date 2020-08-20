@@ -45,7 +45,7 @@ unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
 int g_csv_empty_cnt_threshold =
-	(3 * 1e6) / INTERVAL; //50; // Calc depending on interval
+	(3 * 1e6) / IDLE_INTERVAL; //50; // Calc depending on interval
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -114,45 +114,26 @@ static void check_lcore_power_caps(void)
 	}
 }
 
-static void stats_print(struct stats_record *stats_rec,
-			struct stats_record *stats_prev, struct measurement *m,
-			struct scaling_info *si)
+static void collect_global_stats(struct freq_info *f, struct measurement *m,
+				 struct scaling_info *si)
 {
-	struct record *rec, *prev;
-	struct traffic_stats t_s = { 0 };
-
-	char *fmt = // "%-12s"
-		"%d"
-		"%'11lld pkts (%'10.0f pps)"
-		" \t%'10.8f s"
-		" \tperiod:%f\n";
-	// const char *action = action2str(2); // @2: xdp_pass
-
-	rec = &stats_rec->stats;
-	prev = &stats_prev->stats;
-
-	calc_traffic_stats(m, rec, prev, &t_s, si);
-
-	// Collect stats in global buffers
-	if (t_s.delta_packets > 0) {
-		if (m->had_first_packet) {
-			// Collect stats
-			g_csv_ts[g_csv_num_val] = get_time_of_day();
-			g_csv_pps[g_csv_num_val] = t_s.pps;
-			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
-			g_csv_num_val++;
-			g_csv_empty_cnt = 0;
-		}
-	} else if (t_s.delta_packets == 0 && m->had_first_packet) {
+	// if (m->had_first_packet) {
+	g_csv_ts[g_csv_num_val] = get_time_of_day();
+	g_csv_pps[g_csv_num_val] = (1 / m->inter_arrival_time); //ts->pps;
+	g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
+	g_csv_freq[g_csv_num_val] = f->freq;
+	g_csv_num_val++;
+	if (m->empty_cnt == 0) { //(ts[0].delta_packets > 0) {
+		g_csv_empty_cnt = 0;
+	} else {
 		if (!g_csv_saved_stream) {
-			g_csv_ts[g_csv_num_val] = get_time_of_day();
-			g_csv_pps[g_csv_num_val] = t_s.pps;
-			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
-			g_csv_num_val++;
-			g_csv_empty_cnt++;
+			g_csv_pps[g_csv_num_val - 1] = 0.0;
+			g_csv_cpu_util[g_csv_num_val - 1] = 0.0;
+			g_csv_empty_cnt += 1;
 		}
-		if (g_csv_empty_cnt >= g_csv_empty_cnt_threshold) {
+		if (g_csv_empty_cnt > g_csv_empty_cnt_threshold) {
 			write_csv_file();
+			// write_csv_file_fb_out();
 			g_csv_saved_stream = true;
 			g_csv_empty_cnt = 0;
 			g_csv_num_val = 0;
@@ -162,6 +143,26 @@ static void stats_print(struct stats_record *stats_rec,
 			set_c1("on"); // Don't introduce dealy for the first stream
 		}
 	}
+	// }
+}
+
+static void stats_print(struct stats_record *stats_rec,
+			struct stats_record *stats_prev, struct measurement *m,
+			struct scaling_info *si)
+{
+	struct record *rec, *prev;
+	struct traffic_stats t_s = { 0 };
+
+	const char *fmt = "%d"
+			  "%'11lld pkts (%'10.0f pps)"
+			  " \t%'10.8f s"
+			  " \tperiod:%f\n";
+	// const char *action = action2str(2); // @2: xdp_pass
+
+	rec = &stats_rec->stats;
+	prev = &stats_prev->stats;
+
+	calc_traffic_stats(m, rec, prev, &t_s, si);
 
 	printf(fmt, //action,
 	       m->cnt, rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
@@ -199,9 +200,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 		prev = record;
 		stats_collect(map_fd, &record);
 		stats_print(&record, &prev, &m, &si);
-		if (m.had_first_packet) {
-			g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
-		}
 		if (si.restore_settings) {
 			set_c1("on");
 			freq_info->pstate = rte_power_get_freq(CORE_OFFSET);
@@ -212,7 +210,11 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 			// restore_last_stream_settings(&lss, freq_info, &si);
 			si.next_pstate = lss.last_pstate; // from function
 			si.restore_settings = false; // from function
-			m.valid_vals = 0;
+			m.valid_vals = -1;
+		}
+		if (m.had_first_packet) {
+			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
+			collect_global_stats(freq_info, &m, &si);
 		}
 		// if (m.cnt > 0 && m.had_first_packet) {
 		// The first meas
@@ -236,15 +238,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 				lss.last_wma = m.wma_cpu_util;
 				/// Scale down before sleep? -> c1e
 				/// else just c1
-				// if (freq_info->pstate !=
-				// (freq_info->num_freqs - 1)) {
-				// printf("Scale due to empty polls\n");
-				// si.next_pstate =
-				// freq_info->num_freqs - 1,
-				// set_pstate(freq_info, &si);
-				// } else {
-				// printf("Already at min\n");
-				// }
 				set_c1("off");
 				// Reset flags
 				si.scale_to_min = false;
@@ -266,14 +259,20 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 					si.need_scale = false;
 				}
 			}
+			usleep(INTERVAL);
+		} else {
+			usleep(IDLE_INTERVAL);
 		}
 		printf("\n");
-		usleep(INTERVAL);
 	}
 }
 
 int main(int argc, char *argv[])
 {
+	if (argc < 1) {
+		fprintf(stderr, "Please supply ingress interface name");
+		return -1;
+	}
 	force_quit = false;
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
@@ -340,27 +339,6 @@ int main(int argc, char *argv[])
 	// Get some frequency infos about the core
 	struct freq_info freq_info = { 0 };
 	get_frequency_info(CORE_OFFSET, &freq_info, true);
-
-	// Test if scaling works
-	// int i = 0;
-	// uint32_t freq_index = 0;
-	// printf("Try to scale down the frequency of current lcore.\n");
-	// for (i = 0; i < 6; ++i) {
-	// for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
-	//  lcore_id += CORE_MASK) {
-	// // ret = rte_power_freq_up(rte_lcore_id());
-	// ret = rte_power_freq_down(lcore_id);
-	// if (ret < 0) {
-	// RTE_LOG(ERR, POWER,
-	// "Failed to scale down the CPU frequency.");
-	// }
-	// }
-	// sleep(6);
-	// freq_index = rte_power_get_freq(CORE_OFFSET);
-	// printf("Current frequency index: %u.\n", freq_index);
-	// printf("Current frequency: %d kHz\n",
-	//    freq_info.freqs[freq_index]);
-	// }
 
 	printf("Scale frequency down to minimum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;

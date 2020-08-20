@@ -119,8 +119,7 @@ void check_frequency_scaling(struct measurement *m, struct freq_info *f,
  * @param t_s: struct of traffic stats (pkt counf and pps)
  * @param fb: struct with information regarding the feedback mechanism
  */
-void check_feedback(struct traffic_stats *ts, struct feedback_info *fb,
-		    struct scaling_info *si);
+void check_feedback(struct feedback_info *fb, struct scaling_info *si);
 
 /**
  * Brings the frequency back-up to the one of the previous stream after

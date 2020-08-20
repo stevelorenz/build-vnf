@@ -247,13 +247,8 @@ void check_frequency_scaling(struct measurement *m,
 	}
 }
 
-void check_feedback(struct traffic_stats *ts, struct feedback_info *fb,
-		    struct scaling_info *si)
+void check_feedback(struct feedback_info *fb, struct scaling_info *si)
 {
-	// // @0 -> ingress packets, @1 -> egress packets
-	// fb->delta_packets =
-	// ts[0].total_packets - ts[1].total_packets - fb->packet_offset;
-
 	printf("delta packets: %d\n", fb->delta_packets);
 	if (si->empty_cnt > MAX_EMPTY_CNT) {
 		si->scale_to_min = true;
@@ -273,10 +268,11 @@ void check_feedback(struct traffic_stats *ts, struct feedback_info *fb,
 		if (si->scale_up_cnt >= COUNTER_THRESH) {
 			fb->freq_up = true;
 		}
-	} else {
-		si->scale_down_cnt = 0;
-		si->scale_up_cnt = 0;
 	}
+	// else {
+	// si->scale_down_cnt = 0;
+	// si->scale_up_cnt = 0;
+	// }
 }
 
 void get_cpu_utilization(struct measurement *m, struct freq_info *f)
@@ -423,11 +419,6 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 void get_feedback_stats(struct traffic_stats *ts, struct feedback_info *fb,
 			struct record *r, struct record *p)
 {
-	// ts->period = calc_period(r, p);
-	// ts->total_packets = r->total.rx_packets;
-	// ts->delta_packets = r->total.rx_packets - p->total.rx_packets;
-	// ts->pps = ts->delta_packets / ts->period;
-
 	ts[1].period = calc_period(r, p);
 	ts[1].total_packets = r->total.rx_packets;
 	ts[1].delta_packets = r->total.rx_packets - p->total.rx_packets;

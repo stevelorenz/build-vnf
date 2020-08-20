@@ -46,7 +46,7 @@ unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
 int g_csv_empty_cnt_threshold =
-	(3 * 1e6) / INTERVAL; //50; // Calc depending on interval
+	(3 * 1e6) / IDLE_INTERVAL; //50; // Calc depending on interval
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -153,30 +153,26 @@ static void stats_print(struct stats_record *stats_rec,
 			struct scaling_info *si, struct traffic_stats *t_s)
 {
 	struct record *rec, *prev;
-	// struct traffic_stats t_s = { 0 };
 
-	char *fmt = // "%-12s"
-		"%d"
-		"%'11lld pkts (%'10.0f pps)"
-		" \t%'10.8f s"
-		" \tperiod:%f\n";
-	// const char *action = action2str(2); // @2: xdp_pass
+	const char *fmt = "%d"
+			  "%'11lld pkts (%'10.0f pps)"
+			  " \t%'10.8f s"
+			  " \tperiod:%f\n";
 
 	rec = &stats_rec->stats;
 	prev = &stats_prev->stats;
 
 	calc_traffic_stats(m, rec, prev, t_s, si);
 
-	printf(fmt, //action,
-	       m->cnt, rec->total.rx_packets, t_s->pps, m->inter_arrival_time,
-	       t_s->period);
+	printf(fmt, m->cnt, rec->total.rx_packets, t_s->pps,
+	       m->inter_arrival_time, t_s->period);
 }
 
 static void print_feedback(int count, struct traffic_stats *ts)
 {
-	char *fmt = "%d"
-		    "%'11lld pkts (%'10.0f pps)"
-		    " \t\t\tperiod:%f\n";
+	const char *fmt = "%d"
+			  "%'11lld pkts (%'10.0f pps)"
+			  " \t\t\tperiod:%f\n";
 
 	printf(fmt, count, ts->total_packets, ts->pps, ts->period);
 }
@@ -218,13 +214,12 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 			/// Put a small break between the reading of the two
 			/// interfaces -> reduce difference
 			// if (i == 0) {
-				// usleep(floor(10000)); // Avg. vnf latency
+			// usleep(floor(10000)); // Avg. vnf latency
 			// }
 			prev[i] = record[i];
 			stats_collect(stats_map_fd[i], &record[i]);
 		}
 		stats_print(&record[0], &prev[0], &m, &si, &ts[0]);
-		// get_feedback_stats(&ts[1], &record[1].stats, &prev[1].stats);
 		get_feedback_stats(ts, &fb, &record[1].stats, &prev[1].stats);
 		print_feedback(m.cnt, &ts[1]);
 		si.empty_cnt = m.empty_cnt;
@@ -237,12 +232,10 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 		}
 		/// Go here directly after ISG? -> We do :)
 		if (m.valid_vals > 0) {
-			check_feedback(ts, &fb, &si);
+			check_feedback(&fb, &si);
 			if (si.scale_to_min) {
 				// Store settings of last stream
-				lss.last_pstate = freq_info->pstate;
-				/// Scale down before sleep? -> c1e
-				/// else just c1
+				lss.last_pstate = 1; //freq_info->pstate;
 				if (freq_info->pstate !=
 				    (freq_info->num_freqs - 1)) {
 					printf("Scale due to empty polls\n");
@@ -252,7 +245,6 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 				} else {
 					printf("Already at min\n");
 				}
-				// set_c1("off");
 				// Reset flags
 				si.scale_to_min = false;
 				si.scaled_to_min = true;
@@ -278,9 +270,11 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 				ts[0].total_packets - ts[1].total_packets;
 			printf("Packet offset %d\n", fb.packet_offset);
 			printf("CPU frequency %d kHz\n", freq_info->freq);
+			usleep(INTERVAL);
+		} else {
+			usleep(IDLE_INTERVAL);
 		}
 		printf("\n");
-		usleep(INTERVAL);
 	}
 }
 
@@ -288,7 +282,7 @@ int main(int argc, char *argv[])
 {
 	if (argc < 2) {
 		fprintf(stderr,
-			"Please supply ingress and egress interface, resepectively");
+			"Please supply ingress and egress interface names, resepectively");
 		return -1;
 	}
 	force_quit = false;

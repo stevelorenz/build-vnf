@@ -52,21 +52,21 @@ static void check_lcore_power_caps(void)
 	}
 }
 
-static void freq_min(void)
-{
-	int ret;
-	int lcore_id;
-	printf("Scale frequency down to minimum.\n");
-	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
-	     lcore_id += CORE_MASK) {
-		ret = rte_power_freq_min(lcore_id);
-		if (ret < 0) {
-			RTE_LOG(ERR, POWER,
-				"Could not scale lcore %d frequency to minimum",
-				lcore_id);
-		}
-	}
-}
+// static void freq_min(void)
+// {
+	// int ret;
+	// int lcore_id;
+	// printf("Scale frequency down to minimum.\n");
+	// for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+	    //  lcore_id += CORE_MASK) {
+		// ret = rte_power_freq_min(lcore_id);
+		// if (ret < 0) {
+			// RTE_LOG(ERR, POWER,
+				// "Could not scale lcore %d frequency to minimum",
+				// lcore_id);
+		// }
+	// }
+// }
 
 static void set_freq(int pstate)
 {
@@ -136,7 +136,7 @@ static void freq_switch(unsigned int us, int num_pstates, bool turbo)
 	}
 }
 
-static void freq_tictoc(unsigned int us, unsigned int duration, int num_pstates)
+static void freq_tictoc(unsigned int us, unsigned int duration)
 {
 	int ret;
 	int lcore_id;
@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
 	printf("Start turbostat now!!!!\n");
 	rte_delay_us_block(1500000);
 	if (tictoc_test) {
-		freq_tictoc(us, duration, num_pstates);
+		freq_tictoc(us, duration);
 	} else {
 		freq_switch(us, num_pstates, turbo);
 	}

@@ -45,7 +45,8 @@ unsigned int g_csv_freq[TOTAL_VALS];
 unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
-int g_csv_empty_cnt_threshold = (3 * 1e6) / INTERVAL;//50; // Calc depending on interval
+int g_csv_empty_cnt_threshold =
+	(3 * 1e6) / IDLE_INTERVAL; //50; // Calc depending on interval
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -114,6 +115,37 @@ static void check_lcore_power_caps(void)
 	}
 }
 
+static void collect_global_stats(struct freq_info *f, struct measurement *m,
+				 struct scaling_info *si)
+{
+	// if (m->had_first_packet) {
+	g_csv_ts[g_csv_num_val] = get_time_of_day();
+	g_csv_pps[g_csv_num_val] = (1 / m->inter_arrival_time); //ts->pps;
+	g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
+	g_csv_freq[g_csv_num_val] = f->freq;
+	g_csv_num_val++;
+	if (m->empty_cnt == 0) { //(ts[0].delta_packets > 0) {
+		g_csv_empty_cnt = 0;
+	} else {
+		if (!g_csv_saved_stream) {
+			g_csv_pps[g_csv_num_val - 1] = 0.0;
+			g_csv_cpu_util[g_csv_num_val - 1] = 0.0;
+			g_csv_empty_cnt += 1;
+		}
+		if (g_csv_empty_cnt > g_csv_empty_cnt_threshold) {
+			write_csv_file();
+			// write_csv_file_fb_out();
+			g_csv_saved_stream = true;
+			g_csv_empty_cnt = 0;
+			g_csv_num_val = 0;
+			g_csv_num_round++;
+			si->scaled_to_min = false;
+			m->had_first_packet = false;
+		}
+	}
+	// }
+}
+
 static void stats_print(struct stats_record *stats_rec,
 			struct stats_record *stats_prev, struct measurement *m,
 			struct scaling_info *si)
@@ -121,47 +153,16 @@ static void stats_print(struct stats_record *stats_rec,
 	struct record *rec, *prev;
 	struct traffic_stats t_s = { 0 };
 
-	char *fmt = // "%-12s"
-		"%d"
-		"%'11lld pkts (%'10.0f pps)"
-		" \t%'10.8f s"
-		" \tperiod:%f\n";
+	const char *fmt = "%d"
+			  "%'11lld pkts (%'10.0f pps)"
+			  " \t%'10.8f s"
+			  " \tperiod:%f\n";
 	// const char *action = action2str(2); // @2: xdp_pass
 
 	rec = &stats_rec->stats;
 	prev = &stats_prev->stats;
 
 	calc_traffic_stats(m, rec, prev, &t_s, si);
-
-	// Collect stats in global buffers
-	if (t_s.delta_packets > 0) {
-		if (m->had_first_packet) {
-			// Collect stats
-			g_csv_ts[g_csv_num_val] = get_time_of_day();
-			g_csv_pps[g_csv_num_val] = t_s.pps;
-			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
-			g_csv_num_val++;
-			g_csv_empty_cnt = 0;
-		}
-	} else if (t_s.delta_packets == 0 && m->had_first_packet) {
-		if (!g_csv_saved_stream) {
-			g_csv_ts[g_csv_num_val] = get_time_of_day();
-			g_csv_pps[g_csv_num_val] = t_s.pps;
-			g_csv_iat[g_csv_num_val] = m->inter_arrival_time;
-			g_csv_num_val++;
-			g_csv_empty_cnt++;
-		}
-		if (g_csv_empty_cnt >= g_csv_empty_cnt_threshold) {
-			write_csv_file();
-			g_csv_saved_stream = true;
-			g_csv_empty_cnt = 0;
-			g_csv_num_val = 0;
-			g_csv_num_round++;
-			si->scaled_to_min = false;
-			m->had_first_packet = false;
-			// set_c1("on"); // Don't introduce dealy for the first stream
-		}
-	}
 
 	printf(fmt, //action,
 	       m->cnt, rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
@@ -199,17 +200,17 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 		prev = record;
 		stats_collect(map_fd, &record);
 		stats_print(&record, &prev, &m, &si);
-		if (m.had_first_packet) {
-			g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
-		}
 		if (si.restore_settings) {
 			restore_last_stream_settings(&lss, freq_info, &si);
-			m.valid_vals = 0;
+			m.valid_vals = -1; // Skip first burst
 			// get_cpu_utilization(&m, freq_info);
 			// g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
 		}
+		if (m.had_first_packet) {
+			collect_global_stats(freq_info, &m, &si);
+			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
+		}
 		// if (m.cnt > 0 && m.had_first_packet) {
-		// The first meas
 		if (m.valid_vals > 0) {
 			get_cpu_utilization(&m, freq_info);
 			g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
@@ -224,7 +225,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 			/// Rename scale_to_min with set_c1 etc.
 			if (si.scale_to_min) {
 				// Store settings of last stream
-				lss.last_pstate = freq_info->pstate;
+				lss.last_pstate = 1; //freq_info->pstate;
 				lss.last_sma = m.sma_cpu_util;
 				lss.last_sma_std_err = m.sma_std_err;
 				lss.last_wma = m.wma_cpu_util;
@@ -260,14 +261,20 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 					si.need_scale = false;
 				}
 			}
+			usleep(INTERVAL);
+		} else {
+			usleep(IDLE_INTERVAL);
 		}
 		printf("\n");
-		usleep(INTERVAL);
 	}
 }
 
 int main(int argc, char *argv[])
 {
+	if (argc < 1) {
+		fprintf(stderr, "Please supply ingress interface name");
+		return -1;
+	}
 	force_quit = false;
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
