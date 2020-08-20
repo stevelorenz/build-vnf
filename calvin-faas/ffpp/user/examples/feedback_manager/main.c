@@ -168,7 +168,8 @@ static void stats_print(struct stats_record *stats_rec,
 	       m->inter_arrival_time, t_s->period);
 }
 
-static void print_feedback(int count, struct traffic_stats *ts)
+static void print_feedback(__attribute__((unused)) int count,
+			   __attribute__((unused)) struct traffic_stats *ts)
 {
 	const char *fmt = "%d"
 			  "%'11lld pkts (%'10.0f pps)"

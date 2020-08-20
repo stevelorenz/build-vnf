@@ -7,8 +7,7 @@ project('ffpp', 'c',
     'buildtype=release',
     'warning_level=3',
     'default_library=both',
-    # TODO: Enable it to avoid any warnings.
-    # 'werror=true',
+    'werror=true',
   ],
 )
 
@@ -26,6 +25,9 @@ add_project_arguments(
         # ABI stability of DPDK is not considered here.
         # Because the test container always uses a specific DPDK version.
         '-Wno-deprecated-declarations',
+        # They should be used in 6G and beyond :)
+        '-Wno-unused-value',
+        '-Wno-unused-variable',
     ],
     language: 'c',
 )
