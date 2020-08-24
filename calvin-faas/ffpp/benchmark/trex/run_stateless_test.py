@@ -27,6 +27,7 @@ PG_ID = 17
 TOTAL_PKTS = int(1e7)
 PPS = 1e4  # Inter Packet Gap = (1 / PPS)
 MONITOR_DUR = 60  # Duration to monitor the flow stats in seconds.
+SPOOFED_ETH_SRC = "ab:ab:ab:ab:ab:01"
 
 
 def rx_interation(c, tx_port, rx_port, total_pkts, pkt_len):
@@ -76,6 +77,7 @@ def rx_interation(c, tx_port, rx_port, total_pkts, pkt_len):
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(
         description="Run basic stateless test with a single latency stream."
     )
@@ -100,12 +102,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--monitor_dur", type=int, default=5, help="Monitor duration in seconds."
     )
+    parser.add_argument(
+        "--eth_src_spoofing",
+        action="store_true",
+        help=f"Replace the Ether source MAC address to {SPOOFED_ETH_SRC}",
+    )
 
     args = parser.parse_args()
 
     TOTAL_PKTS = args.total_pkts
     PPS = args.pps
     MONITOR_DUR = args.monitor_dur
+
     print(f"Total TX packets: {TOTAL_PKTS}, PPS: {PPS},Monitor duration: {MONITOR_DUR}")
 
     # Create a client for stateless tests.
@@ -114,12 +122,20 @@ if __name__ == "__main__":
 
     try:
         udp_payload = "A" * 1400
-        pkt = STLPktBuilder(
-            pkt=Ether()
-            / IP(src=args.ip_src, dst=args.ip_dst)
-            / UDP(dport=8888, sport=9999, chksum=0)
-            / udp_payload
-        )
+        if args.eth_src_spoofing:
+            pkt = STLPktBuilder(
+                pkt=Ether(SPOOFED_ETH_SRC)
+                / IP(src=args.ip_src, dst=args.ip_dst)
+                / UDP(dport=8888, sport=9999, chksum=0)
+                / udp_payload
+            )
+        else:
+            pkt = STLPktBuilder(
+                pkt=Ether()
+                / IP(src=args.ip_src, dst=args.ip_dst)
+                / UDP(dport=8888, sport=9999, chksum=0)
+                / udp_payload
+            )
         st = STLStream(
             name="udp_single_burst",
             packet=pkt,

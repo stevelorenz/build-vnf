@@ -109,14 +109,14 @@ def setup_host_network(c_vnf_pid, load_pm, load_fb):
         sys.exit(1)
     for iface in ["vnf-in", "vnf-out"]:
         # exit_code, out = c_vnf.exec_run(
-            # cmd="xdp-loader load -m native {} ./xdp_pass_kern.o".format(iface),
-            # workdir="/ffpp/kern/xdp_pass",
+        # cmd="xdp-loader load -m native {} ./xdp_pass_kern.o".format(iface),
+        # workdir="/ffpp/kern/xdp_pass",
         # )
         ## Load traffic monitoring on the vnf-in interface
         ## Also add cpu 5 to cpu set then
         exit_code, out = c_vnf.exec_run(
-        cmd="./xdp_time_loader {}".format(iface),
-        workdir="/ffpp/kern/xdp_time/",)
+            cmd="./xdp_time_loader {}".format(iface), workdir="/ffpp/kern/xdp_time/",
+        )
         if exit_code != 0:
             print("ERR: Failed to load xdp-pass program on interface {}".format(iface))
             sys.exit(1)
@@ -154,8 +154,9 @@ def setup_host_network(c_vnf_pid, load_pm, load_fb):
     os.chdir(xdp_fwd_dir)
     # @load_pm load setup for power management
     if load_pm and not load_fb:
-        if (not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_time_kern.o")) and
-            not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o"))):
+        if not os.path.exists(
+            os.path.join(xdp_fwd_dir, "./xdp_fwd_time_kern.o")
+        ) and not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
             print("\tINFO: Compile xdp_fwd_time program")
             run(split("make"), check=True)
         print("\t- Load xdp_fwd_time kernel programs.")
@@ -188,8 +189,10 @@ def setup_host_network(c_vnf_pid, load_pm, load_fb):
     run(
         split(
             "./xdp_fwd_user -i vnf-out-root -r enp5s0f1 -s {} -d {} -w {}".format(
-                #vnf_in_root_mac, vnf_in_mac, vnf_out_phy_mac
-                vnf_out_mac, pktgen_in_phy_mac, vnf_out_phy_mac
+                # vnf_in_root_mac, vnf_in_mac, vnf_out_phy_mac
+                vnf_out_mac,
+                pktgen_in_phy_mac,
+                vnf_out_phy_mac,
             )
         )
     )

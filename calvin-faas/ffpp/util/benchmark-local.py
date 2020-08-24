@@ -5,8 +5,9 @@
 """
 About: Minimal local benchmark setups on a single machine using Docker containers.
 
-       Only used to prototype and test functionalities of programs, not designed
-       for latency performance.
+       Only used to prototype (code is verbose (duplicated) and not optimized)
+       and test functionalities of programs, not designed for latency
+       performance , configurability and scalability.
 """
 
 import argparse
@@ -61,17 +62,32 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
 }
 
 
-def setup_common(pktgen_image):
+def setup_containers(pktgen_image, vnf_num=1):
     client = docker.from_env()
-    vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
-    vnf_args["name"] = "vnf"
-    c_vnf = client.containers.run(**vnf_args)
 
-    while not c_vnf.attrs["State"]["Running"]:
-        time.sleep(0.05)
-        c_vnf.reload()
-    c_vnf_pid = c_vnf.attrs["State"]["Pid"]
-    c_vnf.exec_run("mount -t bpf bpf /sys/fs/bpf/")
+    c_vnfs = list()
+    c_vnfs_pid = list()
+
+    if vnf_num == 1:
+        vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
+        vnf_args["name"] = "vnf"
+        c_vnfs.append(client.containers.run(**vnf_args))
+    else:
+        for i in range(1, vnf_num + 1):
+            vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
+            vnf_args["name"] = "vnf{}".format(i)
+            c_vnfs.append(client.containers.run(**vnf_args))
+
+    for c in c_vnfs:
+        while not c.attrs["State"]["Running"]:
+            time.sleep(0.05)
+            c.reload()
+        pid = c.attrs["State"]["Pid"]
+        c_vnfs_pid.append(pid)
+        c.exec_run("mount -t bpf bpf /sys/fs/bpf")
+        print(
+            "- VNF container with name: {} and PID: {} is running.".format(c.name, pid)
+        )
 
     pktgen_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
     pktgen_args["name"] = "pktgen"
@@ -83,17 +99,17 @@ def setup_common(pktgen_image):
         c_pktgen.reload()
     c_pktgen_pid = c_pktgen.attrs["State"]["Pid"]
     c_pktgen.exec_run("mount -t bpf bpf /sys/fs/bpf/")
-    print(
-        "* Both VNF and Pktgen containers are running with PID: {},{}".format(
-            c_vnf_pid, c_pktgen_pid
-        )
-    )
+    print("- Pktgen container is running with PID:{}.".format(c_pktgen_pid))
     client.close()
-    return (c_vnf_pid, c_pktgen_pid)
+
+    if vnf_num == 1:
+        return (c_vnfs_pid[0], c_pktgen_pid)
+    else:
+        return (c_vnfs_pid, c_pktgen_pid)
 
 
 def setup_two_direct_veth(pktgen_image):
-    c_vnf_pid, c_pktgen_pid = setup_common(pktgen_image)
+    c_vnf_pid, c_pktgen_pid = setup_containers(pktgen_image)
     print("* Connect ffpp-dev-vnf and pktgen container with veth pairs.")
     cmds = [
         "mkdir -p /var/run/netns",
@@ -128,8 +144,9 @@ def setup_two_direct_veth(pktgen_image):
     )
 
 
+# TODO: Use a better DS to beautify the code...
 def setup_two_veth_xdp_fwd(pktgen_image):
-    c_vnf_pid, c_pktgen_pid = setup_common(pktgen_image)
+    c_vnf_pid, c_pktgen_pid = setup_containers(pktgen_image)
     cmds = [
         "mkdir -p /var/run/netns",
         "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
@@ -180,7 +197,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     for c, c_name in zip([c_vnf, c_pktgen], ["vnf", "pktgen"]):
         exit_code, out = c.exec_run(cmd="make", workdir="/ffpp/kern/xdp_pass",)
         if exit_code != 0:
-            print("ERR: Faild to compile xdp-pass program in {}.".format(c_name))
+            print("ERROR: Faild to compile xdp-pass program in {}.".format(c_name))
             sys.exit(1)
         for iface_suffix in ["in", "out"]:
             iface_name = "{}-{}".format(c_name, iface_suffix)
@@ -190,7 +207,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
             )
             if exit_code != 0:
                 print(
-                    "ERR: Faild to load xdp-pass programs in {} on interface:{}.".format(
+                    "ERROR: Faild to load xdp-pass programs in {} on interface:{}.".format(
                         c_name, iface_name
                     )
                 )
@@ -215,10 +232,10 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     print("- The MAC address of pktgen-in-root: {}".format(pktgen_in_root_mac))
     print("- The MAC address of pktgen-out-root: {}".format(pktgen_out_root_mac))
 
-    print("* Run xdp_fwd programs for interfaces in the root namespace")
+    print("* Run xdp_fwd programs for interfaces in the root namespace.")
     xdp_fwd_prog_dir = os.path.abspath("../kern/xdp_fwd/")
     if not os.path.exists(xdp_fwd_prog_dir):
-        print("ERR: Can not find the xdp_fwd program.")
+        print("ERROR: Can not find the xdp_fwd program.")
         sys.exit(1)
     os.chdir(xdp_fwd_prog_dir)
     if not os.path.exists(os.path.join(xdp_fwd_prog_dir, "./xdp_fwd_kern.o")):
@@ -267,15 +284,11 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     client.close()
 
     print(
-        "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."
+        "* Setup finished. Run 'docker attach vnf' (or pktgen) to attach to the running containers."
     )
 
 
-def setup_two_cnfs_veth_xdp_fwd(pktgen_image):
-    pass
-
-
-def teardown_common():
+def teardown_containers():
     client = docker.from_env()
     c_list = client.containers.list(
         all=True, filters={"label": "group=ffpp-dev-benchmark"}
@@ -287,7 +300,7 @@ def teardown_common():
 
 
 def teardown_two_veth_xdp_fwd():
-    teardown_common()
+    teardown_containers()
     for d in ["vnf-in-root", "vnf-out-root", "pktgen-in-root", "pktgen-out-root"]:
         bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, d)
         if os.path.exists(bpf_map_dir):
@@ -334,7 +347,7 @@ if __name__ == "__main__":
 
     cpu_count = multiprocessing.cpu_count()
     if cpu_count < 2:
-        print("ERR: The setup needs at least 2 CPU cores.")
+        print("ERROR: The setup needs at least 2 CPU cores.")
         sys.exit(1)
 
     if args.action == "setup":
@@ -345,6 +358,6 @@ if __name__ == "__main__":
             setup_two_veth_xdp_fwd(args.pktgen_image)
     elif args.action == "teardown":
         if args.setup_name == "two_direct_veth":
-            teardown_common()
+            teardown_containers()
         elif args.setup_name == "two_veth_xdp_fwd":
             teardown_two_veth_xdp_fwd()

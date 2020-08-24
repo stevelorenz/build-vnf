@@ -12,9 +12,8 @@ import shutil
 import sys
 import time
 import multiprocessing
-
-from shlex import split
-from subprocess import run, PIPE
+import shlex
+import subprocess
 
 import docker
 

@@ -30,9 +30,7 @@ if __name__ == "__main__":
     sock.bind("ipc:///tmp/ffpp.sock")
 
     docker_clt = docker.from_env()
-    container = docker_clt.containers.list(
-        all=True, filters={"name": "vnf"}
-    )[0]
+    container = docker_clt.containers.list(all=True, filters={"name": "vnf"})[0]
 
     while True:
         try:

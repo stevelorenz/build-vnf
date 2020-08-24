@@ -35,7 +35,7 @@ elif [[ $1 == "-tc" ]]; then
         --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
         -- -p 0x03 -m 0 -T 0 --enable-crypto 2
-elif [[ $1 == "-c" ]]; then # Test crypto 
+elif [[ $1 == "-c" ]]; then # Test crypto
     REPS="5"
     if [ "$2" ]; then
         REPS="$2"

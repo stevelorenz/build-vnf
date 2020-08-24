@@ -179,21 +179,83 @@ def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
             )
         )
 
-        # # Add flow stat stream
-        # streams.append(
-            # STLStream(
-                    # name=f"s{index}",
-                    # isg=stp["isg"],
-                    # packet=pkt,
-                    # flow_stats=STLFlowStats(pg_id=index),
-                    # mode=STLTXSingleBurst(
-                        # pps=LATENCY_FLOW_PPS,
-                        # total_pkts=int(LATENCY_FLOW_PPS * stp["on_time"]),
-                    # ),
-                    # next=next_st_name,
-                    # self_start=self_start,
-            # )
-        # )
+    return streams
+
+
+def create_streams_with_second_flow(
+    stream_params: dict, second_stream_params: dict, ip_src: str, ip_dst: str
+) -> list:
+    """Create a list of STLStream objects with the second flow."""
+
+    spoofed_eth_srcs = ["ab:ab:ab:ab:ab:01", "ab:ab:ab:ab:ab:02"]
+    udp_payload_size = PAYLOAD_SIZE
+    if udp_payload_size < 16:
+        raise RuntimeError("The minimal payload size is 16 bytes.")
+    print(f"UDP payload size: {udp_payload_size}")
+    udp_payload = "Z" * udp_payload_size
+    # UDP checksum is disabled.
+
+    pkts = list()
+    pkts.append(
+        STLPktBuilder(
+            pkt=Ether(src=spoofed_eth_srcs[0])
+            / IP(src=ip_src, dst=ip_dst)
+            / UDP(dport=8888, sport=9999, chksum=0)
+            / udp_payload
+        )
+    )
+    pkts.append(
+        STLPktBuilder(
+            pkt=Ether(src=spoofed_eth_srcs[1])
+            / IP(src=ip_src, dst=ip_dst)
+            / UDP(dport=8888, sport=9999, chksum=0)
+            / udp_payload
+        )
+    )
+
+    streams = list()
+    for prefix, params in enumerate([stream_params, second_stream_params]):
+        for index, stp in enumerate(params):
+            next_st_name = None
+            next_st_w_name = None
+            self_start = False
+            if index != len(params) - 1:
+                next_st_name = f"s{prefix+1}{index+1}"
+                next_st_w_name = f"sw{prefix+1}{index+1}"
+            if index == 0:
+                self_start = True
+
+            # Add extra workload stream.
+            workload_stream_pps = stp["pps"] - LATENCY_FLOW_PPS
+            streams.append(
+                STLStream(
+                    name=f"sw{prefix+1}{index}",
+                    isg=stp["isg"],
+                    packet=pkts[prefix],
+                    mode=STLTXSingleBurst(
+                        pps=workload_stream_pps,
+                        total_pkts=int(workload_stream_pps * stp["on_time"]),
+                    ),
+                    next=next_st_w_name,
+                    self_start=self_start,
+                )
+            )
+
+            # Add latency monitoring flow with a fixed PPS.
+            streams.append(
+                STLStream(
+                    name=f"s{prefix+1}{index}",
+                    isg=stp["isg"],
+                    packet=pkts[prefix],
+                    flow_stats=STLFlowLatencyStats(pg_id=index),
+                    mode=STLTXSingleBurst(
+                        pps=LATENCY_FLOW_PPS,
+                        total_pkts=int(LATENCY_FLOW_PPS * stp["on_time"]),
+                    ),
+                    next=next_st_name,
+                    self_start=self_start,
+                )
+            )
 
     return streams
 
@@ -309,6 +371,11 @@ def main():
         default=PAYLOAD_SIZE,
         help="Payload size of the packets",
     )
+    parser.add_argument(
+        "--enable_second_flow",
+        action="store_true",
+        help="Enable the second flow, used to test two-vnf setup.",
+    )
 
     args = parser.parse_args()
 
@@ -321,20 +388,40 @@ def main():
         args.iteration,
         args.test,
     )
-    print("\n--- To be used stream parameters:")
+    print("\n--- Initial stream parameters:")
     pprint.pp(stream_params)
     print()
+
+    if args.enable_second_flow:
+        print("INFO: The second flow is enabled. Two flows share the physical link.")
+        for s in stream_params:
+            s["pps"] = int(s["pps"] / 2)
+        second_stream_params = list(reversed(stream_params.copy()))
+        print("\n--- Updated stream parameters with the second flow:")
+        pprint.pp(second_stream_params)
 
     # Does not work on the blackbox
     # core_mask = get_core_mask(args.numa_node)
     # print(f"The core mask for RX and TX: {hex(core_mask)}")
 
-    streams = create_streams(stream_params, args.ip_src, args.ip_dst)
-    if args.test:
-        pprint.pp(streams)
-        pprint.pp([s.to_json() for s in streams])
+    if args.enable_second_flow:
+        streams = create_streams_with_second_flow(
+            stream_params, second_stream_params, args.ip_src, args.ip_dst
+        )
+    else:
+        streams = create_streams(stream_params, args.ip_src, args.ip_dst)
 
-    RX_DELAY_S = sum([s["on_time"] for s in stream_params]) + 3
+    if args.test:
+        pprint.pp([s.to_json() for s in streams])
+        import sys
+
+        sys.exit(0)
+
+    if args.enable_second_flow:
+        RX_DELAY_S = (sum([s["on_time"] for s in stream_params])) / 2.0 + 3
+    else:
+        RX_DELAY_S = sum([s["on_time"] for s in stream_params]) + 3
+
     RX_DELAY_MS = 3 * 1000  # Time after last Tx to wait for the last packet at Rx side
 
     try:
@@ -360,7 +447,7 @@ def main():
         # Check RX stats.
         # MARK: All latency results are in usec.
         # err_cntrs_results, latency_results = get_rx_stats(
-            # client, tx_port, rx_port, stream_params
+        # client, tx_port, rx_port, stream_params
         # )
         err_cntrs_results, latency_results, flow_results = get_rx_stats(
             client, tx_port, rx_port, stream_params

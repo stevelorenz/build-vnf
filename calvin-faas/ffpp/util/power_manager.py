@@ -8,10 +8,10 @@ About: Run/stop power manager Docker container on the host OS.
 
 import argparse
 import os
+import shlex
+import subprocess
+import sys
 import time
-
-from shlex import split
-from subprocess import run, PIPE
 
 import docker
 
@@ -63,16 +63,16 @@ def loadXDP(iface):
     os.chdir(xdp_pass_dir)
     if not os.path.exists(os.path.join(xdp_pass_dir, "./xdp_time_kern.o")):
         print("\tINFO: Compile programs in xdp_time.")
-        run(split("make"), check=True)
+        subprocess.run(shlex.split("make"), check=True)
     print("\t- Load xdp_time kernel program")
-    run(split("sudo ./xdp_loader_time {}".format(iface)), check=True)
+    subprocess.run(shlex.split("sudo ./xdp_loader_time {}".format(iface)), check=True)
 
     print("* Current XDP status: ")
-    run(split("xdp-loader status"), check=True)
+    subprocess.run(shlex.split("xdp-loader status"), check=True)
 
 
 def unloadXDP(iface):
-    run(split("sudo xdp-loader unload {}".format(iface)), check=True)
+    subprocess.run(shlex.split("sudo xdp-loader unload {}".format(iface)), check=True)
     print("* Unloaded XPD programm from interface ", iface)
 
 
