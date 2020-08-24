@@ -383,7 +383,7 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 			m->inter_arrival_time =
 				(r->total.rx_time - p->total.rx_time) /
 				(t_s->delta_packets * 1e9);
-			t_s->pps = 1 / m->inter_arrival_time;
+			// t_s->pps = 1 / m->inter_arrival_time;
 			m->empty_cnt = 0,
 			m->idx = m->valid_vals % /// Maybe change to valid_vals
 				 m->min_cnts; /// Remove min_cnts and use macro

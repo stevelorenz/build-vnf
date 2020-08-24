@@ -229,4 +229,4 @@ calvin-faas/ffpp/user/include/ffpp/csvwriter.h
 calvin-faas/ffpp/user/run.sh
 calvin-faas/ffpp/user/src/csvwriter.c
 calvin-faas/ffpp/util/config.sh
-
+calvin-faas/ffpp/util/set_irq_affinity.sh

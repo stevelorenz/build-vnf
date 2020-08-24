@@ -56,7 +56,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
 }
 
 
-def start(host_nw, load_pm):
+def start(host_nw, load_pm, load_fb):
     client = docker.from_env()
 
     vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
@@ -76,10 +76,10 @@ def start(host_nw, load_pm):
     client.close()
 
     if host_nw:
-        setup_host_network(c_vnf_pid, load_pm)
+        setup_host_network(c_vnf_pid, load_pm, load_fb)
 
 
-def setup_host_network(c_vnf_pid, load_pm):
+def setup_host_network(c_vnf_pid, load_pm, load_fb):
     # Setup Veth peers
     cmds = [
         "mkdir -p /var/run/netns",
@@ -153,14 +153,21 @@ def setup_host_network(c_vnf_pid, load_pm):
         sys.exit(1)
     os.chdir(xdp_fwd_dir)
     # @load_pm load setup for power management
-    if load_pm:
-        if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_time_kern.o")):
-            print("\tINFO: Compile xdp_fwd program")
+    if load_pm and not load_fb:
+        if (not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_time_kern.o")) and
+            not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o"))):
+            print("\tINFO: Compile xdp_fwd_time program")
             run(split("make"), check=True)
-        print("\t- Load xdp_fwd kernel programs.")
+        print("\t- Load xdp_fwd_time kernel programs.")
         run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_time_kern.o"), check=True)
-        run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_time_kern.o"), check=True)
-        # run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
+        run(split("sudo ./xdp_fwd_loader vnf-out-root"), check=True)
+    elif load_fb:
+        if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_fb_kern.o")):
+            print("\tINFO: Compile xdp_fwd_fb prgram")
+            run(split("make"), check=True)
+        print("\t- Load xdp_fwd_fb kernel programs.")
+        run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_fb_kern.o"), check=True)
+        run(split("sudo ./xdp_fwd_loader vnf-out-root xdp_fwd_fb_kern.o"), check=True)
     else:
         if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
             print("\tINFO: Compile xdp_fwd program")
@@ -219,7 +226,7 @@ def stop(host_nw):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run/ Stop Trex vnf container on the host OS"
+        description="Run/ Stop vnf container on the host OS"
     )
     parser.add_argument(
         "action", type=str, choices=["run", "stop"], help="The action to perform"
@@ -240,10 +247,18 @@ if __name__ == "__main__":
         const=True,
         help="Load the xdp forwarder without traffic monitoring",
     )
+    parser.add_argument(
+        "--feedback",
+        type=bool,
+        nargs="?",
+        default=False,
+        const=True,
+        help="Load traffic monitor on egress interface to obtain feedback",
+    )
 
     args = parser.parse_args()
 
     if args.action == "run":
-        start(not (args.no_host_network), not (args.no_pm))
+        start(not (args.no_host_network), not (args.no_pm), args.feedback)
     elif args.action == "stop":
         stop(not (args.no_host_network))

@@ -15,7 +15,7 @@
 // Hyper-parameter for scaling decision
 #define INTERVAL 10000 // Map reading interval during traffic
 #define IDLE_INTERVAL 100 // Map reading interval during ISG
-#define MAX_EMPTY_CNT 1 // So, after two empty polls we sleep :)
+#define MAX_EMPTY_CNT 2 // So, after two empty polls we sleep :)
 #define UTIL_THRESHOLD_UP 0.75 // We don't actually want tu surpass the 0.8
 #define UTIL_THRESHOLD_DOWN 0.65
 #define HARD_UP_THRESHOLD 0.85

@@ -2,6 +2,7 @@
 
 XDP_TARGETS := xdp_fwd_kern
 XDP_TARGETS += xdp_fwd_time_kern
+XDP_TARGETS += xdp_fwd_fb_kern
 USER_TARGETS := xdp_fwd_user
 USER_TARGETS += xdp_fwd_loader
 
