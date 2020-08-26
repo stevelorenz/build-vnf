@@ -153,29 +153,21 @@ static void stats_print(struct stats_record *stats_rec,
 			struct scaling_info *si, struct traffic_stats *t_s)
 {
 	struct record *rec, *prev;
-
-	const char *fmt = "%d"
-			  "%'11lld pkts (%'10.0f pps)"
-			  " \t%'10.8f s"
-			  " \tperiod:%f\n";
-
 	rec = &stats_rec->stats;
 	prev = &stats_prev->stats;
 
 	calc_traffic_stats(m, rec, prev, t_s, si);
 
-	printf(fmt, m->cnt, rec->total.rx_packets, t_s->pps,
-	       m->inter_arrival_time, t_s->period);
+	printf("%ld %11lld pkts (%10.0f pps) \t%10.8f s \tperiod:%f\n", m->cnt,
+	       rec->total.rx_packets, t_s->pps, m->inter_arrival_time,
+	       t_s->period);
 }
 
 static void print_feedback(__attribute__((unused)) int count,
 			   __attribute__((unused)) struct traffic_stats *ts)
 {
-	const char *fmt = "%d"
-			  "%'11lld pkts (%'10.0f pps)"
-			  " \t\t\tperiod:%f\n";
-
-	printf(fmt, count, ts->total_packets, ts->pps, ts->period);
+	printf("%d %11d pkts (%10.0f pps) \t\t\tperiod:%f\n", count,
+	       ts->total_packets, ts->pps, ts->period);
 }
 
 static void stats_collect(int map_fd, struct stats_record *stats_rec)

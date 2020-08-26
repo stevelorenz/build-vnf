@@ -62,13 +62,6 @@ static void stats_print(struct stats_record *stats_rec,
 {
 	struct record *rec, *prev;
 	struct traffic_stats t_s = { 0 };
-
-	const char *fmt = "%d"
-			  "%'11lld pkts (%'10.0f pps)"
-			  " \t%'10.8f s"
-			  " \tperiod:%f\n";
-	// const char *action = action2str(2); // @2: xdp_pass
-
 	rec = &stats_rec->stats;
 	prev = &stats_prev->stats;
 
@@ -103,7 +96,7 @@ static void stats_print(struct stats_record *stats_rec,
 		}
 	}
 
-	printf(fmt, //action,
+	printf("%ld %11lld pkts (%10.0f pps) \t%10.8f s \tperiod:%f\n",
 	       m->cnt, rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
 	       t_s.period);
 }
