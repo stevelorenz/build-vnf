@@ -229,6 +229,8 @@ efficiently...
 ## Authors
 
 *   Zuo Xiang (zuo.xiang@tu-dresden.de)
+*   Malte Höweler (malte.hoeweler94@gmail.com)
+
 
 ## Licence
 
