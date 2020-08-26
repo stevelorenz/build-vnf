@@ -1,123 +1,85 @@
 # FFPP - Fast Functional Packet Processing
 
+
+## Table of Contents
+
+*   [Overview](#overview)
+*   [Catalog](#catalog)
+*   [Quick Start](#quick-start)
+*   [Run Local Benchmark](#run-local-benchmark)
+*   [FAQ](#faq)
+*   [Contact](#contact)
+*   [LICENSE](#licence)
+
+
+## Overview
+
 TODO: Add a fantastic introduction of this (maybe) novel research idea.
 
-## Build from source
 
-**WARNING**: This library also supports GNU/Linux platform and has been tested on Ubuntu 20.02 LTS.
+## Catalog
 
-Since FFPP utilizes latest fast packet IO technologies in both Linux kernel and user space, several dependencies must be
-installed in the development environment.
+-   [user](./user/): Sources for components running in the user space.
 
-Sources running in user space (located in `./user`) are built with Meson.
-Sources running in kernel space (located in `./kern`) are built with the makefile-based system provided by the
-[xdp-tools](https://github.com/xdp-project/xdp-tools) project.
+    -   `user/comparison/`: Sources for comparable approaches published by others. They are used to evaluate the performance of the `FFPP`'s solutions.
 
-The following packages and libraries are needed:
+-   [kern](./kern/): Sources for eBPF and XDP programs running in the kernel space. (Currently, it also contains sources to load/unload XDP programs and XDP user space programs, these codes should be moved to `user` soon.)
 
 
-*   `Meson (>=0.47.1)`: The standard automatic build system for DPDK, therefore it is also used in this project.
-*   `Ninja (>=1.10.0)`: Build system (focus on speed) used by Meson.
+## Quick Start
 
-*   `DPDK (v20.02)`: [DPDK](https://core.dpdk.org/download/) library should be installed and can be found by
-    `pkg-config`. DPDK's API and ABI could change in every release, so this library only supports a specific version.
-    Please check DPDK's [guide](https://doc.dpdk.org/guides-20.02/linux_gsg/index.html) to build DPDK for Linux.
+The easiest way to start developing `FFPP` is to use the provided `Dockerfile` to build a development image.
+This image includes all dependencies required for development and also testing.
+Therefore, it has a large size of 2GB.
+It is only designed for **development**.
+For deployment, tricks like multi-stage build can be used to reduce the image size.
 
-*   `xdp-tools (v0.0.3)`: [xdp-tools](https://github.com/xdp-project/xdp-tools) contains a collection of utilities and
-    example code to be used with the eXpress Data Path facility of the Linux kernel. It also contains a git submodule
-    with [libbpf](https://github.com/libbpf/libbpf). Libbpf is required (be accssible via `pkg-config`) to build the
-    AF_XDP PMD of DPDK.
-
-If all dependencies are installed correctly, then you should be able to simply run following commands to build and
-install (**ONLY** user space library) both shared and static library of FFPP:
+Inside the `Vagrant` VM (better with a clean state), run following commands to install dependencies and build the image:
 
 ```bash
-make
-make install
+cd /vagrant/calvin-faas/ffpp/util
+sudo ./setup_devtools.sh
+# This step takes time to compile DPDK and FFPP libraries.
+sudo ./ffpp-dev.py build_image
 ```
 
-## Run tests
 
-Additional required packages to run unit tests:
+## Run Local Benchmark
 
-*   [Cmocka](https://cmocka.org/): An elegant unit testing framework for C and it's written in pure C.
-*   [gcovr](https://gcovr.com/en/stable/): To generate coverage report.
-
-Assume the `build` directory is already created using the default options using `make`. Run following commands to clean
-the release build, build the debug version and run tests.
-
-```bash
-make clean
-make debug
-make test
-```
-HTML coverage report can be found at `./user/build/meson-logs/coveragereport/index.html`
-
-## Build and develop in a all-in-one Docker container.
-
-If you do n’t want to waste time setting up the environment, or just want to try it,
-a all-in-one [Dockerfile](./Dockerfile) is provided by this project. This image includes DPDK, libbpf and all
-dependencies required for development and also testing. Therefore, it has a large size of 1.51GB.
-It is only designed for development. For deployment, tricks like multi-stage build can be used to reduce the image size.
-
-Advantages of building all dependencies inside the Container:
-
-*   Keep your host OS clean. At least, I do not know how to remove all dependencies in a nice way.
-*   Reproducible build: If there are any dependency updates or some bad conditions occur. Remove the old image and
-    rebuild a new one, everything is fine.
-*   Build and test VNFs inside container: It is required to run DPDK applications inside container any way.
-
-Run following command to build the Docker image (with tag 0.0.2):
-
-```bash
-docker build --compress --rm -t ffpp:0.0.2 --file ./Dockerfile .
-```
-
-There are some utility scripts in `./util/` directory for development and tests. Please install dependencies for these
-tools with:
-
-```bash
-cd ./util/
-sudo bash ./setup_devtools.sh
-```
-
-After the installation of dependencies, please run following commands **INSIDE** the `./util/` directory for specific
-actions:
-
-*   `sudo ./ffpp-dev.py run`: Run a Docker container (with ffpp-dev image) in interactive mode and attach to its TTY. The
-    /ffpp path inside container is mounted by the ffpp source directory of the host OS. This is useful to test any
-    changes in the code base without any copy. This script also configures Docker parameters (e.g. privilege and
-    volumes) to run DPDK and XDP programs. So you do not need to remember and configure them everytime.
-
-*   `sudo ./benchmark-local.py setup` or `sudo ./benchmark-local.py teardown`: Setup/teardown a minimal setup
-    to benchmark the performance of a VNF (inside a container) with a pktgen container. Two containers are directly
-    conntected using a veth pair.
-
-## Run a Docker container, DPDK and XDP based benchmark topology on a single laptop
-
-WARNING: This setup is used to fast prototyping network functions on a single laptop with limited computing resources.
-Therefore, containers are used with privileged mode to enable running DPDK and XDP based application INSIDE them.
+This local setup based on veth pairs is used to fast test and benchmark network functions on a single laptop with limited computing resources.
+Therefore, containers are used with privileged mode to enable running `DPDK` and `XDP` based network functions **INSIDE** them.
 This is definitely not suggested for production deployment.
 
 ### Requirements
 
--   The test VM or host machine needs minimal 2 vCPU cores.
+-   The test VM or host machine needs minimal two vCPU cores.
 -   The `ffpp-dev` container image is already built.
--   The Trex[https://trex-tgn.cisco.com/] traffic generator container image is built with the helper script
-    [here](../../pktgen/trex/build_docker_image.sh).
--   The test VM or host machine requires some setup. You can run `./util/setup_host_os.sh` script to setup all
-    dependencies if the Vagrant VM is used.
+-   The [Trex](https://trex-tgn.cisco.com/) traffic generator (pktgen) container image is built with the helper script [here](../../pktgen/trex/build_docker_image.sh).
+-   The test VM or host machine requires some setup. You can run `./util/setup_host_os.sh` script to setup all dependencies if the Vagrant VM is used.
+
+In summary, once inside the `Vagrant` VM run following commands for setup:
+
+```bash
+cd /vagrant/calvin-faas/ffpp/util
+sudo ./setup_host_os.sh
+
+cd /vagrant/pktgen/trex
+sudo ./build_docker_image.sh
+
+sudo docker image ls
+# Both ffpp-dev and trex images should be available now.
+```
 
 ### Topology
 
-The benchmark creates two Docker containers on which a packet generator and a network function will run.
-Like the following sketch, each container has two veth interfaces.
-Their corresponded veth pair interfaces have the same name with `-root` suffix.
+The benchmark creates two Docker containers on which a `pktgen` and a `VNF` will run.
+Like the following sketch, each container has two `veth` interfaces.
+Their corresponded `veth` pair interfaces have the same name with `-root` suffix.
 The IP addresses of each interface are listed.
 The packet generator should generate traffic on `pktgen-out` interface.
-Then the traffic can be forwarded by DPDK l2fwd sample application between the interfaces `vnf-in` and `vnf-out`.
+Then the traffic can be forwarded by `DPDK`'s built-in `l2fwd` sample application between the interfaces `vnf-in` and `vnf-out`.
 Then the forwarded traffic is redirected by `vnf-out-root` interface back to the `pktgen-in` interface inside pktgen.
-This setup build a minimal Traffic Generator --- DUT (Device under Test) scenario.
+This setup build a minimal Traffic Generator --- `DUT` (Device under Test) scenario.
 
 ```
 Pktgen Container                            VNF Container
@@ -135,8 +97,7 @@ Pktgen Container                            VNF Container
 ### How to run
 
 Please change the current working directory to `./util/` before running following commands.
-**INFO**: The `/etc/trex_cfg.yaml` in the Docker image built by the helper script is already configured according to the
-topology using in this benchmark. Please check or modify the configuration if required.
+The `/etc/trex_cfg.yaml` in the Docker image built by the helper script is already configured according to the topology using in this benchmark.
 
 1.  Setup the benchmark:
 
@@ -144,8 +105,7 @@ topology using in this benchmark. Please check or modify the configuration if re
 sudo ./benchmark-local.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 setup
 ```
 
-2.  Attach to pktgen and vnf container and start programs. This step needs multiple terminals, Tmux or Screen can be
-    used:
+2.  Attach to `pktgen` and `vnf` container and run following commands. This step needs multiple terminals, `Tmux` or `GNU Screen` can be used:
 
 ```bash
 # Start Trex server on pktgen
@@ -184,34 +144,35 @@ Latency test is passed!
 sudo ./benchmark-local.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 teardown
 ```
 
-## Run benchmarks on hardware testbed
+## Build from Source
 
-Deploying DPDK and XDP programs on hardware tested requires supported hardware, see following links for supported
-hardware and corresponded drivers:
+Since FFPP utilizes latest fast packet IO technologies in both Linux kernel and user space, several dependencies must be installed in the development environment.
 
--   [DPDK supported Hardware](https://core.dpdk.org/supported/)
--   [XDP supported NICs](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md#xdp)
+Sources running in user space (located in `./user`) are built with `Meson`.
+Sources running in kernel space (located in `./kern`) are built with the makefile-based system provided by the [xdp-tools](https://github.com/xdp-project/xdp-tools) project.
 
-The physical machine used in our lab for VNF/CNF deployment is a Dell PowerEdge R620 with following specs:
+The following packages and libraries are needed:
 
--   Intel XEON CPU E5-2643 0 @ 3.30GHz (8 physical cores), 32GB RAM.
--   3 X 82574L Gigabit Ethernet Network Connection.
--   1 X Mellanox MCX512A-ACAT ConnectX-5 EN Network Interface Card, 25 GbE, Dual-Port SFP28.
 
-This machine is considered as a reasonable COTS server deployed in the edge cloud.
+*   `Meson (>=0.47.1)`: The standard automatic build system for `DPDK`, therefore it is also used in this project.
+*   `Ninja (>=1.10.0)`: Build system (focus on speed) used by `Meson`.
 
-## Catalog
+*   `DPDK (v20.02)`: [DPDK](https://core.dpdk.org/download/) library should be installed and can be found by `pkg-config`.
+    DPDK's API and ABI could change in every release, so this library only supports a specific version.
+    Please check DPDK's [guide](https://doc.dpdk.org/guides-20.02/linux_gsg/index.html) to build DPDK for Linux.
 
-1.  user: Sources for programs running in the user space.
+*   `xdp-tools (v0.0.3)`: [xdp-tools](https://github.com/xdp-project/xdp-tools) contains a collection of utilities and example code to be used with the eXpress Data Path
+    facility of the Linux kernel.
+    It also contains a git submodule with [libbpf](https://github.com/libbpf/libbpf). Libbpf is required (be accssible via `pkg-config`) to build the AF_XDP PMD of DPDK.
 
-  1.  user/comparison/: Sources for comparable approach published by others. They are used to evaluate the performance
-      of the FFPP's approach.
+If all dependencies are installed correctly, then you should be able to simply run following commands to build and install (**ONLY** user space library) both shared and
+static library of FFPP:
 
-1.  kern: Sources for eBPF and XDP programs running in the kernel space.
+```bash
+make
+make install
+```
 
-## Development Guide
-
-TODO
 
 ## FAQ
 
@@ -226,7 +187,8 @@ the programming language. C has its limitations and security issues. However, th
 it is just a PhD work :). I plan to add Rust/Go bindings after I fully understand how to integrate the use them
 efficiently...
 
-## Authors
+
+## Contact
 
 *   Zuo Xiang (zuo.xiang@tu-dresden.de)
 *   Malte Höweler (malte.hoeweler94@gmail.com)
