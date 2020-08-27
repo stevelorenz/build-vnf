@@ -1,44 +1,115 @@
-# Build Virtualized Network Functions (VNFs) (This is a research/exploration project)
+![MIT licensed][mit-badge]
 
-## A collection of utilities to build, test and benchmark practical and high-performance VNFs on a single laptop.
+[mit-badge]: https://img.shields.io/github/license/stevelorenz/build-vnf
 
-**Warning**: This project is still **under heavy development**.
-The directories are not cleanly and clearly organized.
-Redundant directories will be removed before the stable 1.0 version.
+# Build-VNF
 
-This project is hosted on [GitHub](https://github.com/stevelorenz/build-vnf) and [BitBucket](https://bitbucket.org/comnets/build-vnf/src/master/). 
+A collection (mono-repo) of utilities to build, test and benchmark practical and high-performance and portable Virtualized Network Functions (VNFs) on a single laptop.
+This is a exploration project for research purposes.
+
+**Warning**: This project is currently **under heavy development**.
+The project structure is not yet stabilized.
+Directories will be better organized after the stable 1.0 version.
+
+This project is hosted both on [GitHub](https://github.com/stevelorenz/build-vnf) and [BitBucket](https://bitbucket.org/comnets/build-vnf/src/master/). 
 Please create an issue or a pull request if you have any questions or code contribution.
 
-## Introduction
 
-This repository is a **mono-repo collection** of programs/libraries/scripts/utilities related to my PhD topic:
-Enabling Ultra Low Latency Network Softwarization with COmputing In the Network (COIN).
+## Table of Contents
+
+*   [Overview](#overview)
+*   [Catalog](#catalog)
+*   [Quick Start](#quick-start)
+*   [Citing Our Works](#citing-our-works)
+*   [Contributing](#contributing)
+*   [Contact](#contact)
+*   [LICENSE](#licence)
 
 
-These programs are used to prototype and evaluate innovative ideas and practical designs for ultra low latency data and
-management plane (**focus on data plane**) of Virtualized Network Function (VNFs) running inside containers (CNCF names
-this type of NFs to Cloud-native Network Functions (CNFs)) or inside VMs. These VNFs are deployed mainly on Commercial
-off-the-shelf (COTS) servers.
+## Overview
 
-The ultra low latency is a fundamental requirement for the [Tactile Internet](https://www.telekom.com/en/company/details/tactile-internet-563646).
-According to the 5G communication standard for automation in vertical domains, the allowed end-to-end communication
-latency should be lower than **1ms**.
-Based on the latency budget described in [this paper](https://ieeexplore.ieee.org/abstract/document/8672612), the
-virtualized edge computing system has only **0.35ms** for communication and computation.
-Furthermore, one killer application for Tactile Internet is to enable Human-machine Co-Working.
-In this use-case, the service delay of **each discrete packet (or message)** play an important role.
-According to the [networking requirements of Franka Emika's Robot Arm](https://frankaemika.github.io/docs/requirements.html#network),
-the latency of the full control loop should less than 1ms.
+This repository is a **collection(mono-repo)** of programs/libraries/scripts/utilities related to my PhD topic: Ultra **Low Latency** Network Softwarization for COmputing In the Network (COIN).
+It provides utilities to build, test and benchmark practical and high-performance and portable Virtualized Network Functions (VNFs) or Cloud-native Network Functions
+(CNFs) on a single laptop.
+The focus of this project is to explore **low-latency**, **energy-efficient** and flexible network **data plane** solutions for softwarized edge computing systems.
+This project focuses on:
 
-> If the <1 ms constraint is violated for a cycle, the received packet is dropped by FCI. After 20 consecutively dropped packets, your robot will stop.
+-  Lightweight cloud-native network functions running on CPUs or [SmartNICs](https://www.mellanox.com/products/smartnic): The design is based on microservice or
+   serverless architecture. Accelerated data plane and network stack works for virtual interfaces with eBPF/XDP support (e.g. veth-pairs, virtio\_net).
 
-Therefore, the latency of each discrete packet should be measured as the KPI for this project.
-Besides latency, other important performance metrics including throughput, power efficiency should also be considered in
-the VNF design and implementation.
+-  The bottom-up system design: To minimize the latency of each level.
 
-This is a PhD student's work, so the code is definitely not production-ready.
-However, I will try my best to adapt my work to the latest high performance softwarization data plane and management
-technologies including DPDK, eBPF/XDP; Containerization, Serverless computation etc.
+-  Low per-packet latency, energy efficiency and flexibility: Intelligent network functions should processing packets fast without wasting unnecessary energy.
+
+-  Primitives, APIs and protocols support for COmputing In the Network (COIN) applications.
+
+-  Rigorous and practical performance benchmarking and analyze using both emulator and hardware testbed.
+
+## Catalog
+
+-   [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
+-   [CALVIN-FaaS](./calvin-faas/): A system (**under-development**) for the idea of serverless NFV.
+-   [FFPP](./calvin-faas/ffpp/): A library for fast packet processing with both DPDK and XDP.
+-   [perf_eval](./perf_eval/): Tools to monitor and profiling the underlying physical or virtual systems running VNFs.
+-   [pktgen](./pktgen/):  Utilities to configure and run software packet generators for VNF performance benchmarking.
+-   [scripts](./scripts/): Utility shell/python scripts to install, setup, configure tools used in this project.
+
+
+## Quick Start
+
+The easiest and most convenient way to try `Build-VNF` utilities to use the test VM managed by `Vagrant`.
+
+The development, test and basic benchmarks of VNFs, libraries are performed on a pre-configured VM managed by the Vagrant.
+The receipt to build the VM is in the [Vagrantfile](./Vagrantfile).
+`Virtualbox` is used as the default VM provider.
+
+Required setup on the host system:
+
+-   [Vagrant](https://www.vagrantup.com/downloads.html): v2.x.y (tested under v2.2.9)
+-   [Virtualbox](https://www.virtualbox.org/wiki/Downloads): v6.x (tested under v6.1.12)
+-   Resources for the VM provision: Two CPUs and 2GB RAM.
+
+Once the Vagrant and Virtualbox are installed, you can open a terminal (or CMD/powershell on Windows) on your host OS and change the current working directory to the
+`build-vnf` **source directory** which contains the Vagrantfile.
+Following commands can be used to manage the VM:
+
+```bash
+# Print current machine states
+$ vagrant status
+
+# Create the VM for VNF development
+$ vagrant up vnf
+
+# Log into the VM via SSH
+$ vagrant ssh vnf
+```
+By default, the `build-vnf` source directory is synced with `/vagrant/` folder inside the VM.
+Once inside the created VM, `FFPP` library can be built and tested with steps described [here](./calvin-faas/ffpp/README.md).
+
+#### Use KVM as the Provider
+
+On a host OS with Linux kernel (e.g. GNU/Linux distributions), KVM can be used as the VM hypervisor.
+Compared to the Virtualbox, KVM (as the native para-virtualization technology provided by the Linux kernel), generally provides better performance, time accuracy and
+hardware-access.
+For example, the VM could access the physical CPU directly to control its frequency states.
+
+Vagrant uses Libvirt to manage KVM powered VMs. The Libvirt plugin of Vagrant with its dependencies (e.g. qemu, kvm etc.) must be installed correctly.
+To create the VM with Libvirt provider, check the [guide](https://github.com/vagrant-libvirt/vagrant-libvirt#installation) to install the plugin and its dependencies.
+After successful installation, run the following command in the build-vnf's source directory:
+
+```bash
+$ vagrant up --provider libvirt vnf
+# Remove the VM managed by libvirt, the default provider is Virtualbox. Use VAGRANT_DEFAULT_PROVIDER to force vagrant to
+# use libvirt.
+$ VAGRANT_DEFAULT_PROVIDER=libvirt vagrant destroy vnf
+```
+
+[Rsync mode](https://www.vagrantup.com/docs/synced-folders/rsync.html) is used in the Libvirt provider for unidirectional (host->guest) sync. 
+The syncing does **NOT** automatically start after the `vagrant up`.
+Open a terminal, enter the root directory of `build-vnf` project and run `$ vagrant rsync-auto vnf` after the VM  is booted to start syncing
+
+For bidirectional sync, [NFS](https://www.vagrantup.com/docs/synced-folders/nfs.html) need to be configured and used as the sync type.
+NFS-based sync tends to have more bugs, so rsync mode is used by default.
 
 ## Citing Our Works
 
@@ -57,86 +128,16 @@ If you like tools inside this repository, please cite our papers.
 }
 ```
 
-## Catalog
 
-1.  [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
-1.  [CALVIN-FaaS](./calvin-faas/): A system (**under-development**) for the idea of serverless NFV.
-1.  [perf_eval](./perf_eval/): Tools to monitor and profiling the underlying physical or virtual systems running VNFs.
-1.  [pktgen](./pktgen/):  Utilities to configure and run software packet generators for VNF performance benchmarking.
-1.  [scripts](./scripts/): Utility shell/python scripts to install, setup, configure tools used in this project.
-
-
-### To be cleaned/removed Directories
-
-1.  [shared_lib](./shared_lib/): Initially used to put shared libraries used by different VNFs. Should be integrated into ffpp library.
-
-## Vagrant-managed Virtual Machine for Test and Development
-
-Most programs in this project are developed and tested inside a VM managed by Vagrant.
-
-#### Use Virtualbox as the Provider
-
-The development, test and basic benchmarks of VNFs, libraries are performed on a pre-configured VM managed by the
-Vagrant. The receipt to build the VM is in the [Vagrantfile](./Vagrantfile).
-
-Recommended setup:
-
-- Vagrant: v2.2.5 and beyond ([Download Link](https://www.vagrantup.com/downloads.html))
-- Virtualbox: v6.0 and beyond ([Download Link](https://www.virtualbox.org/wiki/Downloads))
-
-Once the Vagrant and Virtualbox are installed, you can open a terminal (or CMD/powershell on Windows) on your host OS
-and change the current working directory to the build-vnf source directory which contains the Vagrantfile.
-Following commands can be used to manage the VM:
-
-```bash
-# Print current machine states
-$ vagrant status
-
-# Create the VM for VNF development
-$ vagrant up vnf
-
-# Log into the VM via SSH
-$ vagrant ssh vnf
-```
-All tests and benchmarks should run **inside** the VM.
-And the path of files in READMEs are also paths **inside** the VM.
-
-#### Use KVM as the Provider
-
-On a host OS with Linux kernel (e.g. GNU/Linux distributions), KVM can be used as the VM hypervisor.
-Compared to the Virtualbox, KVM (as the native para-virtualization technology provided by the Linux kernel), generally
-provides better performance, time accuracy and hardware-access.
-For example, the VM could access the physical CPU directly to control its frequency states.
-
-Vagrant uses Libvirt to manage KVM powered VMs. The Libvirt plugin of Vagrant with its dependencies (e.g. qemu, kvm
-etc.) must be installed correctly.
-To create the VM with Libvirt provider.
-Check the [guide](https://github.com/vagrant-libvirt/vagrant-libvirt#installation) to install the plugin and its
-dependencies.
-After successful installation, run the following command in the build-vnf's source directory:
-
-```bash
-$ vagrant up --provider libvirt vnf
-# Remove the VM managed by libvirt, the default provider is Virtualbox. Use VAGRANT_DEFAULT_PROVIDER to force vagrant to
-# use libvirt.
-$ VAGRANT_DEFAULT_PROVIDER=libvirt vagrant destroy vnf
-```
-
-[Rsync mode](https://www.vagrantup.com/docs/synced-folders/rsync.html) is used in the Libvirt provider for
-unidirectional (host->guest) sync. 
-The syncing does **NOT** automatically start after the `vagrant up`.
-Open a terminal, enter the root directory of `build-vnf` project and run `$ vagrant rsync-auto vnf` after the VM  is
-booted to start syncing
-
-For bidirectional sync, [NFS](https://www.vagrantup.com/docs/synced-folders/nfs.html) need to be configured and used as
-the sync type.
-NFS-based sync tends to have more bugs, so rsync mode is used by default.
-
-## Contribution ##
+## Contributing
 
 This project exists thanks to all people who contribute.
 The [list](./CONTRIBUTORS) of all contributors.
 
-## Contact ##
+## Contact
 
 * **Zuo Xiang** - *Project Maintainer* - xianglinks@gmail.com
+
+## License
+
+This project is licensed under the [MIT licence](./LICENSE).
