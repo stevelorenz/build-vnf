@@ -6,6 +6,7 @@ About: On/Off traffic of a deterministic and stateless stream profile.
        For basic latency benchmark of proposed power management mechanisms.
 """
 
+import os
 import argparse
 import pprint
 import re
@@ -80,34 +81,50 @@ def save_rx_stats(data, filename, stream_params):
         f.write("\n]")
 
 
-def get_rx_stats(client, tx_port, rx_port, stream_params):
+def get_rx_stats(client, tx_port, rx_port, stream_params,
+                 second_stream_params=None):
+    err_cntrs_results = list()
+    latency_results = list()
+    m_idx = 0
+
     pgids = client.get_active_pgids()
     print("Currently used pgids: {0}".format(pgids))
     stats = client.get_pgid_stats(pgids["latency"])
-    # stats = client.get_pgid_stats()
 
     # A list of dictionary
-    flow_results = [dict()] * len(stream_params)
-    err_cntrs_results = [dict()] * len(stream_params)
-    latency_results = [dict()] * len(stream_params)
+    err_cntrs = [dict()] * len(stream_params)
+    latency = [dict()] * len(stream_params)
     for index, _ in enumerate(stream_params):
-        # all_stats = stats["latency"].get(index)
         lat_stats = stats["latency"].get(index)
-        flow_stats = stats["flow_stats"].get(index)
         # if not all_stats:
-        if not lat_stats or not flow_stats:
+        if not lat_stats:
             print(f"No stats available for PG ID {index}!")
             continue
         else:
-            # latency_results[index] = all_stats["latency"]
-            # err_cntrs_results[index] = all_stats["err_cntrs"]
-            print("Rx pps: ", flow_stats["rx_pps"])
-            latency_results[index] = lat_stats["latency"]
-            err_cntrs_results[index] = lat_stats["err_cntrs"]
-            flow_results[index] = flow_stats
+            latency[index] = lat_stats["latency"]
+            err_cntrs[index] = lat_stats["err_cntrs"]
+            m_idx = index
+
+    err_cntrs_results.append(err_cntrs)
+    latency_results.append(latency)
+
+    if second_stream_params is not None:
+        err_cntrs = [dict()] * len(second_stream_params)
+        latency = [dict()] * len(second_stream_params)
+        for index, _ in enumerate(second_stream_params):
+            lat_stats = stats["latency"].get(index + m_idx)
+            if not lat_stats:
+                print(f"No stats available for PG ID {index}!")
+                continue
+            else:
+                latency[index] = lat_stats["latency"]
+                err_cntrs[index] = lat_stats["err_cntrs"]
+
+        err_cntrs_results.append(err_cntrs)
+        latency_results.append(latency)
 
     # return (err_cntrs_results, latency_results)
-    return (err_cntrs_results, latency_results, flow_results)
+    return (err_cntrs_results, latency_results)
 
 
 def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
@@ -187,12 +204,12 @@ def create_streams_with_second_flow(
 ) -> list:
     """Create a list of STLStream objects with the second flow."""
 
-    spoofed_eth_srcs = ["ab:ab:ab:ab:ab:01", "ab:ab:ab:ab:ab:02"]
+    spoofed_eth_srcs = ["0c:42:a1:51:41:d8", "ab:ab:ab:ab:ab:02"]
     udp_payload_size = PAYLOAD_SIZE
     if udp_payload_size < 16:
         raise RuntimeError("The minimal payload size is 16 bytes.")
     print(f"UDP payload size: {udp_payload_size}")
-    udp_payload = "Z" * udp_payload_size
+    udp_payload = ["Z" * udp_payload_size, "Z" * (udp_payload_size - 1)]
     # UDP checksum is disabled.
 
     pkts = list()
@@ -201,20 +218,22 @@ def create_streams_with_second_flow(
             pkt=Ether(src=spoofed_eth_srcs[0])
             / IP(src=ip_src, dst=ip_dst)
             / UDP(dport=8888, sport=9999, chksum=0)
-            / udp_payload
+            / udp_payload[0]
         )
     )
     pkts.append(
         STLPktBuilder(
-            pkt=Ether(src=spoofed_eth_srcs[1])
+            pkt=Ether(src=spoofed_eth_srcs[0])
             / IP(src=ip_src, dst=ip_dst)
             / UDP(dport=8888, sport=9999, chksum=0)
-            / udp_payload
+            / udp_payload[1]
         )
     )
 
     streams = list()
+    pg_id = 0
     for prefix, params in enumerate([stream_params, second_stream_params]):
+        print("Prefix: ", prefix)
         for index, stp in enumerate(params):
             next_st_name = None
             next_st_w_name = None
@@ -247,7 +266,7 @@ def create_streams_with_second_flow(
                     name=f"s{prefix+1}{index}",
                     isg=stp["isg"],
                     packet=pkts[prefix],
-                    flow_stats=STLFlowLatencyStats(pg_id=index),
+                    flow_stats=STLFlowLatencyStats(pg_id=pg_id),#index),
                     mode=STLTXSingleBurst(
                         pps=LATENCY_FLOW_PPS,
                         total_pkts=int(LATENCY_FLOW_PPS * stp["on_time"]),
@@ -256,6 +275,7 @@ def create_streams_with_second_flow(
                     self_start=self_start,
                 )
             )
+            pg_id += 1
 
     return streams
 
@@ -394,8 +414,8 @@ def main():
 
     if args.enable_second_flow:
         print("INFO: The second flow is enabled. Two flows share the physical link.")
-        for s in stream_params:
-            s["pps"] = int(s["pps"] / 2)
+        # for s in stream_params:
+            # s["pps"] = int(s["pps"] / 2)
         second_stream_params = list(reversed(stream_params.copy()))
         print("\n--- Updated stream parameters with the second flow:")
         pprint.pp(second_stream_params)
@@ -410,6 +430,7 @@ def main():
         )
     else:
         streams = create_streams(stream_params, args.ip_src, args.ip_dst)
+        second_stream_params = None
 
     if args.test:
         pprint.pp([s.to_json() for s in streams])
@@ -449,24 +470,49 @@ def main():
         # err_cntrs_results, latency_results = get_rx_stats(
         # client, tx_port, rx_port, stream_params
         # )
-        err_cntrs_results, latency_results, flow_results = get_rx_stats(
-            client, tx_port, rx_port, stream_params
-        )
+        err_cntrs_results, latency_results = get_rx_stats(
+            client, tx_port, rx_port, stream_params,
+            second_stream_params=second_stream_params)
         print("--- The latency results of all streams:")
-        print(f"- Number of streams: {len(latency_results)}")
+        print(f"- Number of streams first flow: {len(latency_results[0])}")
         for index, _ in enumerate(stream_params):
             print(f"- Stream: {index}")
-            err_cntrs_results[index]["start_ts"] = start_ts
-            err_cntrs_results[index]["end_ts"] = end_ts
-            print(err_cntrs_results[index])
-            print(latency_results[index])
-            print(flow_results[index])
+            err_cntrs_results[0][index]["start_ts"] = start_ts
+            err_cntrs_results[0][index]["end_ts"] = end_ts
+            print(err_cntrs_results[0][index])
+            print(latency_results[0][index])
         if args.out:
-            savedir_latency = "/home/malte/malte/latency/" + args.out + "_latency.json"
-            savedir_error = "/home/malte/malte/error/" + args.out + "_error.json"
-            print("Results: ", savedir_latency, ", ", savedir_error)
-            save_rx_stats(err_cntrs_results, savedir_error, stream_params)
-            save_rx_stats(latency_results, savedir_latency, stream_params)
+            savedir_latency = "/home/malte/malte/latency/flow1/"
+            savedir_error = "/home/malte/malte/error/flow1/"
+            if not os.path.exists(savedir_latency):
+                os.mkdir(savedir_latency)
+            if not os.path.exists(savedir_error):
+                os.mkdir(savedir_error)
+            savedir_latency += args.out + "latency.json"
+            savedir_error += args.out + "error.json"
+            print("\nResults: ", savedir_latency, ", ", savedir_error)
+            save_rx_stats(err_cntrs_results[0], savedir_error, stream_params)
+            save_rx_stats(latency_results[0], savedir_latency, stream_params)
+        if second_stream_params is not None:
+            print(f"\n\n- Number of streams second flow: {len(latency_results[1])}")
+            for index, _ in enumerate(stream_params):
+                print(f"- Stream: {index}")
+                err_cntrs_results[1][index]["start_ts"] = start_ts
+                err_cntrs_results[1][index]["end_ts"] = end_ts
+                print(err_cntrs_results[1][index])
+                print(latency_results[1][index])
+            if args.out:
+                savedir_latency = "/home/malte/malte/latency/flow2/"
+                savedir_error = "/home/malte/malte/error/flow2/"
+                if not os.path.exists(savedir_latency):
+                    os.mkdir(savedir_latency)
+                if not os.path.exists(savedir_error):
+                    os.mkdir(savedir_error)
+                savedir_latency += args.out + "latency.json"
+                savedir_error += args.out + "error.json"
+                print("\nResults: ", savedir_latency, ", ", savedir_error)
+                save_rx_stats(err_cntrs_results[1], savedir_error, stream_params)
+                save_rx_stats(latency_results[1], savedir_latency, stream_params)
 
     except STLError as error:
         print(error)
