@@ -45,9 +45,7 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	void *data = (void *)(long)ctx->data;
 	struct hdr_cursor nh;
 	int eth_type;
-	int ip_type;
 	struct ethhdr *eth;
-	struct iphdr *iphdr;
 	int action = XDP_PASS;
 
 	struct fwd_params *fwd_params;
@@ -56,13 +54,6 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	nh.pos = data;
 	eth_type = parse_ethhdr(&nh, data_end, &eth);
 	if (eth_type < 0) {
-		return XDP_ABORTED;
-	}
-
-	// Get IP header -> read total length (20+8+UDP payload)
-	// nh.pos = data; // Reset
-	ip_type = parse_iphdr(&nh, data_end, &iphdr);
-	if (ip_type < 0) {
 		return XDP_ABORTED;
 	}
 
@@ -81,9 +72,7 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	memcpy(eth->h_source, fwd_params->eth_new_src, ETH_ALEN);
 	memcpy(eth->h_dest, fwd_params->eth_new_dst, ETH_ALEN);
 
-	// tx_port_key = fwd_params->eth_src[ETH_ALEN - 1];
-	tx_port_key = iphdr->tot_len;
-	tx_port_key = tx_port_key & 0x000000FF;
+	tx_port_key = fwd_params->eth_src[ETH_ALEN - 1];
 
 	// Update stats
 	__u32 key = 0;

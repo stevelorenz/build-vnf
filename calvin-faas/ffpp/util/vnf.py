@@ -42,7 +42,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
         "/dev": {"bind": "/dev", "mode": "rw"},
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
-    "working_dir": "/ffpp",
+    "working_dir": "/ffpp/user/related_works/l2fwd_power/",
     "image": "ffpp-dev:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-vnf"},
@@ -74,7 +74,7 @@ def start(num_vnf, host_nw, load_pm, load_fb):
         c_vnf_pid.append(c_vnf.attrs["State"]["Pid"])
         c_vnf.exec_run("mount -t bpf bpf /sys/fs/bpf")
         print("* The VNF container is running with PID: ", c_vnf_pid[m_vnf])
-    
+
         # Setup veth peers within the containers
         if host_nw:
             setup_host_network(c_vnf_pid[m_vnf], m_vnf, load_pm, load_fb, num_vnf)
@@ -84,7 +84,6 @@ def start(num_vnf, host_nw, load_pm, load_fb):
     print("* Current XDP status: ")
     run(split("xdp-loader status"), check=True)
     print("* Setup finished")
-
 
 
 def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
@@ -138,16 +137,9 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
     vnf_out_mac = out.decode("ascii").strip()
     pktgen_out_phy_mac = "0c:42:a1:51:41:d8"  # src enp65s0f0
     pktgen_in_phy_mac = "0c:42:a1:51:41:d9"  # dst enp65s0f1
-    pktgen_out_mac_spoof = ["0c:42:a1:51:41:d8", "ab:ab:ab:ab:ab:02"]
     vnf_in_phy_mac = "0c:42:a1:51:42:bc"  # enp5s0f0
     vnf_out_phy_mac = "0c:42:a1:51:42:bd"  # enp5s0f1
-    upd_payload_size = [1400, 1399]
-
-    ## For VNF on blackbox
-    # vnf_out_phy_mac = "0c:42:a1:51:41:d8"  # src enp65s0f0
-    # vnf_in_phy_mac = "0c:42:a1:51:41:d9"  # dst enp65s0f1
-    # pktgen_in_phy_mac = "0c:42:a1:51:42:bd"  # enp5s0f0
-    # pktgen_out_phy_mac = "0c:42:a1:51:42:bc"  # enp5s0f1
+    upd_payload_size = [1428, 1427]
 
     print("- The MAC address of vnf-in in vnf-{}: {}".format(m_vnf, vnf_in_mac))
     print("- The MAC address of vnf-out in vnf-{}: {}".format(m_vnf, vnf_out_mac))
@@ -155,8 +147,14 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
     print("- The MAC address of vnf{}-out-root: {}".format(m_vnf, vnf_out_root_mac))
 
     print("* Run xdp_fwd programs between physical and virtual interface")
-    
-    xdp_fwd_dir = os.path.abspath("./kern/xdp_fwd/")
+
+    # Decide which forward programs to use
+    if num_vnf == 1:
+        xdp_fwd_dir = os.path.abspath("./kern/xdp_fwd/")
+    else:
+        xdp_fwd_dir = os.path.abspath("./kern/xdp_fwd_two_vnf/")
+    print("++ path: ", xdp_fwd_dir)
+
     if not os.path.exists(xdp_fwd_dir):
         print("ERR: Can not find the xdp_fwd program.")
         sys.exit(1)
@@ -169,7 +167,7 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
             print("\tINFO: Compile xdp_fwd_time program")
             run(split("make"), check=True)
         print("\t- Load xdp_fwd_time kernel programs.")
-        if m_vnf == 0: # only once on physical interface
+        if m_vnf == 0:  # only once on physical interface
             run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_time_kern.o"), check=True)
         run(split("sudo ./xdp_fwd_loader vnf{}-out-root".format(m_vnf)), check=True)
     elif load_fb:
@@ -179,7 +177,12 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
         print("\t- Load xdp_fwd_fb kernel programs.")
         if m_vnf == 0:
             run(split("sudo ./xdp_fwd_loader enp5s0f0 xdp_fwd_fb_kern.o"), check=True)
-        run(split("sudo ./xdp_fwd_loader vnf{}-out-root xdp_fwd_fb_kern.o".format(m_vnf)), check=True)
+        run(
+            split(
+                "sudo ./xdp_fwd_loader vnf{}-out-root xdp_fwd_fb_kern.o".format(m_vnf)
+            ),
+            check=True,
+        )
     else:
         if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
             print("\tINFO: Compile xdp_fwd program")
@@ -190,32 +193,26 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
         run(split("sudo ./xdp_fwd_loader vnf{}-out-root".format(m_vnf)), check=True)
 
     print("\t- Add forwarding between physical and virtual interface")
-    if num_vnf == 1:
-        run(
-            split(
-                "./xdp_fwd_user -i enp5s0f0 -r vnf{}-in-root -s {} -d {} -w {} -p {}".format(
-                    m_vnf, pktgen_out_phy_mac, vnf_in_mac, vnf_in_root_mac, 1400
-                )
+    run(
+        split(
+            "./xdp_fwd_user -i enp5s0f0 -r vnf{}-in-root -s {} -d {} -w {} -p {}".format(
+                m_vnf,
+                pktgen_out_phy_mac,
+                vnf_in_mac,
+                vnf_in_root_mac,
+                upd_payload_size[m_vnf],
             )
         )
-    else:
-        run(
-            split(
-                "./xdp_fwd_user -i enp5s0f0 -r vnf{}-in-root -s {} -d {} -w {} -p {}".format(
-                    # m_vnf, pktgen_out_mac_spoof[m_vnf], vnf_in_mac, vnf_in_root_mac
-                    m_vnf, pktgen_out_phy_mac, vnf_in_mac, vnf_in_root_mac, upd_payload_size[m_vnf]
-                )
-            )
-        )
+    )
     # The L2FWD doesn't do MAC updating
     run(
         split(
-            "./xdp_fwd_user -i vnf{}-out-root -r enp5s0f1 -s {} -d {} -w {}".format(
-                # vnf_in_root_mac, vnf_in_mac, vnf_out_phy_mac
+            "./xdp_fwd_user -i vnf{}-out-root -r enp5s0f1 -s {} -d {} -w {} -p {}".format(
                 m_vnf,
                 vnf_out_mac,
                 pktgen_in_phy_mac,
                 vnf_out_phy_mac,
+                upd_payload_size[m_vnf],
             )
         )
     )
@@ -228,7 +225,7 @@ def unloadXDP(num_vnf):
     for iface in range(0, num_vnf, 1):
         ifaces.append("vnf{}-out-root".format(iface))
     ifaces.append("enp5s0f0")
-    for iface in ifaces:#["vnf0-out-root", "vnf1-out-root", "enp5s0f0"]:
+    for iface in ifaces:  # ["vnf0-out-root", "vnf1-out-root", "enp5s0f0"]:
         bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, iface)
         if os.path.exists(bpf_map_dir):
             print("- Remove BPF maps directory: {}".format(bpf_map_dir))
@@ -281,10 +278,7 @@ if __name__ == "__main__":
         help="Load traffic monitor on egress interface to obtain feedback",
     )
     parser.add_argument(
-        "--num_vnf",
-        type=int,
-        default=1,
-        help="Number of VNF containers to deploy",
+        "--num_vnf", type=int, default=1, help="Number of VNF containers to deploy",
     )
 
     args = parser.parse_args()

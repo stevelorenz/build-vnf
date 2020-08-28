@@ -30,14 +30,24 @@ struct bpf_map_def SEC("maps") tx_port = {
 	.max_entries = 256,
 };
 
+struct bpf_map_def SEC("maps") xdp_stats_map = {
+	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
+	.key_size = sizeof(__u32),
+	.value_size = sizeof(struct datarec),
+	.max_entries = 256,
+};
+
 SEC("xdp_redirect_map")
 int xdp_fwd_func(struct xdp_md *ctx)
 {
+	__u64 timestamp = bpf_ktime_get_ns();
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
 	struct hdr_cursor nh;
 	int eth_type;
+	int ip_type;
 	struct ethhdr *eth;
+	struct iphdr *iphdr;
 	int action = XDP_PASS;
 
 	struct fwd_params *fwd_params;
@@ -46,6 +56,12 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	nh.pos = data;
 	eth_type = parse_ethhdr(&nh, data_end, &eth);
 	if (eth_type < 0) {
+		return XDP_ABORTED;
+	}
+
+	// Get IP header -> read total length (20+8+UDP-payload)
+	ip_type = parse_iphdr(&nh, data_end, &iphdr);
+	if (ip_type < 0) {
 		return XDP_ABORTED;
 	}
 
@@ -64,7 +80,18 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	memcpy(eth->h_source, fwd_params->eth_new_src, ETH_ALEN);
 	memcpy(eth->h_dest, fwd_params->eth_new_dst, ETH_ALEN);
 
-	tx_port_key = fwd_params->eth_src[ETH_ALEN - 1];
+	tx_port_key = iphdr->tot_len;
+	tx_port_key = bpf_ntohs(tx_port_key);
+	tx_port_key = tx_port_key & 0xff;
+
+	// Update stats
+	struct datarec *rec = bpf_map_lookup_elem(&xdp_stats_map, &tx_port_key);
+	if (!rec) {
+		return action;
+	}
+	rec->rx_packets++;
+	rec->rx_time = timestamp;
+
 	action = bpf_redirect_map(&tx_port, tx_port_key, 0);
 	return action;
 }

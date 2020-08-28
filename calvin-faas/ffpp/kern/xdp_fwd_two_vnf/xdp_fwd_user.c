@@ -85,6 +85,8 @@ int main(int argc, char *argv[])
 
 	struct fwd_params fwd_params = { 0 };
 
+	int payload_size = -1;
+
 	while ((opt = getopt(argc, argv, "hi:r:s:d:w:p:")) != -1) {
 		switch (opt) {
 		case 'h':
@@ -112,8 +114,9 @@ int main(int argc, char *argv[])
 		case 'w':
 			snprintf(eth_new_src_str, 18, "%s", optarg);
 			break;
-		case 'p': // Left this option to make vnf.py easier
-			printf("Smart forwarding isn't supported in this version, sorry.\n");
+		case 'p': ;
+			char *ptr; // dummy pointer for strtoul
+			payload_size = strtoul(optarg, &ptr, 10);
 			break;
 		case 0:
 			break;
@@ -164,10 +167,18 @@ int main(int argc, char *argv[])
 		return EXIT_FAIL_BPF;
 	}
 
-	// Use the last byte of the source MAC address as the key.
-	int i = 0;
-	i = src[ETH_ALEN - 1];
-	bpf_map_update_elem(map_fd, &i, &cfg.redirect_ifindex, 0);
+	if (payload_size < 0) {
+		// Use the last byte of the source MAC address as the key.
+		int i = 0;
+		i = src[ETH_ALEN - 1];
+		bpf_map_update_elem(map_fd, &i, &cfg.redirect_ifindex, 0);
+	} else {
+		// Use payload size of the packet as key
+		int payload_size_key;
+		payload_size_key = payload_size & 0xff;
+		bpf_map_update_elem(map_fd, &payload_size_key,
+				    &cfg.redirect_ifindex, 0);
+	}
 
 	map_fd = open_bpf_map_file(pin_dir, "fwd_params_map", NULL);
 	if (map_fd < 0) {

@@ -103,7 +103,8 @@ def get_rx_stats(client, tx_port, rx_port, stream_params,
         else:
             latency[index] = lat_stats["latency"]
             err_cntrs[index] = lat_stats["err_cntrs"]
-            m_idx = index
+            # m_idx = index
+            m_idx += 1
 
     err_cntrs_results.append(err_cntrs)
     latency_results.append(latency)
