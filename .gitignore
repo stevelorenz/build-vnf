@@ -184,6 +184,7 @@ venv.bak/
 *.jpeg
 *.mbuf
 *.pcap
+!logo/*.png
 *.png
 *.pdf
 *.weights
