@@ -75,12 +75,43 @@ static int init_power_library(void)
 	return ret;
 }
 
+static int init_power_library_on_system(void)
+{
+	int ret = 0;
+	int lcore_id = 0;
+	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id += CORE_MASK) {
+		ret = rte_power_init(lcore_id);
+		if (ret) {
+			RTE_LOG(ERR, POWER,
+				"Can't init power library on core: %u.\n",
+				lcore_id);
+		}
+	}
+	return ret;
+}
+
 static int exit_power_library(void)
 {
 	int ret = 0;
 	int lcore_id = 0;
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
+		if (rte_lcore_is_enabled(lcore_id)) {
+			ret = rte_power_exit(lcore_id);
+			if (ret)
+				RTE_LOG(ERR, POWER,
+					"Library exit failed on core %u\n",
+					lcore_id);
+		}
+	}
+	return ret;
+}
+
+static int exit_power_library_on_system(void)
+{
+	int ret = 0;
+	int lcore_id = 0;
+	for (lcore_id = 0; lcore_id < NUM_CORES; lcore_id += CORE_MASK) {
 		if (rte_lcore_is_enabled(lcore_id)) {
 			ret = rte_power_exit(lcore_id);
 			if (ret)
@@ -157,8 +188,8 @@ static void stats_print(struct stats_record *stats_rec,
 
 	calc_traffic_stats(m, rec, prev, &t_s, si);
 
-	printf("%ld %11lld pkts (%10.0f pps) \t%10.8f s \tperiod:%f\n",
-	       m->cnt, rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
+	printf("%ld %11lld pkts (%10.0f pps) \t%10.8f s \tperiod:%f\n", m->cnt,
+	       rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
 	       t_s.period);
 }
 
@@ -256,6 +287,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 		} else {
 			usleep(IDLE_INTERVAL);
 		}
+		set_system_pstate(1);
 		printf("\n");
 	}
 }
@@ -310,6 +342,12 @@ int main(int argc, char *argv[])
 		rte_exit(EXIT_FAILURE, "Failed to init the power library.\n");
 	}
 
+	if (init_power_library_on_system()) {
+		rte_exit(
+			EXIT_FAILURE,
+			"Failed to init the power library on the system cores.\n");
+	}
+
 	check_lcore_power_caps();
 	int lcore_id;
 	int ret;
@@ -333,7 +371,7 @@ int main(int argc, char *argv[])
 	struct freq_info freq_info = { 0 };
 	get_frequency_info(CORE_OFFSET, &freq_info, true);
 
-	printf("Scale frequency down to minimum.\n");
+	printf("Scale frequency of VNF CPU down to minimum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
 		ret = rte_power_freq_min(lcore_id);
@@ -344,6 +382,8 @@ int main(int argc, char *argv[])
 				lcore_id);
 		}
 	}
+	printf("Scale frequency of system CPU up to maximum.\n");
+	set_system_pstate(1);
 
 	// Print stats from xdp_stats_map
 	printf("Collecting stats from BPF map:\n");
@@ -354,6 +394,7 @@ int main(int argc, char *argv[])
 	/// Save global stats here --> less signaling between single sessions
 	/// Get PID with ffpp_power and the simply kill PID
 	exit_power_library();
+	exit_power_library_on_system();
 	printf("\nBye..\n");
 	return 0;
 }

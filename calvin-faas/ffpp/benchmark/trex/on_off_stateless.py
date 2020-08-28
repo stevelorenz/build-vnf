@@ -489,8 +489,8 @@ def main():
                 os.mkdir(savedir_latency)
             if not os.path.exists(savedir_error):
                 os.mkdir(savedir_error)
-            savedir_latency += args.out + "latency.json"
-            savedir_error += args.out + "error.json"
+            savedir_latency += args.out + "_latency.json"
+            savedir_error += args.out + "_error.json"
             print("\nResults: ", savedir_latency, ", ", savedir_error)
             save_rx_stats(err_cntrs_results[0], savedir_error, stream_params)
             save_rx_stats(latency_results[0], savedir_latency, stream_params)
@@ -509,8 +509,8 @@ def main():
                     os.mkdir(savedir_latency)
                 if not os.path.exists(savedir_error):
                     os.mkdir(savedir_error)
-                savedir_latency += args.out + "latency.json"
-                savedir_error += args.out + "error.json"
+                savedir_latency += args.out + "_latency.json"
+                savedir_error += args.out + "_error.json"
                 print("\nResults: ", savedir_latency, ", ", savedir_error)
                 save_rx_stats(err_cntrs_results[1], savedir_error, stream_params)
                 save_rx_stats(latency_results[1], savedir_latency, stream_params)

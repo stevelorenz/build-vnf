@@ -10,11 +10,11 @@
 
 #include <ffpp/bpf_helpers_user.h>
 
-// #define RELEASE 1	// Uncomment to show debug information
+#define RELEASE 1	// Uncomment to show debug information
 
 // Hyper-parameter for scaling decision
-#define INTERVAL 250000//10000 // Map reading interval during traffic
-#define IDLE_INTERVAL 100000//100 // Map reading interval during ISG
+#define INTERVAL 10000 // Map reading interval during traffic
+#define IDLE_INTERVAL 100 // Map reading interval during ISG
 #define MAX_EMPTY_CNT 2 // So, after two empty polls we sleep :)
 #define UTIL_THRESHOLD_UP 0.75 // We don't actually want tu surpass the 0.8
 #define UTIL_THRESHOLD_DOWN 0.65
