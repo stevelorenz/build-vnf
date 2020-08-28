@@ -33,6 +33,26 @@ void get_frequency_info(int lcore, struct freq_info *f, bool debug)
 	}
 }
 
+void set_system_pstate(unsigned int pstate)
+{
+	int ret;
+	int lcore_id;
+	if (rte_power_get_freq(0) != pstate) {
+		printf("Scale system core.\n");
+		for (lcore_id = 0; lcore_id < NUM_CORES;
+		     lcore_id += CORE_MASK) {
+			ret = rte_power_set_freq(lcore_id, pstate);
+			if (ret < 0) {
+				RTE_LOG(ERR, POWER,
+					"Failed to set P-state of system CPU frequency.\n");
+			}
+		}
+	} else {
+		printf("System core already at requested P-state.\n");
+		printf("P-state: %d\n", rte_power_get_freq(0));
+	}
+}
+
 double get_cpu_frequency(int lcore)
 {
 	FILE *cpuinfo = fopen("/proc/cpuinfo", "rb");

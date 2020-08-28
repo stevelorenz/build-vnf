@@ -25,13 +25,20 @@ bool g_csv_saved_stream;
 double cur_time;
 
 /**
- * Obtain number of p-states and respective frequencies of the given lcore
+ * Obtain number of P-states and respective frequencies of the given lcore
  * 
  * @param lcore: Core for that the info is needed
  * @param f: Struct to store the information
  * @param debug: Prints the obtained information if true
  */
 void get_frequency_info(int lcore, struct freq_info *f, bool debug);
+
+/**
+ * Set the P-state of the system CPU
+ * 
+ * @param pstate: P-state to set the CPU to
+ */
+void set_system_pstate(unsigned int pstate);
 
 /**
  * Reads the current frequency of the given core from /proc/cpuinfo
@@ -74,7 +81,7 @@ void calc_sma(struct measurement *m);
 void calc_wma(struct measurement *m);
 
 /**
- * Sends CPU to the given p-state
+ * Sends CPU to the given P-state
  *
  * @param f: struct with frequency information of the CPU
  * @param pstate: pstate the CPU shall enter
@@ -103,7 +110,7 @@ void calc_pstate(struct measurement *m, struct freq_info *f,
 void check_traffic_trends(struct measurement *m, struct scaling_info *si);
 
 /**
- * Checks the current CPU utilization and increnebts the 
+ * Checks the current CPU utilization and increments the 
  * respective counter
  *
  * @param m: struct of the current measurement status and values
