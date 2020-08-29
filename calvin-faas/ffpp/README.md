@@ -9,7 +9,7 @@
 *   [Run Local Benchmark](#run-local-benchmark)
 *   [FAQ](#faq)
 *   [Contact](#contact)
-*   [LICENSE](#licence)
+*   [License](#licence)
 
 
 ## Overview

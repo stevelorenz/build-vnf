@@ -6,16 +6,16 @@ About: On/Off traffic of a deterministic and stateless stream profile.
        For basic latency benchmark of proposed power management mechanisms.
 """
 
-import os
 import argparse
+import os
 import pprint
 import re
 import subprocess
 import time
 
+import json
 import numpy as np
 import stf_path
-import json
 
 from trex.stl.api import (
     Ether,
@@ -32,12 +32,18 @@ from trex.stl.api import (
     UDP,
 )
 
-PREAMBLE_SIZE = 8  # bytes
-# Minimal idle time required to sync clocks before sending the next packet on
-# the line.
-IFG_SIZE = 12  # bytes
-# Full Ethernet frame size including Ether, IP and UDP headers and the payload.
-PAYLOAD_SIZE = 1400  # bytes
+# All in bytes.
+ETH_PREAMBLE_LEN = 8
+ETH_HDR_LEN = 14
+ETH_CRC_LEN = 4
+ETH_IFG_LEN = 12
+ETH_OVERHEAD_LEN_L1 = ETH_PREAMBLE_LEN + ETH_HDR_LEN + ETH_CRC_LEN + ETH_IFG_LEN
+
+IPv4_HDR_LEN = 20
+UDP_HDR_LEN = 8
+
+# IP total length including IP header
+IP_TOT_LEN = 1400  # bytes
 
 # Fixed PPS for latency monitoring flows.
 # 0.1 MPPS, so the resolution is ( 1 / (0.1 * 10 ** 6)) * 10 ** 6  = 10 usec
@@ -130,7 +136,7 @@ def get_rx_stats(client, tx_port, rx_port, stream_params, second_stream_params=N
 def create_streams(stream_params: dict, ip_src: str, ip_dst: str) -> list:
     """Create a list of STLStream objects."""
 
-    udp_payload_size = PAYLOAD_SIZE
+    udp_payload_size = IP_TOT_LEN - IPv4_HDR_LEN - UDP_HDR_LEN
     if udp_payload_size < 16:
         raise RuntimeError("The minimal payload size is 16 bytes.")
     print(f"UDP payload size: {udp_payload_size}")
@@ -205,7 +211,7 @@ def create_streams_with_second_flow(
     """Create a list of STLStream objects with the second flow."""
 
     spoofed_eth_srcs = ["0c:42:a1:51:41:d8", "ab:ab:ab:ab:ab:02"]
-    udp_payload_size = PAYLOAD_SIZE
+    udp_payload_size = IP_TOT_LEN
     if udp_payload_size < 16:
         raise RuntimeError("The minimal payload size is 16 bytes.")
     print(f"UDP payload size: {udp_payload_size}")
@@ -297,7 +303,7 @@ def create_stream_params(
     pps_list = [
         np.floor(
             (utilization * max_bit_rate * 10 ** 9)
-            / ((PAYLOAD_SIZE + PREAMBLE_SIZE + IFG_SIZE) * 8)
+            / ((IP_TOT_LEN + ETH_OVERHEAD_LEN_L1) * 8)
         )
         for utilization in np.arange(0.1, 1.1, 0.1)
         # for utilization in [1.0] * 10
@@ -334,7 +340,7 @@ def create_stream_params(
 
 
 def main():
-    global PAYLOAD_SIZE
+    global IP_TOT_LEN
 
     parser = argparse.ArgumentParser(
         description="On/Off traffic of a deterministic and stateless stream profile."
@@ -386,10 +392,10 @@ def main():
         help="The name of the output file, stored in /home/malte/malte/latency if given",
     )
     parser.add_argument(
-        "--payload_size",
+        "--ip_tot_len",
         type=int,
-        default=PAYLOAD_SIZE,
-        help="Payload size of the packets",
+        default=IP_TOT_LEN,
+        help="The IP total length of packets to be transmitted.",
     )
     parser.add_argument(
         "--enable_second_flow",
@@ -399,7 +405,7 @@ def main():
 
     args = parser.parse_args()
 
-    PAYLOAD_SIZE = args.payload_size
+    IP_TOT_LEN = args.payload_size
 
     stream_params = create_stream_params(
         args.max_bit_rate,
