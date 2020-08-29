@@ -10,12 +10,12 @@
 
 #include <ffpp/bpf_helpers_user.h>
 
-#define RELEASE 1	// Uncomment to show debug information
+// #define RELEASE 1	// Uncomment to show debug information
 
 // Hyper-parameter for scaling decision
-#define INTERVAL 10000 // Map reading interval during traffic
-#define IDLE_INTERVAL 100 // Map reading interval during ISG
-#define MAX_EMPTY_CNT 2 // So, after two empty polls we sleep :)
+#define INTERVAL 250000//10000 // Map reading interval during traffic
+#define IDLE_INTERVAL 100000//100 // Map reading interval during ISG
+#define MAX_EMPTY_CNT 1 // So, after two empty polls we sleep :)
 #define UTIL_THRESHOLD_UP 0.75 // We don't actually want tu surpass the 0.8
 #define UTIL_THRESHOLD_DOWN 0.65
 #define HARD_UP_THRESHOLD 0.85
@@ -36,7 +36,7 @@
 #define CORE_MASK 2 // Cores to initialize
 #define CORE_OFFSET 1 // First core to initialize
 #define C_PACKET 6550 // CPU cycles for one packet
-#define MAX_PSTATES 32 // Max possible p-states
+#define MAX_PSTATES 32 // Max possible P-states
 
 #define CPU_UTIL(INTER_TIME, FREQ) (C_PACKET / (INTER_TIME * FREQ))
 // #define CPU_FREQ(INTER_TIME) (C_PACKET / (INTER_TIME * UTIL_THRESHOLD_UP))

@@ -6,6 +6,7 @@ all_examples = [
   'traffic_monitor',
   'c1_manager',
   'feedback_manager',
+  '2_vnf_manager',
 ]
 
 foreach example: all_examples

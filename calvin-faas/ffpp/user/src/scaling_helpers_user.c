@@ -47,10 +47,11 @@ void set_system_pstate(unsigned int pstate)
 					"Failed to set P-state of system CPU frequency.\n");
 			}
 		}
-	} else {
-		printf("System core already at requested P-state.\n");
-		printf("P-state: %d\n", rte_power_get_freq(0));
 	}
+	// else {
+	// printf("System core already at requested P-state.\n");
+	// printf("P-state: %d\n", rte_power_get_freq(0));
+	// }
 }
 
 double get_cpu_frequency(int lcore)
@@ -373,6 +374,19 @@ void calc_wma(struct measurement *m)
 	printf("WMA: %f\n", m->wma_cpu_util);
 }
 
+int find_max_wma(struct measurement *m, int num_vnfs)
+{
+	int i;
+	int max_wma_idx = 0;
+
+	for (i = 0; i < num_vnfs; i++) {
+		if (m[i].wma_cpu_util > m[max_wma_idx].wma_cpu_util) {
+			max_wma_idx = i;
+		}
+	}
+	return max_wma_idx;
+}
+
 void restore_last_stream_settings(struct last_stream_settings *lss,
 				  struct freq_info *f, struct scaling_info *si)
 {
@@ -405,7 +419,7 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 				(t_s->delta_packets * 1e9);
 			// t_s->pps = 1 / m->inter_arrival_time;
 			m->empty_cnt = 0,
-			m->idx = m->valid_vals % /// Maybe change to valid_vals
+			m->idx = m->valid_vals % 
 				 m->min_cnts; /// Remove min_cnts and use macro
 			m->cnt += 1;
 			m->valid_vals += 1;

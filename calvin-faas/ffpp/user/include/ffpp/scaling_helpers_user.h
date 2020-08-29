@@ -67,20 +67,6 @@ void disable_turbo_boost();
 void set_c1();
 
 /**
- * Calculate simple moving averager over the last NUM_READINGS_SMA values
- * 
- * @param m: struct of the current measurement status and values
- */
-void calc_sma(struct measurement *m);
-
-/**
- * Calculate weighted moving averager over the last NUM_READINGS_SMA values
- * 
- * @param m: struct of the current measurement status and values
- */
-void calc_wma(struct measurement *m);
-
-/**
  * Sends CPU to the given P-state
  *
  * @param f: struct with frequency information of the CPU
@@ -127,6 +113,29 @@ void check_frequency_scaling(struct measurement *m, struct freq_info *f,
  * @param fb: struct with information regarding the feedback mechanism
  */
 void check_feedback(struct feedback_info *fb, struct scaling_info *si);
+
+/**
+ * Calculate simple moving averager over the last NUM_READINGS_SMA values
+ * 
+ * @param m: struct of the current measurement status and values
+ */
+void calc_sma(struct measurement *m);
+
+/**
+ * Calculate weighted moving averager over the last NUM_READINGS_SMA values
+ * 
+ * @param m: struct of the current measurement status and values
+ */
+void calc_wma(struct measurement *m);
+
+/**
+ * Finds the VNF that is facing the highest traffic
+ * 
+ * @param m: struct of current measurement status and values
+ * @param num_vnfs: number of active VNFs
+ * @return index of the most active VŃF
+ */
+int find_max_wma(struct measurement *m, int num_vnfs);
 
 /**
  * Brings the frequency back-up to the one of the previous stream after

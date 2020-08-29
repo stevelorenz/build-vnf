@@ -9,6 +9,7 @@ gloabls_stats_user.h
 // #include <stdlib.h>
 
 #define TOTAL_VALS 100000
+#define NUM_VNFS 2
 
 extern double g_csv_pps[TOTAL_VALS];
 extern double g_csv_ts[TOTAL_VALS];
@@ -19,6 +20,10 @@ extern unsigned int g_csv_freq[TOTAL_VALS];
 extern double g_csv_in_pps[TOTAL_VALS];
 extern double g_csv_out_pps[TOTAL_VALS];
 extern int g_csv_out_delta[TOTAL_VALS];
+// Two VNfs
+extern double g_csv_pps_mult[NUM_VNFS][TOTAL_VALS];
+extern double g_csv_iat_mult[NUM_VNFS][TOTAL_VALS];
+extern double g_csv_cpu_util_mult[NUM_VNFS][TOTAL_VALS];
 // Flags and counters
 extern unsigned int g_csv_num_val;
 extern int g_csv_num_round;
