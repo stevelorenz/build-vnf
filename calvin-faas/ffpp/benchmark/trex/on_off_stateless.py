@@ -211,7 +211,7 @@ def create_streams_with_second_flow(
     """Create a list of STLStream objects with the second flow."""
 
     spoofed_eth_srcs = ["0c:42:a1:51:41:d8", "ab:ab:ab:ab:ab:02"]
-    udp_payload_size = IP_TOT_LEN
+    udp_payload_size = IP_TOT_LEN -IPv4_HDR_LEN - UDP_HDR_LEN
     if udp_payload_size < 16:
         raise RuntimeError("The minimal payload size is 16 bytes.")
     print(f"UDP payload size: {udp_payload_size}")
@@ -405,7 +405,7 @@ def main():
 
     args = parser.parse_args()
 
-    IP_TOT_LEN = args.payload_size
+    IP_TOT_LEN = args.ip_tot_len
 
     stream_params = create_stream_params(
         args.max_bit_rate,

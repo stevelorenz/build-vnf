@@ -146,8 +146,10 @@ static void check_lcore_power_caps(void)
 	}
 }
 
-static void collect_global_stats(struct freq_info *f, struct measurement *m,
-				 struct scaling_info *si, int num_vnfs)
+static void
+collect_global_stats(struct freq_info *f, struct measurement *m,
+		     __attribute__((unused)) struct scaling_info *si,
+		     int num_vnfs)
 {
 	// if (m->had_first_packet) {
 	int i;
@@ -183,20 +185,24 @@ static void collect_global_stats(struct freq_info *f, struct measurement *m,
 	}
 	g_csv_num_val++;
 	if (g_csv_empty_cnt > g_csv_empty_cnt_threshold) {
-		write_csv_file();
+		write_csv_file_2vnf(0);
+		write_csv_file_2vnf(1);
 		// write_csv_file_fb_out();
 		g_csv_saved_stream = true;
 		g_csv_empty_cnt = 0;
 		g_csv_num_val = 0;
 		g_csv_num_round++;
-		si->scaled_to_min = false;
-		m->had_first_packet = false;
+		// si->scaled_to_min = false;
+		// si->restore_settings = true;
+		m[0].had_first_packet = false;
+		m[1].had_first_packet = false;
 	}
 }
 
 static void stats_print(struct stats_record *stats_rec,
 			struct stats_record *stats_prev, struct measurement *m,
-			struct scaling_info *si, int num_vnf)
+			struct scaling_info *si,
+			__attribute__((unused)) int num_vnf)
 {
 	struct record *rec, *prev;
 	struct traffic_stats t_s = { 0 };
@@ -221,7 +227,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 	int i;
 	int active_vnf;
 	bool manage = false;
-	int raw_keys[2] = { 1428, 1427 }; // Currently hard-coded
+	int raw_keys[2] = { 1400, 1399 }; // Currently hard-coded
 	struct stats_record prev[2], record[2] = { 0 };
 	struct measurement m[2] = { 0 };
 	struct scaling_info si = { 0 };
@@ -250,23 +256,26 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 				calc_sma(&m[i]);
 				calc_wma(&m[i]);
 				// g_csv_cpu_util[g_csv_num_val] =
-					// m[i].cpu_util[m[i].idx];
+				// m[i].cpu_util[m[i].idx];
 			} else {
 				manage = false;
 			}
 		}
-		/// Make generic
-		if (m[0].had_first_packet) {
-			collect_global_stats(freq_info, m, &si, num_vnfs);
-		}
 		active_vnf = find_max_wma(m, num_vnfs);
 		printf("Active vnf: %d\n", active_vnf);
+
 		if (si.restore_settings) {
 			restore_last_stream_settings(&lss, freq_info, &si);
 			for (i = 0; i < num_vnfs; i++) {
 				m[i].valid_vals = -1; // Skip first burst
 			}
 		}
+
+		/// Make generic
+		if (m[0].had_first_packet) {
+			collect_global_stats(freq_info, m, &si, num_vnfs);
+		}
+
 		// // if (m.cnt > 0 && m.had_first_packet) {
 		if (manage) { //(m.valid_vals > 0) {
 			check_traffic_trends(&m[active_vnf], &si);
@@ -416,11 +425,11 @@ int main(int argc, char *argv[])
 	struct freq_info freq_info = { 0 };
 	get_frequency_info(CORE_OFFSET, &freq_info, true);
 
-	printf("Scale frequency of VNF CPU down to minimum.\n");
+	printf("Scale frequency of VNF CPU up to maximum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
-		ret = rte_power_freq_min(lcore_id);
-		// ret = rte_power_freq_max(lcore_id);
+		// ret = rte_power_freq_min(lcore_id);
+		ret = rte_power_freq_max(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
 				"Could not scale lcore %d frequency to minimum",

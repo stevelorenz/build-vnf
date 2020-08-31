@@ -52,14 +52,14 @@ elif [[ $1 == "-m" ]]; then # Bare vnf0 w/o code instrumentation PM
     ./ffpp_l2fwd_power -l 1,3 \
         --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf0 --log-level=eal,3 \
-        -- -p 0x03 -m 0 -T 5 <<<'y'
+        -- -p 0x03 -m 0 -T 0 <<<'y'
 elif [[ $1 == "-m1" ]]; then # Bare vnf0 w/o code instrumentation PM
     xdp-loader unload vnf-in
     xdp-loader unload vnf-out
     ./ffpp_l2fwd_power -l 5,7 \
         --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf1 --log-level=eal,3 \
-        -- -p 0x03 -m 0 -T 5 <<<'y'
+        -- -p 0x03 -m 0 -T 0 <<<'y'
 elif [[ $1 == "-p" ]]; then # vnf with code instrumentation PM
     xdp-loader unload vnf-in
     xdp-loader unload vnf-out

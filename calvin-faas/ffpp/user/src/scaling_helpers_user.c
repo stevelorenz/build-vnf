@@ -413,26 +413,25 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 	t_s->pps = t_s->delta_packets / t_s->period;
 
 	if (t_s->delta_packets > 0) {
+		// was this the first packet after an isg?
+		if (si->scaled_to_min) {
+			/// Maybe tweak idx and valid_vals here to avoid
+			/// extra flag and checking. If restore does checking
+			/// on frequency
+			printf("Set restore flag\n");
+			si->scaled_to_min = false;
+			si->restore_settings = true;
+		}
 		if (m->had_first_packet) {
 			m->inter_arrival_time =
 				(r->total.rx_time - p->total.rx_time) /
 				(t_s->delta_packets * 1e9);
 			// t_s->pps = 1 / m->inter_arrival_time;
 			m->empty_cnt = 0,
-			m->idx = m->valid_vals % 
+			m->idx = m->valid_vals %
 				 m->min_cnts; /// Remove min_cnts and use macro
 			m->cnt += 1;
 			m->valid_vals += 1;
-
-			// was this the first packet after an isg?
-			if (si->scaled_to_min) {
-				/// Maybe tweak idx and valid_vals here to avoid
-				/// extra flag and checking. If restore does checking
-				/// on frequency
-				printf("Set restore flag\n");
-				si->scaled_to_min = false;
-				si->restore_settings = true;
-			}
 		} else {
 			m->had_first_packet = true;
 			g_csv_saved_stream = false; /// global

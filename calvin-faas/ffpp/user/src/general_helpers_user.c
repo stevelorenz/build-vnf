@@ -114,6 +114,33 @@ void write_csv_file_tm()
 	fclose(fptr);
 }
 
+void write_csv_file_2vnf(int num_vnf)
+{
+	int len;
+	const char *file_dir = "/home";
+	char save_path[1024] = "";
+	len = snprintf(save_path, 1024, "%s/vnf-%d_test-%d.csv", file_dir,
+		       num_vnf, g_csv_num_round);
+	if (len < 0) {
+		fprintf(stderr, "Failed to generate csv save path.\n");
+	}
+	printf("File: %s\n", save_path);
+	FILE *fptr;
+	// name test-num.csv for each num
+	fptr = fopen(save_path, "w+");
+	if (fptr == NULL) {
+		printf("File does not exist.\n");
+		return;
+	}
+	unsigned int i;
+	for (i = 0; i < g_csv_num_val; i++) {
+		fprintf(fptr, "%f,%f,%f,%u\n", g_csv_ts[i],
+			g_csv_pps_mult[num_vnf][i],
+			g_csv_cpu_util_mult[num_vnf][i], g_csv_freq[i]);
+	}
+	fclose(fptr);
+}
+
 double get_time_of_day()
 {
 	struct timeval tv;
