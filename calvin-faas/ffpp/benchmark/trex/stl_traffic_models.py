@@ -10,13 +10,11 @@ About: Test traffic profiles based on MODELS for potential 5G use-cases.
        The focus in on inter-arrival times (has bigger impact on power
        management), so the packet length is fixed for each test.
 
-Reference: - Paper: https://ieeexplore.ieee.org/abstract/document/8985528
-           - https://en.wikipedia.org/wiki/Traffic_generation_model#Poisson_traffic_model
-           - https://en.wikipedia.org/wiki/Internet_Mix
 """
 
 import argparse
 import json
+import math
 import os
 import pprint
 import random
@@ -57,6 +55,8 @@ UDP_HDR_LEN = 8
 # 0.1 MPPS, so the resolution is ( 1 / (0.1 * 10 ** 6)) * 10 ** 6  = 10 usec
 LATENCY_FLOW_PPS = int(0.01 * 10 ** 6)
 
+X_MEN_REACTION_TIME = 30 / (10 ** 3)
+
 
 def init_ports(client):
     all_ports = client.get_all_ports()
@@ -66,64 +66,150 @@ def init_ports(client):
     return (tx_port, rx_port)
 
 
-def get_rx_stats(client, tx_port, rx_port, model, stream_params):
-    pass
+def get_rx_stats(client, tx_port, rx_port, burst_num):
+    err_cntrs_results = list()
+    latency_results = list()
+    m_idx = 0
+
+    pgids = client.get_active_pgids()
+    print("Currently used pgids: {0}".format(pgids))
+    stats = client.get_pgid_stats(pgids["latency"])
+
+    # A list of dictionary
+    err_cntrs = [dict()] * burst_num
+    latency = [dict()] * burst_num
+    for index in range(burst_num):
+        lat_stats = stats["latency"].get(index)
+        # if not all_stats:
+        if not lat_stats:
+            print(f"No stats available for PG ID {index}!")
+            continue
+        else:
+            latency[index] = lat_stats["latency"]
+            err_cntrs[index] = lat_stats["err_cntrs"]
+            # m_idx = index
+            m_idx += 1
+
+    err_cntrs_results.append(err_cntrs)
+    latency_results.append(latency)
+
+    return (err_cntrs_results, latency_results)
 
 
 def save_rx_stats(data, filename, model, stream_params):
     pass
 
 
-def create_stream_params_poisson(pps, flow_duration, src_num, tot_pkts_burst):
-    """ """
+def get_ip_tot_len():
+    num = random.random()
+    if num < 0.58:
+        return 64
+    elif num < 0.91:
+        return 580
+    else:
+        return 1400
+
+
+def isgs_sanity_check(isgs):
+    avg = np.average(isgs)
+    if avg < X_MEN_REACTION_TIME:
+        print(f"The average isg: {avg} seconds.")
+        raise RuntimeError("There is no time for X-MEN to scale down ;)")
+
+
+def create_stream_params_poisson(pps, burst_num, src_num, tot_pkts_burst):
+    """Create a flow of multiple single burst streams with its inter-arrival
+    time in Poisson distribuion.
+    """
     single_burst_time = tot_pkts_burst / pps
-    burst_num = int(np.floor(flow_duration / single_burst_time))
     burst_rate = pps / tot_pkts_burst
-    # Same as random.expovariate(lmbda)
-    intervals = [np.random.exponential(1 / burst_rate) for _ in range(burst_num)]
+    # Inter-arrival times for each bursts
+    isgs = [np.random.exponential(1 / burst_rate) for _ in range(burst_num)]
+    isgs_sanity_check(isgs)
+    flow_duration = math.ceil(burst_num * single_burst_time + sum(isgs[:burst_num]))
+    # Get packet length for each burst based on IMIX probability.
+    ip_tot_lens = [get_ip_tot_len() for _ in range(burst_num)]
 
-    print("-----")
-    print(flow_duration)
-    print(single_burst_time)
-    print(burst_num)
-    print(burst_rate)
-    pprint.pp(list(map(lambda x: x * 1000, intervals)))
+    print(f"- Flow duration of {burst_num} bursts: {flow_duration} seconds")
 
-    total_duration = 0
-    # while True:
-    #     pass
+    stream_params = [
+        {
+            "pps": pps,
+            "tot_pkts_burst": tot_pkts_burst,
+            "isg": isg,
+            "ip_tot_len": ip_tot_len,
+        }
+        for (isg, ip_tot_len) in zip(isgs, ip_tot_lens)
+    ]
 
-    return [[1, 2, 3], [3, 2, 1]]
+    return (stream_params, flow_duration)
 
 
-def create_stream_params(
-    bit_rate: float,
-    flow_duration: int,
+def get_streams(
+    pps: float,
+    burst_num: int,
     model: str,
     src_num,
-    ip_tot_len: int,
+    tot_pkts_burst,
+    l3_data,
     test: bool,
-    tot_pkts_burst=100000,
 ) -> list:
     """
-
     Utilize the single burst stream profile in STL to build the model-based traffic.
-    The focus here is the inter-arrival times of bursts.
+    The ONLY focus here is the inter-arrival times of bursts.
     """
-    pps = int(np.floor((bit_rate * 10 ** 9) / ((ip_tot_len + ETH_OVERHEAD_LEN_L1) * 8)))
+
+    if src_num > 1:
+        raise RuntimeError("Currently not implemented!")
+    pps = pps * 10 ** 6
     pprint.pp(pps)
+    if pps < LATENCY_FLOW_PPS:
+        raise RuntimeError(
+            f"The minimal PPS {LATENCY_FLOW_PPS} is required for accuracy."
+        )
 
-    # Streams are based
-    if model == "Poisson":
-        return create_stream_params_poisson(pps, flow_duration, src_num, tot_pkts_burst)
-    elif model == "CBR":
-        pass
-    else:
+    # Limit the search symbol table to current module.
+    func_params = globals().get(f"create_stream_params_{model}", None)
+    if not func_params:
         raise RuntimeError(f"Unknown model: {model}!")
+    stream_params, flow_duration = func_params(pps, burst_num, src_num, tot_pkts_burst)
 
+    streams = list()
+    for index, param in enumerate(stream_params):
+        self_start = False
+        next_name = f"s{index+1}"
 
-def get_streams(stream_params):
-    pass
+        if index == 0:
+            self_start = True
+        elif index == len(stream_params) - 1:
+            next_name = None
+
+        udp_payload_len = param["ip_tot_len"] - IPv4_HDR_LEN - UDP_HDR_LEN
+        if udp_payload_len < 16:
+            raise RuntimeError("The minimal payload size is 16 bytes.")
+        udp_payload = "Z" * udp_payload_len
+        # UDP checksum is disabled.
+        pkt = STLPktBuilder(
+            pkt=Ether()
+            / IP(src=l3_data["ip_src"], dst=l3_data["ip_dst"])
+            / UDP(dport=8888, sport=9999, chksum=0)
+            / udp_payload
+        )
+        streams.append(
+            STLStream(
+                name=f"s{index}",
+                isg=param["isg"],
+                packet=pkt,
+                flow_stats=STLFlowLatencyStats(pg_id=index),
+                mode=STLTXSingleBurst(
+                    pps=param["pps"], total_pkts=param["tot_pkts_burst"]
+                ),
+                next=next_name,
+                self_start=self_start,
+            ),
+        )
+
+    return (streams, flow_duration)
 
 
 def main():
@@ -144,63 +230,88 @@ def main():
     )
 
     parser.add_argument(
-        "--bit_rate", type=float, default=1.0, help="Transmit L1 bit rate in Gbps.",
+        "--bit_rate", type=float, default=3.0, help="Transmit L1 bit rate in Gbps.",
     )
+
+    # Due to different packet sizes, it is easier to keep the PPS fixed.
+    # 0.25 Mpps -> about 3Gbps bit rate.
     parser.add_argument(
-        "--ip_tot_len",
+        "--pps", type=float, default=0.25, help="Transmit L1 rate in Mpps."
+    )
+
+    # This is "configured" to give some space for power management ;)
+    parser.add_argument(
+        "--tot_pkts_burst",
         type=int,
-        default=1400,
-        help="IP packet total length including the IP header.",
+        default=50 * 10 ** 3,
+        help="Total number of packets in each single burst.",
     )
 
     parser.add_argument(
         "--model",
         type=str,
-        default="Poisson",
-        choices=["Poisson", "CBR"],
+        default="poisson",
+        choices=["poisson", "cbr"],
         help="To be used traffic model.",
     )
+    # MARK: Currently NOT implemented.
     parser.add_argument(
         "--src_num", type=int, default=1, help="Number of flow sources."
     )
+
     parser.add_argument(
-        "--flow_duration",
+        "--burst_num",
         type=int,
-        default=10,
-        help="The duration of the flow in seconds.",
+        default=100,
+        help="The number of bursts in one test round.",
     )
 
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
 
     args = parser.parse_args()
-
+    print(f"* The fastest reaction time of X-MEN: {X_MEN_REACTION_TIME} seconds.")
     print(f"* Traffic model: {args.model}")
-    stream_params = create_stream_params(
-        args.bit_rate,
-        args.flow_duration,
+
+    l3_data = {"ip_src": args.ip_src, "ip_dst": args.ip_dst}
+    streams, flow_duration = get_streams(
+        args.pps,
+        args.burst_num,
         args.model,
         args.src_num,
-        args.ip_tot_len,
+        args.tot_pkts_burst,
+        l3_data,
         args.test,
     )
 
     if args.test:
-        pprint.pp(stream_params)
-        sys.exit(0)
+        pprint.pp([s.to_json() for s in streams[:3]])
+
+    print(f"* Flow duration: {flow_duration} seconds.")
 
     try:
         client = STLClient()
         client.connect()
         tx_port, rx_port = init_ports(client)
-
-        # client.add_streams(streams, ports=[tx_port])
+        client.add_streams(streams, ports=[tx_port])
 
         start_ts = time.time()
         client.clear_stats()
-        # All cores in the core_mask is used by the tx_port and its adjacent
-        # port, so it is the rx_port normally.
-        # client.start(ports=[tx_port], core_mask=[core_mask], force=True)
         client.start(ports=[tx_port], force=True)
+
+        rx_delay_sec = flow_duration + 5
+        print(f"The estimated RX delay: {rx_delay_sec} seconds.")
+        client.wait_on_traffic(rx_delay_ms=rx_delay_sec * 10 ** 3)
+        end_ts = time.time()
+        test_dur = end_ts - start_ts
+        print(f"Total test duration: {test_dur} seconds")
+
+        err_cntrs_results, latency_results = get_rx_stats(
+            client, tx_port, rx_port, args.burst_num
+        )
+
+        print("--- The latency results of all streams:")
+        pprint.pp(err_cntrs_results)
+        pprint.pp(latency_results)
 
     except STLError as error:
         print(error)
