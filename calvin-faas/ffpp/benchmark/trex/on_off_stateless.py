@@ -81,8 +81,7 @@ def save_rx_stats(data, filename, stream_params):
         f.write("\n]")
 
 
-def get_rx_stats(client, tx_port, rx_port, stream_params,
-                 second_stream_params=None):
+def get_rx_stats(client, tx_port, rx_port, stream_params, second_stream_params=None):
     err_cntrs_results = list()
     latency_results = list()
     m_idx = 0
@@ -267,7 +266,7 @@ def create_streams_with_second_flow(
                     name=f"s{prefix+1}{index}",
                     isg=stp["isg"],
                     packet=pkts[prefix],
-                    flow_stats=STLFlowLatencyStats(pg_id=pg_id),#index),
+                    flow_stats=STLFlowLatencyStats(pg_id=pg_id),  # index),
                     mode=STLTXSingleBurst(
                         pps=LATENCY_FLOW_PPS,
                         total_pkts=int(LATENCY_FLOW_PPS * stp["on_time"]),
@@ -416,7 +415,7 @@ def main():
     if args.enable_second_flow:
         print("INFO: The second flow is enabled. Two flows share the physical link.")
         # for s in stream_params:
-            # s["pps"] = int(s["pps"] / 2)
+        # s["pps"] = int(s["pps"] / 2)
         second_stream_params = list(reversed(stream_params.copy()))
         print("\n--- Updated stream parameters with the second flow:")
         pprint.pp(second_stream_params)
@@ -472,8 +471,12 @@ def main():
         # client, tx_port, rx_port, stream_params
         # )
         err_cntrs_results, latency_results = get_rx_stats(
-            client, tx_port, rx_port, stream_params,
-            second_stream_params=second_stream_params)
+            client,
+            tx_port,
+            rx_port,
+            stream_params,
+            second_stream_params=second_stream_params,
+        )
         print("--- The latency results of all streams:")
         print(f"- Number of streams first flow: {len(latency_results[0])}")
         for index, _ in enumerate(stream_params):
