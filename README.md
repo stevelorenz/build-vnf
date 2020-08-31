@@ -23,7 +23,7 @@ Please create an issue or a pull request if you have any questions or code contr
 *   [Citing Our Works](#citing-our-works)
 *   [Contributing](#contributing)
 *   [Contact](#contact)
-*   [LICENSE](#licence)
+*   [License](#license)
 
 
 ## Overview
@@ -32,7 +32,7 @@ This repository is a **collection(mono-repo)** of programs/libraries/scripts/uti
 It provides utilities to build, test and benchmark practical and high-performance and portable Virtualized Network Functions (VNFs) or Cloud-native Network Functions
 (CNFs) on a single laptop.
 The focus of this project is to explore **low-latency**, **energy-efficient** and flexible network **data plane** solutions for softwarized edge computing systems.
-This project focuses on:
+This project focuses on (still **WIP**):
 
 -  Lightweight cloud-native network functions running on CPUs or [SmartNICs](https://www.mellanox.com/products/smartnic): The design is based on microservice or
    serverless architecture. Accelerated data plane and network stack works for virtual interfaces with eBPF/XDP support (e.g. veth-pairs, virtio\_net).
@@ -57,7 +57,7 @@ This project focuses on:
 
 ## Quick Start
 
-The easiest and most convenient way to try `Build-VNF` utilities to use the test VM managed by `Vagrant`.
+The easiest and most convenient way to try `Build-VNF` utilities is to use the test VM managed by `Vagrant`.
 
 The development, test and basic benchmarks of VNFs, libraries are performed on a pre-configured VM managed by the Vagrant.
 The receipt to build the VM is in the [Vagrantfile](./Vagrantfile).
@@ -140,4 +140,4 @@ The [list](./CONTRIBUTORS) of all contributors.
 
 ## License
 
-This project is licensed under the [MIT licence](./LICENSE).
+This project is licensed under the [MIT license](./LICENSE).

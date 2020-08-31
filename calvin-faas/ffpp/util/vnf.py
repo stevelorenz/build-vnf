@@ -139,7 +139,7 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
     pktgen_in_phy_mac = "0c:42:a1:51:41:d9"  # dst enp65s0f1
     vnf_in_phy_mac = "0c:42:a1:51:42:bc"  # enp5s0f0
     vnf_out_phy_mac = "0c:42:a1:51:42:bd"  # enp5s0f1
-    upd_payload_size = [1428, 1427]
+    upd_payload_size = [1400, 1399]
 
     print("- The MAC address of vnf-in in vnf-{}: {}".format(m_vnf, vnf_in_mac))
     print("- The MAC address of vnf-out in vnf-{}: {}".format(m_vnf, vnf_out_mac))
