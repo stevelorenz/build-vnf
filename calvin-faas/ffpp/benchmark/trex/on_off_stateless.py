@@ -12,6 +12,7 @@ import pprint
 import re
 import subprocess
 import time
+import copy
 
 import json
 import numpy as np
@@ -402,6 +403,11 @@ def main():
         action="store_true",
         help="Enable the second flow, used to test two-vnf setup.",
     )
+    parser.add_argument(
+        "--soft",
+        action="store_true",
+        help="Different overlap for sencond flow, it's easier to scale ;)",
+    )
 
     args = parser.parse_args()
 
@@ -420,9 +426,12 @@ def main():
 
     if args.enable_second_flow:
         print("INFO: The second flow is enabled. Two flows share the physical link.")
-        # for s in stream_params:
-        # s["pps"] = int(s["pps"] / 2)
-        second_stream_params = list(reversed(stream_params.copy()))
+        second_stream_params = copy.deepcopy(list(reversed(stream_params)))
+        for s in second_stream_params:
+            s["on_time"] = args.on_time - (args.on_time * 0.2)
+            s["isg"] = s["isg"] + (args.on_time * 0.2) * 10 ** 6
+        if args.soft:
+            second_stream_params[0]["isg"] = 1 * 10 ** 6
         print("\n--- Updated stream parameters with the second flow:")
         pprint.pp(second_stream_params)
 
@@ -473,9 +482,6 @@ def main():
 
         # Check RX stats.
         # MARK: All latency results are in usec.
-        # err_cntrs_results, latency_results = get_rx_stats(
-        # client, tx_port, rx_port, stream_params
-        # )
         err_cntrs_results, latency_results = get_rx_stats(
             client,
             tx_port,
