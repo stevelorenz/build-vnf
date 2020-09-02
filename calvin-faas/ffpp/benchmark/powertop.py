@@ -42,7 +42,12 @@ class Powertop(object):
 
     def _run(self, time):
         with tempfile.NamedTemporaryFile(mode="w+", suffix=".csv", delete=True) as fd:
-            pt_opts = " ".join(("--csv={}".format(fd.name), "--time={}".format(time),))
+            pt_opts = " ".join(
+                (
+                    "--csv={}".format(fd.name),
+                    "--time={}".format(time),
+                )
+            )
             cmd = " ".join((self.command, pt_opts))
             subprocess.run(shlex.split(cmd))
             return fd.readlines()
@@ -113,7 +118,10 @@ if __name__ == "__main__":
         help="Number of times to run each measurement.",
     )
     parser.add_argument(
-        "--pause", type=int, default=3, help="Seconds to sleep during each iteration.",
+        "--pause",
+        type=int,
+        default=3,
+        help="Seconds to sleep during each iteration.",
     )
     args = parser.parse_args()
     powertop = Powertop()

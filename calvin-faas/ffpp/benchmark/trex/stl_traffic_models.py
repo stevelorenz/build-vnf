@@ -24,6 +24,7 @@ import sys
 import time
 
 import numpy as np
+import scipy.stats as stats
 import stf_path
 
 from trex.stl.api import (
@@ -102,7 +103,7 @@ def get_rx_stats(client, tx_port, rx_port, burst_num):
             latency[index] = lat_stats["latency"]
             err_cntrs[index] = lat_stats["err_cntrs"]
 
-    return(err_cntrs, latency)
+    return (err_cntrs, latency)
 
 
 def get_ip_tot_len():
@@ -155,6 +156,42 @@ def create_stream_params_poisson(pps, burst_num, src_num, tot_pkts_burst):
     return (stream_params, flow_duration)
 
 
+def create_stream_params_pareto(pps, burst_num, src_num, tot_pkts_burst):
+    """Create a flow of multiple single burst streams with its inter-arrival
+    time in Pareto distribuion.
+    """
+    global ISGS_SAVE
+    global IP_TOT_LENS_SAVE
+
+    single_burst_time = tot_pkts_burst / pps
+    burst_rate = pps / tot_pkts_burst
+    MAGIC_ALPHA = 1.84  # learned from one paper :)
+    isgs = stats.pareto.rvs(
+        MAGIC_ALPHA, scale=X_MEN_REACTION_TIME, size=burst_num
+    ).tolist()
+
+    ISGS_SAVE = isgs.copy()
+    isgs_sanity_check(isgs)
+    flow_duration = math.ceil(burst_num * single_burst_time + sum(isgs[:burst_num]))
+    # Get packet length for each burst based on IMIX probability.
+    ip_tot_lens = [get_ip_tot_len() for _ in range(burst_num)]
+    IP_TOT_LENS_SAVE = ip_tot_lens.copy()
+
+    print(f"- Flow duration of {burst_num} bursts: {flow_duration} seconds")
+
+    stream_params = [
+        {
+            "pps": pps,
+            "tot_pkts_burst": tot_pkts_burst,
+            "isg": isg,
+            "ip_tot_len": ip_tot_len,
+        }
+        for (isg, ip_tot_len) in zip(isgs, ip_tot_lens)
+    ]
+
+    return (stream_params, flow_duration)
+
+
 def get_streams(
     pps: float,
     burst_num: int,
@@ -183,6 +220,10 @@ def get_streams(
     if not func_params:
         raise RuntimeError(f"Unknown model: {model}!")
     stream_params, flow_duration = func_params(pps, burst_num, src_num, tot_pkts_burst)
+    if test:
+        print("* Stream parameters: ")
+        pprint.pp(stream_params)
+        print(f"* Flow duration: {flow_duration} seconds.")
 
     streams = list()
     for index, param in enumerate(stream_params):
@@ -239,10 +280,6 @@ def main():
         help="Destination IP address for all packets in the stream.",
     )
 
-    parser.add_argument(
-        "--bit_rate", type=float, default=3.0, help="Transmit L1 bit rate in Gbps.",
-    )
-
     # Due to different packet sizes, it is easier to keep the PPS fixed.
     # 0.25 Mpps -> about 3Gbps bit rate.
     parser.add_argument(
@@ -261,7 +298,7 @@ def main():
         "--model",
         type=str,
         default="poisson",
-        choices=["poisson", "cbr"],
+        choices=["poisson", "pareto"],
         help="To be used traffic model.",
     )
     # MARK: Currently NOT implemented.
@@ -279,7 +316,10 @@ def main():
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
 
     parser.add_argument(
-        "--out", type=str, default="", help="Stores file with given name",
+        "--out",
+        type=str,
+        default="",
+        help="Stores file with given name",
     )
 
     args = parser.parse_args()
@@ -299,6 +339,7 @@ def main():
 
     if args.test:
         pprint.pp([s.to_json() for s in streams[:3]])
+        sys.exit(0)
 
     print(f"* Flow duration: {flow_duration} seconds.")
 
@@ -314,7 +355,7 @@ def main():
 
         rx_delay_sec = flow_duration + 5
         print(f"The estimated RX delay: {rx_delay_sec} seconds.")
-        client.wait_on_traffic(rx_delay_ms=3000)#rx_delay_sec * 10 ** 3)
+        client.wait_on_traffic(rx_delay_ms=3000)  # rx_delay_sec * 10 ** 3)
         end_ts = time.time()
         test_dur = end_ts - start_ts
         print(f"Total test duration: {test_dur} seconds")

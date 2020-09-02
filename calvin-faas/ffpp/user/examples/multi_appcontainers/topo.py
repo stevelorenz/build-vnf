@@ -23,8 +23,14 @@ os.makedirs(RTE_CONFIG, exist_ok=True)
 CWD = os.getcwd()
 FFPP_VOLS = {
     "/sys/bus/pci/drivers": {"bind": "/sys/bus/pci/drivers", "mode": "rw"},
-    "/sys/kernel/mm/hugepages": {"bind": "/sys/kernel/mm/hugepages", "mode": "rw",},
-    "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw",},
+    "/sys/kernel/mm/hugepages": {
+        "bind": "/sys/kernel/mm/hugepages",
+        "mode": "rw",
+    },
+    "/sys/devices/system/node": {
+        "bind": "/sys/devices/system/node",
+        "mode": "rw",
+    },
     "/dev": {"bind": "/dev", "mode": "rw"},
     f"{CWD}": {"bind": "/ffpp_app", "mode": "rw"},
     f"{RTE_CONFIG}": {"bind": "/var/run/dpdk/rte/", "mode": "rw"},
@@ -42,7 +48,10 @@ if __name__ == "__main__":
 
     info("*** Creating hosts\n")
     h1 = net.addDockerHost(
-        "h1", dimage="lat_bm", ip="10.0.0.1", docker_args={"hostname": "h1"},
+        "h1",
+        dimage="lat_bm",
+        ip="10.0.0.1",
+        docker_args={"hostname": "h1"},
     )
     h2 = net.addDockerHost(
         "h2", dimage="dev_test", ip="10.0.0.2", docker_args={"hostname": "h2"}
@@ -63,7 +72,10 @@ if __name__ == "__main__":
         "h2",
         "ffpp",
         "bash",
-        docker_args={"volumes": FFPP_VOLS, "working_dir": "/ffpp_app",},
+        docker_args={
+            "volumes": FFPP_VOLS,
+            "working_dir": "/ffpp_app",
+        },
     )
     time.sleep(1)
     spawnXtermDocker("builder")
