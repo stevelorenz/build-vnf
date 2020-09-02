@@ -163,7 +163,7 @@ collect_global_stats(struct freq_info *f, struct measurement *m,
 		g_csv_cpu_util_mult[i][g_csv_num_val] = m[i].cpu_util[m[i].idx];
 		// g_csv_freq[g_csv_num_val] = f->freq;
 		// g_csv_num_val++;
-		if (m->empty_cnt == 0) { //(ts[0].delta_packets > 0) {
+		if (m[i].empty_cnt == 0) { //(ts[0].delta_packets > 0) {
 			g_csv_empty_cnt = 0;
 		} else {
 			if (!g_csv_saved_stream) {
@@ -245,18 +245,29 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 	usleep(1000000 / 4);
 
 	while (!force_quit) {
+		int active = 0;
 		for (i = 0; i < num_vnfs; i++) {
 			prev[i] = record[i];
 			__u32 key = raw_keys[i] & 0xff;
 			stats_collect(map_fd, &record[i], key);
 			stats_print(&record[i], &prev[i], &m[i], &si, i);
+			/// It's a bit worked around
+			/// To handle two VNF really generic more signaling is needed
+			/// But this might effect the currently working implementations
+			/// of the other PM scenarios
+			/// --> needs just some time, especially for testing the others again
+			check_isg(&m[i]);
 			if (m[i].valid_vals > 0) {
-				manage = true;
+				// manage = true;
+				active++;
 				get_cpu_utilization(&m[i], freq_info);
 				calc_sma(&m[i]);
 				calc_wma(&m[i]);
 				// g_csv_cpu_util[g_csv_num_val] =
 				// m[i].cpu_util[m[i].idx];
+			}
+			if (active) {
+				manage = true;
 			} else {
 				manage = false;
 			}
@@ -282,7 +293,8 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 			/// Double check if all VNFs are empty
 			if (si.scale_to_min) {
 				for (i = 0; i < num_vnfs; i++) {
-					if (m[i].empty_cnt <= MAX_EMPTY_CNT) {
+					if (m[i].empty_cnt <= MAX_EMPTY_CNT &&
+					    m[i].had_first_packet) {
 						si.scale_to_min = false;
 					}
 				}
@@ -293,9 +305,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 			if (si.scale_to_min) {
 				// Store settings of last stream
 				lss.last_pstate = 1; //freq_info->pstate;
-				// lss.last_sma = m.sma_cpu_util;
-				// lss.last_sma_std_err = m.sma_std_err;
-				// lss.last_wma = m.wma_cpu_util;
 				if (freq_info->pstate !=
 				    (freq_info->num_freqs - 1)) {
 					printf("Scale due to empty polls\n");

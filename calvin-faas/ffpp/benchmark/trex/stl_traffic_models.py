@@ -41,6 +41,10 @@ from trex.stl.api import (
     UDP,
 )
 
+# Hack to get isgs and ip_tot_lens for json dump
+ISGS_SAVE = list()
+IP_TOT_LENS_SAVE = list()
+
 # All in bytes.
 ETH_PREAMBLE_LEN = 8
 ETH_HDR_LEN = 14
@@ -66,11 +70,22 @@ def init_ports(client):
     return (tx_port, rx_port)
 
 
-def get_rx_stats(client, tx_port, rx_port, burst_num):
-    err_cntrs_results = list()
-    latency_results = list()
-    m_idx = 0
+def save_rx_stats(data, filename, burst_num):
+    wrote_first = False
+    with open(filename, "w") as f:
+        # for index, _ in enumerate(stream_params):
+        for index in range(0, burst_num, 1):
+            if not wrote_first:
+                f.write("[\n")
+                wrote_first = True
+            else:
+                f.write("\n")
+            json.dump(data[index], f)
+        f.write("\n]")
 
+
+def get_rx_stats(client, tx_port, rx_port, burst_num):
+    # Check on_off_stateless to store from multiple flows
     pgids = client.get_active_pgids()
     print("Currently used pgids: {0}".format(pgids))
     stats = client.get_pgid_stats(pgids["latency"])
@@ -78,26 +93,16 @@ def get_rx_stats(client, tx_port, rx_port, burst_num):
     # A list of dictionary
     err_cntrs = [dict()] * burst_num
     latency = [dict()] * burst_num
-    for index in range(burst_num):
+    for index in range(0, burst_num, 1):
         lat_stats = stats["latency"].get(index)
-        # if not all_stats:
         if not lat_stats:
             print(f"No stats available for PG ID {index}!")
             continue
         else:
             latency[index] = lat_stats["latency"]
             err_cntrs[index] = lat_stats["err_cntrs"]
-            # m_idx = index
-            m_idx += 1
 
-    err_cntrs_results.append(err_cntrs)
-    latency_results.append(latency)
-
-    return (err_cntrs_results, latency_results)
-
-
-def save_rx_stats(data, filename, model, stream_params):
-    pass
+    return(err_cntrs, latency)
 
 
 def get_ip_tot_len():
@@ -121,14 +126,19 @@ def create_stream_params_poisson(pps, burst_num, src_num, tot_pkts_burst):
     """Create a flow of multiple single burst streams with its inter-arrival
     time in Poisson distribuion.
     """
+    global ISGS_SAVE
+    global IP_TOT_LENS_SAVE
+
     single_burst_time = tot_pkts_burst / pps
     burst_rate = pps / tot_pkts_burst
     # Inter-arrival times for each bursts
     isgs = [np.random.exponential(1 / burst_rate) for _ in range(burst_num)]
+    ISGS_SAVE = isgs.copy()
     isgs_sanity_check(isgs)
     flow_duration = math.ceil(burst_num * single_burst_time + sum(isgs[:burst_num]))
     # Get packet length for each burst based on IMIX probability.
     ip_tot_lens = [get_ip_tot_len() for _ in range(burst_num)]
+    IP_TOT_LENS_SAVE = ip_tot_lens.copy()
 
     print(f"- Flow duration of {burst_num} bursts: {flow_duration} seconds")
 
@@ -268,6 +278,10 @@ def main():
 
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
 
+    parser.add_argument(
+        "--out", type=str, default="", help="Stores file with given name",
+    )
+
     args = parser.parse_args()
     print(f"* The fastest reaction time of X-MEN: {X_MEN_REACTION_TIME} seconds.")
     print(f"* Traffic model: {args.model}")
@@ -300,7 +314,7 @@ def main():
 
         rx_delay_sec = flow_duration + 5
         print(f"The estimated RX delay: {rx_delay_sec} seconds.")
-        client.wait_on_traffic(rx_delay_ms=rx_delay_sec * 10 ** 3)
+        client.wait_on_traffic(rx_delay_ms=3000)#rx_delay_sec * 10 ** 3)
         end_ts = time.time()
         test_dur = end_ts - start_ts
         print(f"Total test duration: {test_dur} seconds")
@@ -310,8 +324,29 @@ def main():
         )
 
         print("--- The latency results of all streams:")
-        pprint.pp(err_cntrs_results)
-        pprint.pp(latency_results)
+        # pprint.pp(err_cntrs_results)
+        # pprint.pp(latency_results)
+        for m_burst in range(args.burst_num):
+            err_cntrs_results[m_burst]["isg"] = ISGS_SAVE[m_burst]
+            err_cntrs_results[m_burst]["len"] = IP_TOT_LENS_SAVE[m_burst]
+            err_cntrs_results[m_burst]["start_ts"] = start_ts
+            err_cntrs_results[m_burst]["end_ts"] = end_ts
+            print("Burst ", m_burst)
+            print("ISG: ", ISGS_SAVE[m_burst])
+            print(err_cntrs_results[m_burst])
+            print(latency_results[m_burst])
+        if args.out:
+            savedir_latency = "/home/malte/malte/latency/"
+            savedir_error = "/home/malte/malte/error/"
+            if not os.path.exists(savedir_latency):
+                os.mkdir(savedir_latency)
+            if not os.path.exists(savedir_error):
+                os.mkdir(savedir_error)
+            savedir_latency += args.out + "_latency.json"
+            savedir_error += args.out + "_error.json"
+            print("\nResults: ", savedir_latency, ", ", savedir_error)
+            save_rx_stats(err_cntrs_results, savedir_error, args.burst_num)
+            save_rx_stats(latency_results, savedir_latency, args.burst_num)
 
     except STLError as error:
         print(error)
