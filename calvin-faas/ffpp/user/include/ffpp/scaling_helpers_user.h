@@ -138,6 +138,13 @@ void calc_wma(struct measurement *m);
 int find_max_wma(struct measurement *m, int num_vnfs);
 
 /**
+ * Checks if a VNF is currently facing an ISG
+ * 
+ * @param m: struct of current measurement status and values
+ */
+void check_isg(struct measurement *m);
+
+/**
  * Brings the frequency back-up to the one of the previous stream after
  * an ISG was detected
  * 

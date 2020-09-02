@@ -387,6 +387,16 @@ int find_max_wma(struct measurement *m, int num_vnfs)
 	return max_wma_idx;
 }
 
+void check_isg(struct measurement *m)
+{
+	if (m->empty_cnt > MAX_EMPTY_CNT + 1) {
+		m->valid_vals = 0;
+		m->wma_cpu_util = 0;
+		m->sma_cpu_util = 0;
+		m->sma_std_err = 0;
+	}
+}
+
 void restore_last_stream_settings(struct last_stream_settings *lss,
 				  struct freq_info *f, struct scaling_info *si)
 {
@@ -427,7 +437,7 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 				(r->total.rx_time - p->total.rx_time) /
 				(t_s->delta_packets * 1e9);
 			// t_s->pps = 1 / m->inter_arrival_time;
-			m->empty_cnt = 0,
+			m->empty_cnt = 0;
 			m->idx = m->valid_vals %
 				 m->min_cnts; /// Remove min_cnts and use macro
 			m->cnt += 1;
@@ -445,6 +455,15 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 			m->idx = m->valid_vals %
 				 m->min_cnts; /// Remove min_cnts and use macro
 			m->valid_vals += 1;
+		}
+		// ISG?
+		// @+1 -> do not detect the ISG too early
+		/// Does this really work?
+		if (m->empty_cnt > MAX_EMPTY_CNT + 1) {
+			m->valid_vals = 0;
+			m->wma_cpu_util = 0;
+			m->sma_cpu_util = 0;
+			m->sma_std_err = 0;
 		}
 	}
 }

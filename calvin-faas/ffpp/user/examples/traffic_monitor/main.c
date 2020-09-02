@@ -101,13 +101,14 @@ static void stats_print(struct stats_record *stats_rec,
 	       t_s.period);
 }
 
-static void stats_collect(int map_fd, struct stats_record *stats_rec)
+static void stats_collect(int map_fd, struct stats_record *stats_rec, int raw_key)
 {
-	__u32 key = 0; // Only one entry in our map
+	// __u32 key = 0; // Only one entry in our map
+	__u32 key = raw_key & 0xff;
 	map_collect(map_fd, key, &stats_rec->stats);
 }
 
-static void stats_poll(int map_fd)
+static void stats_poll(int map_fd, int raw_key)
 {
 	struct stats_record prev, record = { 0 };
 	struct measurement m = { 0 };
@@ -118,12 +119,12 @@ static void stats_poll(int map_fd)
 	m.min_cnts = NUM_READINGS_SMA;
 
 	setlocale(LC_NUMERIC, "en_US");
-	stats_collect(map_fd, &record);
+	stats_collect(map_fd, &record, raw_key);
 	usleep(1000000 / 4);
 
 	while (!force_quit) {
 		prev = record;
-		stats_collect(map_fd, &record);
+		stats_collect(map_fd, &record, raw_key);
 		stats_print(&record, &prev, &m, &si);
 		printf("\n");
 		usleep(INTERVAL);
@@ -144,7 +145,7 @@ int main(int argc, char *argv[])
 	const struct bpf_map_info xdp_stats_map_expect = {
 		.key_size = sizeof(__u32),
 		.value_size = sizeof(struct datarec),
-		.max_entries = 1,
+		.max_entries = 256,
 	};
 
 	char pin_dir[PATH_MAX] = "";
@@ -176,9 +177,16 @@ int main(int argc, char *argv[])
 	}
 	printf("Successfully open the map file of xdp stats!\n");
 
+	int raw_key = 0;
+	if (argc == 3) {
+		char *ptr;
+		raw_key = strtoul(argv[2], &ptr, 10);
+	}
+	printf("Raw key for bpf map: %d\n", raw_key);
+
 	// Print stats from xdp_stats_map
 	printf("Collecting stats from BPF map:\n");
-	stats_poll(xdp_stats_map_fd);
+	stats_poll(xdp_stats_map_fd, raw_key);
 
 	/// Save global stats here --> less signaling between single sessions
 	/// Get PID with ffpp_power and the simply kill PID
