@@ -8,7 +8,7 @@ gloabls_stats_user.h
 // #include <unistd.h>
 // #include <stdlib.h>
 
-#define TOTAL_VALS 100000
+#define TOTAL_VALS 1000000
 #define NUM_VNFS 2
 
 extern double g_csv_pps[TOTAL_VALS];

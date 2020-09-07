@@ -32,7 +32,7 @@
 
 #ifdef RELEASE
 #define printf(fmt, ...) (0)
-#endif
+#endif /* RELEAE */
 
 static volatile bool force_quit;
 

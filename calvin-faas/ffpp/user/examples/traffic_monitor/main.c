@@ -42,7 +42,7 @@ unsigned int g_csv_freq[TOTAL_VALS];
 unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
-int g_csv_empty_cnt_threshold = 50; // Calc depending on interval
+int g_csv_empty_cnt_threshold = (3 * 1e6) / INTERVAL;
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -96,12 +96,13 @@ static void stats_print(struct stats_record *stats_rec,
 		}
 	}
 
-	printf("%ld %11lld pkts (%10.0f pps) \t%10.8f s \tperiod:%f\n",
-	       m->cnt, rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
+	printf("%ld %11lld pkts (%10.0f pps) \t%10.8f s \tperiod:%f\n", m->cnt,
+	       rec->total.rx_packets, t_s.pps, m->inter_arrival_time,
 	       t_s.period);
 }
 
-static void stats_collect(int map_fd, struct stats_record *stats_rec, int raw_key)
+static void stats_collect(int map_fd, struct stats_record *stats_rec,
+			  int raw_key)
 {
 	// __u32 key = 0; // Only one entry in our map
 	__u32 key = raw_key & 0xff;
@@ -113,7 +114,6 @@ static void stats_poll(int map_fd, int raw_key)
 	struct stats_record prev, record = { 0 };
 	struct measurement m = { 0 };
 	struct scaling_info si = { 0 };
-	// struct last_stream_settings lss = { 0 };
 
 	m.had_first_packet = false;
 	m.min_cnts = NUM_READINGS_SMA;
@@ -133,21 +133,32 @@ static void stats_poll(int map_fd, int raw_key)
 
 int main(int argc, char *argv[])
 {
-	if (argc < 1) {
+	if (argc < 2) {
 		fprintf(stderr, "Please supply ingress interface name");
 		return -1;
 	}
+
 	force_quit = false;
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
+	int raw_key = 0;
+	if (argc == 3) {
+		char *ptr;
+		raw_key = strtoul(argv[2], &ptr, 10);
+	}
+	printf("Raw key for bpf map: %d\n", raw_key);
+
 	struct bpf_map_info xdp_stats_map_info = { 0 };
-	const struct bpf_map_info xdp_stats_map_expect = {
+	struct bpf_map_info xdp_stats_map_expect = {
 		.key_size = sizeof(__u32),
 		.value_size = sizeof(struct datarec),
-		.max_entries = 256,
 	};
-
+	if (raw_key == 0) {
+		xdp_stats_map_expect.max_entries = 1;
+	} else {
+		xdp_stats_map_expect.max_entries = 256;
+	}
 	char pin_dir[PATH_MAX] = "";
 	int xdp_stats_map_fd = 0;
 
@@ -176,13 +187,6 @@ int main(int argc, char *argv[])
 		return err;
 	}
 	printf("Successfully open the map file of xdp stats!\n");
-
-	int raw_key = 0;
-	if (argc == 3) {
-		char *ptr;
-		raw_key = strtoul(argv[2], &ptr, 10);
-	}
-	printf("Raw key for bpf map: %d\n", raw_key);
 
 	// Print stats from xdp_stats_map
 	printf("Collecting stats from BPF map:\n");

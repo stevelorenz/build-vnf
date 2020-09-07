@@ -46,7 +46,7 @@ unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
 int g_csv_empty_cnt_threshold =
-	(3 * 1e6) / IDLE_INTERVAL; //50; // Calc depending on interval
+	(2 * 1e6) / IDLE_INTERVAL; //50; // Calc depending on interval
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -147,7 +147,7 @@ static void check_lcore_power_caps(void)
 }
 
 static void collect_global_stats(struct freq_info *f, struct measurement *m,
-				 struct scaling_info *si)
+				__attribute__((unused)) struct scaling_info *si)
 {
 	// if (m->had_first_packet) {
 	g_csv_ts[g_csv_num_val] = get_time_of_day();
@@ -170,7 +170,7 @@ static void collect_global_stats(struct freq_info *f, struct measurement *m,
 			g_csv_empty_cnt = 0;
 			g_csv_num_val = 0;
 			g_csv_num_round++;
-			si->scaled_to_min = false;
+			// si->scaled_to_min = false;
 			m->had_first_packet = false;
 		}
 	}
@@ -210,13 +210,13 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 
 	m.lcore = rte_lcore_id();
 	m.min_cnts = NUM_READINGS_SMA;
-	m.had_first_packet = false;
-	si.up_trend = false; /// Do we have to set them to false explicitly?
-	si.down_trend = false;
-	si.scale_to_min = false;
-	si.need_scale = false;
-	si.scaled_to_min = false;
-	si.restore_settings = false;
+	// m.had_first_packet = false;
+	// si.up_trend = false; /// Do we have to set them to false explicitly?
+	// si.down_trend = false;
+	// si.scale_to_min = false;
+	// si.need_scale = false;
+	// si.scaled_to_min = false;
+	// si.restore_settings = false;
 
 	setlocale(LC_NUMERIC, "en_US");
 	stats_collect(map_fd, &record);
@@ -239,7 +239,8 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 		// if (m.cnt > 0 && m.had_first_packet) {
 		if (m.valid_vals > 0) {
 			get_cpu_utilization(&m, freq_info);
-			g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
+			// g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
+			g_csv_cpu_util[g_csv_num_val - 1] = m.wma_cpu_util;
 			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
 			// }
 			// if (m.valid_vals > 1) {
@@ -361,6 +362,7 @@ int main(int argc, char *argv[])
 		if (ret == 1) {
 			printf("Turbo boost is enabled on lcore %d.\n",
 			       lcore_id);
+			disable_turbo_boost();
 		} else if (ret == 0) {
 			printf("Turbo boost is disabled on lcore %d.\n",
 			       lcore_id);
@@ -375,11 +377,11 @@ int main(int argc, char *argv[])
 	struct freq_info freq_info = { 0 };
 	get_frequency_info(CORE_OFFSET, &freq_info, true);
 
-	printf("Scale frequency of VNF CPU down to minimum.\n");
+	printf("Scale frequency of VNF CPU up to maximum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
-		ret = rte_power_freq_min(lcore_id);
-		// ret = rte_power_freq_max(lcore_id);
+		// ret = rte_power_freq_min(lcore_id);
+		ret = rte_power_freq_max(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
 				"Could not scale lcore %d frequency to minimum",
