@@ -79,7 +79,7 @@ def save_rx_stats(data, filename, burst_num):
                 f.write("[\n")
                 wrote_first = True
             else:
-                f.write("\n")
+                f.write(",\n")
             json.dump(data[index], f)
         f.write("\n]")
 
@@ -208,7 +208,7 @@ def get_streams(
         streams.append(
             STLStream(
                 name=f"s{index}",
-                isg=param["isg"],
+                isg=param["isg"] * 10 ** 6,
                 packet=pkt,
                 flow_stats=STLFlowLatencyStats(pg_id=index),
                 mode=STLTXSingleBurst(
@@ -333,8 +333,10 @@ def main():
             err_cntrs_results[m_burst]["end_ts"] = end_ts
             print("Burst ", m_burst)
             print("ISG: ", ISGS_SAVE[m_burst])
-            print(err_cntrs_results[m_burst])
-            print(latency_results[m_burst])
+            print("Dropped: ", err_cntrs_results[m_burst]["dropped"])
+            print("Latency: ", latency_results[m_burst]["average"])
+            # print(err_cntrs_results[m_burst])
+            # print(latency_results[m_burst])
         if args.out:
             savedir_latency = "/home/malte/malte/latency/"
             savedir_error = "/home/malte/malte/error/"
