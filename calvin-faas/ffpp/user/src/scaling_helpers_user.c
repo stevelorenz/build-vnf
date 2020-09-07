@@ -352,12 +352,12 @@ void calc_wma(struct measurement *m)
 	int i;
 	double sum = 0.0;
 	if (m->valid_vals >= NUM_READINGS_WMA) {
-		for (i = 0; i < 5; i++) {
+		for (i = 0; i < NUM_READINGS_WMA; i++) {
 			if ((m->idx - i) >= 0) {
 				sum += m->cpu_util[m->idx - i] *
 				       (NUM_READINGS_WMA - i);
 			} else {
-				int idx = 10 + (m->idx - i);
+				int idx = NUM_READINGS_SMA + (m->idx - i);
 				sum += m->cpu_util[idx] *
 				       (NUM_READINGS_WMA - i);
 			}
@@ -459,12 +459,12 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 		// ISG?
 		// @+1 -> do not detect the ISG too early
 		/// Does this really work?
-		if (m->empty_cnt > MAX_EMPTY_CNT + 1) {
-			m->valid_vals = 0;
-			m->wma_cpu_util = 0;
-			m->sma_cpu_util = 0;
-			m->sma_std_err = 0;
-		}
+		// if (m->empty_cnt > MAX_EMPTY_CNT + 1) {
+			// m->valid_vals = 0;
+			// m->wma_cpu_util = 0;
+			// m->sma_cpu_util = 0;
+			// m->sma_std_err = 0;
+		// }
 	}
 }
 
