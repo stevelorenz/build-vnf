@@ -1,0 +1,2 @@
+# Exit on fail cd
+disable=SC2164

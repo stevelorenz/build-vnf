@@ -113,7 +113,10 @@ if __name__ == "__main__":
         description="Run/stop power manager Docker container on the host OS."
     )
     parser.add_argument(
-        "action", type=str, choices=["run", "stop"], help="The action to perform.",
+        "action",
+        type=str,
+        choices=["run", "stop"],
+        help="The action to perform.",
     )
     parser.add_argument(
         "-i",

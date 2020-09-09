@@ -111,7 +111,10 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
 
     # Load XDP pass on vnf-in and vnf-out for af_packet
     print("* Load XDP-Pass on ingress and egress interface inside VNF")
-    exit_code, out = c_vnf.exec_run(cmd="make", workdir="/ffpp/kern/xdp_time",)
+    exit_code, out = c_vnf.exec_run(
+        cmd="make",
+        workdir="/ffpp/kern/xdp_time",
+    )
     if exit_code != 0:
         print("ERR: Failed to compile xdp-time program in vnf.")
         sys.exit(1)
@@ -119,7 +122,8 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
         ## Load traffic monitoring on the vnf-in interface
         ## If we do not need it, it's unloaded anyway by af_xdp
         exit_code, out = c_vnf.exec_run(
-            cmd="./xdp_time_loader {}".format(iface), workdir="/ffpp/kern/xdp_time/",
+            cmd="./xdp_time_loader {}".format(iface),
+            workdir="/ffpp/kern/xdp_time/",
         )
         if exit_code != 0:
             print("ERR: Failed to load xdp-time program on interface {}".format(iface))
@@ -278,7 +282,10 @@ if __name__ == "__main__":
         help="Load traffic monitor on egress interface to obtain feedback",
     )
     parser.add_argument(
-        "--num_vnf", type=int, default=1, help="Number of VNF containers to deploy",
+        "--num_vnf",
+        type=int,
+        default=1,
+        help="Number of VNF containers to deploy",
     )
 
     args = parser.parse_args()

@@ -195,7 +195,10 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     print("* Load xdp-pass on ingress and egress interfaces inside vnf and pktgen.")
 
     for c, c_name in zip([c_vnf, c_pktgen], ["vnf", "pktgen"]):
-        exit_code, out = c.exec_run(cmd="make", workdir="/ffpp/kern/xdp_pass",)
+        exit_code, out = c.exec_run(
+            cmd="make",
+            workdir="/ffpp/kern/xdp_pass",
+        )
         if exit_code != 0:
             print("ERROR: Faild to compile xdp-pass program in {}.".format(c_name))
             sys.exit(1)

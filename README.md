@@ -2,7 +2,9 @@
 
 [mit-badge]: https://img.shields.io/github/license/stevelorenz/build-vnf
 
-<img src="https://github.com/stevelorenz/build-vnf/raw/master/logo/logo_horizontal.png" width="500">
+<p align="center">
+<img alt="Build-VNF" src="https://github.com/stevelorenz/build-vnf/raw/master/logo/logo_horizontal.png" width="500">
+</p>
 
 A collection (mono-repo) of utilities to build, test and benchmark practical and high-performance and portable Virtualized Network Functions (VNFs) on a single laptop.
 This is a exploration project for research purposes.
