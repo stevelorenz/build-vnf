@@ -5,7 +5,7 @@
 #  Variables  #
 ###############
 
-CPUS = 2
+CPUS = 4
 RAM = 2048
 
 # Use Ubuntu LTS for development

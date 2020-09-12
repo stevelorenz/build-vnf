@@ -3,7 +3,7 @@ project('ffpp', 'c',
   license: 'MIT',
   meson_version: '>= 0.53.0',
   default_options: [
-    'c_std=gnu99',
+    'c_std=gnu18',
     'buildtype=release',
     'warning_level=3',
     'default_library=both',
