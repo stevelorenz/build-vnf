@@ -1,5 +1,9 @@
 /*
- * Power management based on hardware event counters.
+ * Hardware Counter (HC) based utilization estimation and power management.
+ *
+ * Reference paper(s):
+ *
+ * - A Black-Box Approach for Estimating Utilization of Polled IO Network Functions.
  */
 
 #include <fcntl.h>
@@ -32,9 +36,11 @@
 #define IA32_PERFEVT_BRANCH_HITS 0x05300c4
 #define IA32_PERFEVT_BRANCH_MISS 0x05300c5
 
+/* TODO:  <19-09-20, Zuo> Add two events used by the references paper.*/
+
 static volatile bool force_quit = false;
 static uint64_t g_branches, g_branch_misses;
-static int g_active;
+static bool g_pm_on = true;
 
 enum { FREQ_UNKNOWN, FREQ_MIN, FREQ_MAX };
 
@@ -329,7 +335,9 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 		RTE_LOG(DEBUG, POWER_MANAGER,
 			"No workload detected on lcore %u Scale the frequency to MIN.\n",
 			ci->cd[idx].lcore_id);
-		scale_all_lcores_min(ci);
+		if (likely(g_pm_on)) {
+			scale_all_lcores_min(ci);
+		}
 		ci->cd[idx].freq_state = FREQ_MIN;
 		return -1.0;
 	}
@@ -369,12 +377,12 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 		if (ci->cd[idx].freq_state != FREQ_MAX) {
 			RTE_LOG(DEBUG, POWER_MANAGER,
 				"Scale up the frequency to the MAX!\n");
-			scale_all_lcores_max(ci);
+			if (likely(g_pm_on)) {
+				scale_all_lcores_max(ci);
+			}
 			ci->cd[idx].freq_state = FREQ_MAX;
 		}
 	}
-
-	g_active = 1;
 
 	return ratio;
 }
@@ -393,7 +401,7 @@ static void run_branch_monitor(struct core_info *ci)
 		printed = 0;
 		for (j = 0; j < ci->core_count; ++j) {
 			ratio = apply_policy(ci, j);
-			if ((print > PRINT_LOOP_COUNT) && (g_active)) {
+			if ((print > PRINT_LOOP_COUNT)) {
 				printf("lcore %u: %.4f {%lu} {%d}",
 				       ci->cd[j].lcore_id, ratio, g_branches,
 				       reads);
@@ -434,20 +442,10 @@ int main(int argc, char *argv[])
 	}
 
 	int opt = 0;
-	float branch_ratio = 0.01;
 	float branch_ratio_threshold = 0.1;
-	while ((opt = getopt(argc, argv, "b:t:")) != -1) {
+	while ((opt = getopt(argc, argv, "b:n")) != -1) {
 		switch (opt) {
 		case 'b':
-			if (strlen(optarg)) {
-				branch_ratio = atof(optarg);
-				if (branch_ratio <= 0.0) {
-					rte_eal_cleanup();
-					return -1;
-				}
-			}
-			break;
-		case 't':
 			if (strlen(optarg)) {
 				branch_ratio_threshold = atof(optarg);
 				if (branch_ratio_threshold <= 0.0) {
@@ -456,6 +454,9 @@ int main(int argc, char *argv[])
 				}
 			}
 			break;
+		case 'n':
+			g_pm_on = false;
+			break;
 
 		default:
 			rte_eal_cleanup();
@@ -463,8 +464,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	printf("* The branch ratio is %f, the threshold is %f\n", branch_ratio,
+	printf("* The threshold of the branch ratio is: %f\n",
 	       branch_ratio_threshold);
+	printf(" The power management is %s.\n",
+	       g_pm_on == true ? "enabled" : "disabled");
 
 	force_quit = false;
 	signal(SIGINT, signal_handler);
