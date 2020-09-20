@@ -11,6 +11,7 @@ ffpp_headers = files(
   'ffpp/global_stats_user.h',
   'ffpp/io.h',
   'ffpp/memory.h',
+  'ffpp/munf.h',
   'ffpp/scaling_defines_user.h',
   'ffpp/scaling_helpers_user.h',
   'ffpp/task.h',

@@ -17,8 +17,10 @@ related_works:
 	cd ./build/ && ninja
 
 # Build all tests
+# ISSUE: Address sanitizer is DISABLED because the AF_PACKET PMD of DPDK has
+# memory leaks... Add address back when this is fixed in new DPDK release.
 tests:
-	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=address,undefined build --buildtype=debug
+	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=undefined build --buildtype=debug
 	cd ./build/ && ninja
 
 # Run all auto unit tests

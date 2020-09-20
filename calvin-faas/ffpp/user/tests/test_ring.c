@@ -133,8 +133,9 @@ int main(int argc, char *argv[])
 				  rte_socket_id(), RTE_MBUF_DEFAULT_BUF_SIZE);
 
 	// Init the device with port_id 0
-	struct dpdk_device_config cfg = { 0, &mbuf_pool, 1, 1, 256, 256, 1, 1 };
-	dpdk_init_device(&cfg);
+	struct ffpp_dpdk_device_config cfg = { 0,   &mbuf_pool, 1, 1,
+					       256, 256,	1, 1 };
+	ffpp_dpdk_init_device(&cfg);
 
 	if (in_que == NULL || out_que == NULL || mbuf_pool == NULL) {
 		rte_exit(EXIT_FAILURE, "Problem getting rings or mempool\n");

@@ -15,9 +15,9 @@
 #define FFPP_MAX_PORTS 8
 
 /**
- * struct dpdk_device_config - DPDK device configuration
+ * struct ffpp_dpdk_device_config - DPDK device configuration
  */
-struct dpdk_device_config {
+struct ffpp_dpdk_device_config {
 	uint32_t port_id;
 	struct rte_mempool **pool;
 	uint16_t rx_queues;
@@ -29,18 +29,18 @@ struct dpdk_device_config {
 };
 
 /**
- * dpdk_init_device() - Initialize a Ethernet device.
+ * ffpp_dpdk_init_device() - Initialize a Ethernet device.
  *
- * @param cfg: Device configuration packed in a dpdk_device_config struct
+ * @param cfg: Device configuration packed in a ffpp_dpdk_device_config struct
  *
  * @return: Flag
  */
-int dpdk_init_device(struct dpdk_device_config *cfg);
+int ffpp_dpdk_init_device(struct ffpp_dpdk_device_config *cfg);
 
 /**
- * dpdk_cleanup_devices - Cleanup all initialized Ethernet devices.
+ * ffpp_dpdk_cleanup_devices - Cleanup all initialized Ethernet devices.
  */
-void dpdk_cleanup_devices(void);
+void ffpp_dpdk_cleanup_devices(void);
 
 struct rx_queue {
 	uint16_t id;

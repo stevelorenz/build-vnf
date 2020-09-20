@@ -9,3 +9,9 @@ test_mvec = executable(
   include_directories : inc,
   dependencies: [dpdk_dep],
   link_with : [ffpplib_shared])
+
+test_munf = executable(
+  'test_munf', 'test_munf.c',
+  include_directories : inc,
+  dependencies: [dpdk_dep],
+  link_with : [ffpplib_shared])

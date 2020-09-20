@@ -4,12 +4,13 @@ ffpp_sources = [
   'collections/mvec.c',
   'device.c',
   'general_helpers_user.c',
+  'general_helpers_user.c',
   'io.c',
   'memory.c',
+  'munf.c',
   'scaling_helpers_user.c',
   'task.c',
   'utils.c',
-  'general_helpers_user.c',
   ]
 
 ffpplib_shared = shared_library('ffpp',
