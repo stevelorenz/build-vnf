@@ -4,10 +4,13 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
+#include <rte_common.h>
 #include <rte_eal.h>
-#include <rte_lcore.h>
 #include <rte_ethdev.h>
+#include <rte_lcore.h>
+#include <rte_string_fns.h>
 
 #include <ffpp/config.h>
 #include <ffpp/device.h>
@@ -37,7 +40,31 @@ static void ffpp_munf_init_primary_port(uint16_t port_id,
 	ffpp_dpdk_init_device(&dev_cfg);
 }
 
-int ffpp_munf_init_primary(const char *nf_name, struct rte_mempool *pool)
+static int ffpp_munf_init_primary_rings(struct munf_ctx *ctx)
+{
+	char ring_name[FFPP_MUNF_NAME_MAX_LEN + 10];
+	snprintf(ring_name, FFPP_MUNF_NAME_MAX_LEN + 10, "%s%s", ctx->nf_name,
+		 "_rx_ring");
+	// RX queue is single-producer, multi-consumers (for scaling)
+	ctx->rx_ring = rte_ring_create(ring_name, FFPP_MUNF_RX_RING_SIZE,
+				       rte_socket_id(), RING_F_SP_ENQ);
+
+	snprintf(ring_name, FFPP_MUNF_NAME_MAX_LEN + 10, "%s%s", ctx->nf_name,
+		 "_tx_ring");
+
+	// TX queue is muli-producers, single-consumer.
+	ctx->tx_ring = rte_ring_create(ring_name, FFPP_MUNF_TX_RING_SIZE,
+				       rte_socket_id(), RING_F_SC_DEQ);
+
+	if (ctx->rx_ring == NULL || ctx->tx_ring == NULL) {
+		return -1;
+	}
+
+	return 0;
+}
+
+int ffpp_munf_init_primary(struct munf_ctx *ctx, const char *nf_name,
+			   struct rte_mempool *pool)
 {
 	// Sanity checks
 	if (rte_eal_process_type() != RTE_PROC_PRIMARY) {
@@ -61,6 +88,10 @@ int ffpp_munf_init_primary(const char *nf_name, struct rte_mempool *pool)
 			"Each MuNF must have TWO avaiable ports (Used as ingress and egress ports)\n");
 	}
 
+	ctx->rx_port_id = 0;
+	ctx->tx_port_id = 1;
+	rte_strscpy(ctx->nf_name, nf_name, FFPP_MUNF_NAME_MAX_LEN);
+
 	// Init memory pool.
 	RTE_LOG(INFO, FFPP,
 		"MuNF: Init the memory pool for network function: %s\n",
@@ -81,14 +112,23 @@ int ffpp_munf_init_primary(const char *nf_name, struct rte_mempool *pool)
 		ffpp_munf_init_primary_port(port_id, pool);
 	}
 
+	if (ffpp_munf_init_primary_rings(ctx) == -1) {
+		rte_exit(EXIT_FAILURE,
+			 "MuNF: Failed to create RX and TX rings\n");
+	}
+
 	return 0;
 }
 
-void ffpp_munf_cleanup_primary(void)
+void ffpp_munf_cleanup_primary(struct munf_ctx *ctx)
 {
-	uint16_t port_id = 0;
-	for (port_id = 0; port_id < 2; ++port_id) {
-		rte_eth_dev_stop(port_id);
-		rte_eth_dev_close(port_id);
-	}
+	rte_ring_free(ctx->rx_ring);
+	rte_ring_free(ctx->tx_ring);
+
+	rte_eth_dev_stop(ctx->rx_port_id);
+	rte_eth_dev_close(ctx->rx_port_id);
+	rte_eth_dev_stop(ctx->tx_port_id);
+	rte_eth_dev_close(ctx->tx_port_id);
+
+	rte_eal_cleanup();
 }
