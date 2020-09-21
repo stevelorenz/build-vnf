@@ -9,6 +9,7 @@ test('test_munf', test_munf,
     '--vdev=eth_af_packet0,iface=lo', '--vdev=eth_af_packet1,iface=eth0'],
   is_parallel : false
 )
+test('test_pye', test_pye, is_parallel : false, suite: 'dev')
 
 # Extra non-auto and non-unit tests
 extra_tests = [

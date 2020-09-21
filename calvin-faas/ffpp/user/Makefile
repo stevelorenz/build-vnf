@@ -24,8 +24,15 @@ tests:
 	cd ./build/ && ninja
 
 # Run all auto unit tests
+# (Some tests can not be checked with ASAN and valgrind due to issues in the dependencies...)
 run-tests:
-	cd ./build && ninja test
+	cd ./build && meson test --print-errorlogs
+
+# Run tests in the dev suite.
+run-tests-dev:
+	cd ./build/ && meson test --suite dev --print-errorlogs
+run-tests-dev-mem:
+	cd ./build/ && meson test --wrap='valgrind --leak-check=yes' --suite dev --print-errorlogs
 
 run-coverage:
 	cd ./build && ninja test && ninja coverage-html

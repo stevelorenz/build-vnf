@@ -45,18 +45,20 @@ math_dep = cc.find_library('m', required: true)
 bpf_dep = dependency('libbpf', required: true)
 dpdk_dep = dependency('libdpdk', required: true)
 json_dep = dependency('jansson', required: false)
+python_embed_dep = dependency('python3-embed', required: true)
 zmq_dep = dependency('libzmq', required: false)
 
-ffpp_deps = [
+ffpp_dep_list = [
   bpf_dep,
   dpdk_dep,
   json_dep,
   math_dep,
+  python_embed_dep,
   zmq_dep,
 ]
 
-ffpp_dep = declare_dependency(
-  dependencies: ffpp_deps,
+ffpp_deps = declare_dependency(
+  dependencies: ffpp_dep_list,
 )
 
 subdir('include')
