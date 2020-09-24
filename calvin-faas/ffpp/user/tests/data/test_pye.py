@@ -19,6 +19,19 @@ def handle_int_array(array):
     return 17
 
 
+def handle_bytes(bytes_in):
+    print(type(bytes_in))
+    print(bytes_in)
+    bytes_out = bytes_in.split(b"_")[0]
+    return bytes_out
+
+
+def handle_bytesarray(barray):
+    print(type(barray))
+    print(barray)
+    return barray.split(b"_")[0]
+
+
 if __name__ == "__main__":
     print("Test file path: %s" % os.path.realpath(__file__))
     print("Today is: %s" % time.ctime(time.time()))

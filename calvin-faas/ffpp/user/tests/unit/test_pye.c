@@ -10,7 +10,6 @@
 /**
  * Use to execute a Python script without need to interact with the main
  * application.
- * TODO:  <23-09-20, Use and test buffer protocol>
 */
 int test_python_embedding(int argc, char *argv[])
 {
@@ -49,20 +48,22 @@ int test_python_embedding(int argc, char *argv[])
 	if (pModule != NULL) {
 		printf("The module is loaded successfully.\n");
 		PyObject *pFunc;
-		pFunc = PyObject_GetAttrString(pModule, "handle_int_array");
+		pFunc = PyObject_GetAttrString(pModule, "handle_bytesarray");
 		if (pFunc && PyCallable_Check(pFunc)) {
 			PyObject *pArgs, *pValue;
 			PyObject *testList;
-			testList = PyList_New(2);
-			PyList_SET_ITEM(testList, 0, PyLong_FromLong(2));
-			PyList_SET_ITEM(testList, 1, PyLong_FromLong(3));
-			// The arguments must use the tuple type.
-			pArgs = Py_BuildValue("(O)", testList);
+			PyObject *pBytesArray;
+			pBytesArray = PyByteArray_FromStringAndSize(
+				"test_string", strlen("test_string"));
+			pArgs = Py_BuildValue("(O)", pBytesArray);
 			pValue = PyObject_CallObject(pFunc, pArgs);
 			Py_DECREF(pArgs);
-			if (pValue != NULL) {
-				printf("Result of call: %ld\n",
-				       PyLong_AsLong(pValue));
+			if (pValue != NULL && PyByteArray_Check(pValue)) {
+				char *out_bytes = PyByteArray_AsString(pValue);
+				printf("The output bytes are: %s\n", out_bytes);
+				printf("The size of the output bytes: %lu",
+				       strlen(out_bytes));
+				// MARK: The owner of out_bytes is pValue.
 				Py_DECREF(pValue);
 			} else {
 				Py_XDECREF(pFunc);
