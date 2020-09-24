@@ -8,6 +8,7 @@ ffpp_sources = [
   'io.c',
   'memory.c',
   'munf.c',
+  'python.c',
   'scaling_helpers_user.c',
   'task.c',
   'utils.c',
@@ -16,13 +17,13 @@ ffpp_sources = [
 ffpplib_shared = shared_library('ffpp',
   ffpp_sources,
   include_directories: inc,
-  dependencies: [dpdk_dep, bpf_dep, math_dep, json_dep, zmq_dep],
+  dependencies: ffpp_deps,
   install: true
 )
 
 ffpplib_static = static_library('ffpp',
   ffpp_sources,
   include_directories: inc,
-  dependencies: [dpdk_dep, bpf_dep, math_dep, json_dep, zmq_dep],
+  dependencies: ffpp_deps,
   install: true
 )
