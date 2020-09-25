@@ -26,7 +26,7 @@
 /**
  * Meta data of a MuNF.
  */
-struct munf_ctx {
+struct munf_ctx_t {
 	char nf_name[FFPP_MUNF_NAME_MAX_LEN];
 	uint16_t rx_port_id;
 	uint16_t tx_port_id;
@@ -34,11 +34,23 @@ struct munf_ctx {
 	struct rte_ring *tx_ring;
 };
 
-// TODO: Add docs.
+/**
+ * Initialize the EAL for a MuNF.
+ */
 int ffpp_munf_eal_init(int argc, char *argv[]);
 
-int ffpp_munf_init_primary(struct munf_ctx *ctx, const char *nf_name,
+/**
+ * Initialize the setup for a MuNF running as a primary process.
+ *
+ * @param ctx: The context of type struct munf_ctx_t.
+ * @param nf_name: The name of the the network function.
+ * @param pool: rte_mempool.
+ *
+ * @return 
+ */
+int ffpp_munf_init_primary(struct munf_ctx_t *ctx, const char *nf_name,
 			   struct rte_mempool *pool);
-void ffpp_munf_cleanup_primary(struct munf_ctx *ctx);
+
+void ffpp_munf_cleanup_primary(struct munf_ctx_t *ctx);
 
 #endif /* !NF_H */

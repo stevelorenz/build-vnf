@@ -8,7 +8,7 @@ int main(int argc, char *argv[])
 {
 	ffpp_munf_eal_init(argc, argv);
 
-	struct munf_ctx ctx;
+	struct munf_ctx_t ctx;
 	struct rte_mempool *pool = NULL;
 	ffpp_munf_init_primary(&ctx, "test_primary_process", pool);
 

@@ -29,6 +29,7 @@ int ffpp_munf_eal_init(int argc, char *argv[])
 static void ffpp_munf_init_primary_port(uint16_t port_id,
 					struct rte_mempool *pool)
 {
+	// MARK: Device parameters are HARD-CODED here.
 	struct ffpp_dpdk_device_config dev_cfg = { .port_id = port_id,
 						   .pool = &pool,
 						   .rx_queues = 1,
@@ -40,21 +41,24 @@ static void ffpp_munf_init_primary_port(uint16_t port_id,
 	ffpp_dpdk_init_device(&dev_cfg);
 }
 
-static int ffpp_munf_init_primary_rings(struct munf_ctx *ctx)
+static int ffpp_munf_init_primary_rings(struct munf_ctx_t *ctx)
 {
 	char ring_name[FFPP_MUNF_NAME_MAX_LEN + 10];
 	snprintf(ring_name, FFPP_MUNF_NAME_MAX_LEN + 10, "%s%s", ctx->nf_name,
 		 "_rx_ring");
-	// RX queue is single-producer, multi-consumers (for scaling)
-	ctx->rx_ring = rte_ring_create(ring_name, FFPP_MUNF_RX_RING_SIZE,
-				       rte_socket_id(), RING_F_SP_ENQ);
+	// RX queue is single-producer, single-consumer
+	// TODO: Use ring_table or multi-producers or -consumers for load
+	// balancing.
+	ctx->rx_ring =
+		rte_ring_create(ring_name, FFPP_MUNF_RX_RING_SIZE,
+				rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
 
 	snprintf(ring_name, FFPP_MUNF_NAME_MAX_LEN + 10, "%s%s", ctx->nf_name,
 		 "_tx_ring");
 
-	// TX queue is muli-producers, single-consumer.
-	ctx->tx_ring = rte_ring_create(ring_name, FFPP_MUNF_TX_RING_SIZE,
-				       rte_socket_id(), RING_F_SC_DEQ);
+	ctx->tx_ring =
+		rte_ring_create(ring_name, FFPP_MUNF_TX_RING_SIZE,
+				rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
 
 	if (ctx->rx_ring == NULL || ctx->tx_ring == NULL) {
 		return -1;
@@ -63,7 +67,7 @@ static int ffpp_munf_init_primary_rings(struct munf_ctx *ctx)
 	return 0;
 }
 
-int ffpp_munf_init_primary(struct munf_ctx *ctx, const char *nf_name,
+int ffpp_munf_init_primary(struct munf_ctx_t *ctx, const char *nf_name,
 			   struct rte_mempool *pool)
 {
 	// Sanity checks
@@ -120,7 +124,7 @@ int ffpp_munf_init_primary(struct munf_ctx *ctx, const char *nf_name,
 	return 0;
 }
 
-void ffpp_munf_cleanup_primary(struct munf_ctx *ctx)
+void ffpp_munf_cleanup_primary(struct munf_ctx_t *ctx)
 {
 	rte_ring_free(ctx->rx_ring);
 	rte_ring_free(ctx->tx_ring);
