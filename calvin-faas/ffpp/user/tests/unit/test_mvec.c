@@ -25,19 +25,27 @@ int main(int argc, char *argv[])
 
 	struct rte_mbuf *rx_buf[64];
 	uint16_t rx_count;
-
-	rx_count = rte_eth_rx_burst(munf_manager_ctx.rx_port_id, 0, rx_buf, 64);
-	assert(rx_count == 64);
-
+	uint16_t tx_count;
+	uint16_t n = 0;
 	struct ffpp_mvec vec;
-	ffpp_mvec_init(&vec, rx_buf, 64);
 
-	ffpp_mvec_print(&vec);
-	uint16_t i = 0;
-	struct rte_mbuf *m;
-	FFPP_MVEC_FOREACH(&vec, i, m)
-	{
-		assert(rte_pktmbuf_headroom(m) == 128);
+	ffpp_mvec_init(&vec, 64);
+
+	for (n = 0; n < 17; ++n) {
+		rx_count = rte_eth_rx_burst(munf_manager_ctx.rx_port_id, 0,
+					    rx_buf, 64);
+		assert(rx_count == 64);
+		ffpp_mvec_set_mbufs(&vec, rx_buf, 64);
+		ffpp_mvec_print(&vec);
+		uint16_t i = 0;
+		struct rte_mbuf *m;
+		FFPP_MVEC_FOREACH(&vec, i, m)
+		{
+			assert(rte_pktmbuf_headroom(m) == 128);
+		}
+		tx_count = rte_eth_tx_burst(munf_manager_ctx.tx_port_id, 0,
+					    rx_buf, 64);
+		assert(tx_count == 64);
 	}
 
 	ffpp_mvec_free(&vec);

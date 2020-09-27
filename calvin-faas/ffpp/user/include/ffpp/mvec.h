@@ -55,12 +55,13 @@ struct ffpp_mvec {
  * Initialize the mbuf vector with an array of mbufs.
  *
  * @param vec
- * @param buf: An array of pointers pointing at mbufs.
  * @param size: The size of the array.
  *
  */
-int ffpp_mvec_init(struct ffpp_mvec *vec, struct rte_mbuf **buf, uint16_t size);
+int ffpp_mvec_init(struct ffpp_mvec *vec, uint16_t size);
 
+int ffpp_mvec_set_mbufs(struct ffpp_mvec *vec, struct rte_mbuf **buf,
+			uint16_t size);
 /**
  * Free the given mbuf vector.
  *

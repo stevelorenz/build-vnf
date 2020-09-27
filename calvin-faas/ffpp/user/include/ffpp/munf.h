@@ -14,6 +14,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // These parameters require fine-tuning.
 #define FFPP_MUNF_NAME_MAX_LEN 100
 #define FFPP_MUNF_RING_NAME_MAX_LEN (FFPP_MUNF_NAME_MAX_LEN + 10)
@@ -29,6 +33,11 @@ struct ffpp_munf_manager_ctx {
 	char nf_name[FFPP_MUNF_NAME_MAX_LEN];
 	uint16_t rx_port_id;
 	uint16_t tx_port_id;
+};
+
+struct ffpp_munf_data {
+	char rx_ring_name[FFPP_MUNF_RX_RING_SIZE];
+	char tx_ring_name[FFPP_MUNF_TX_RING_SIZE];
 };
 
 /**
@@ -52,12 +61,13 @@ void ffpp_munf_cleanup_manager(struct ffpp_munf_manager_ctx *ctx);
  * Register a new MuNF at the end of the queue.
  *
  * @param name: The name of the new MuNF.
+ * @param data: The data of the new MuNF.
  *
  * @return 
  * - 0 on success.
  * - -1 on failure.
  */
-int ffpp_munf_register(const char *name);
+int ffpp_munf_register(const char *name, struct ffpp_munf_data *data);
 
 /**
  * UnRegister a new MuNF at the end of the queue.
@@ -69,5 +79,9 @@ int ffpp_munf_register(const char *name);
  * - -1 on failure.
  */
 int ffpp_munf_unregister(const char *name);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !MUNF_H */

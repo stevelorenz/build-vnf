@@ -8,7 +8,8 @@ all_examples = [
   'feedback_manager',
   '2_vnf_manager',
   'multi_process_munf/mp_munf_mono',
-  'multi_process_munf/mp_munf_server',
+  'multi_process_munf/mp_munf_manager',
+  'multi_process_munf/mp_munf_munf',
 ]
 
 foreach example: all_examples

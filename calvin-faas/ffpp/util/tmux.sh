@@ -40,6 +40,7 @@ tmux new-window -t $SESSION_NAME:3 -n vnf1
 tmux select-window -t $SESSION_NAME:vnf1
 tmux send-keys "sudo docker attach vnf" C-m
 tmux new-window -t $SESSION_NAME:4 -n vnf2
+tmux send-keys "sudo docker exec -it vnf bash" C-m
 
 tmux select-window -t $SESSION_NAME:0
 tmux attach-session -t $SESSION_NAME

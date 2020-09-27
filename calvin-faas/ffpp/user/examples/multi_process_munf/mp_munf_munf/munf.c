@@ -1,5 +1,5 @@
 /*
- * mono.c
+ * munf.c
  */
 
 #include <signal.h>
@@ -24,9 +24,9 @@
 
 #define BURST_SIZE 64
 
-static volatile bool force_quit = false;
+static bool TEST_MODE = false;
 
-static struct rte_ether_addr tx_port_addr;
+static volatile bool force_quit = false;
 
 static int func_num = 0;
 
@@ -44,9 +44,30 @@ static void signal_handler(int signum)
 	}
 }
 
-static void run_update_dl_dst(struct ffpp_mvec *vec)
+static void run_enqueue_loop(struct rte_mbuf **buf, struct rte_ring *rx_ring)
 {
-	ffpp_pp_update_dl_dst(vec, &tx_port_addr);
+	uint16_t nb_eq = 0;
+	for (;;) {
+		nb_eq = rte_ring_enqueue_bulk(rx_ring, (void **)buf, BURST_SIZE,
+					      NULL);
+		if (force_quit == true || nb_eq == BURST_SIZE) {
+			break;
+		}
+		rte_delay_us_block(1e3);
+	}
+}
+
+static void run_dequeue_loop(struct rte_mbuf **buf, struct rte_ring *rx_ring)
+{
+	uint16_t nb_dq = 0;
+	for (;;) {
+		nb_dq = rte_ring_dequeue_bulk(rx_ring, (void **)buf, BURST_SIZE,
+					      NULL);
+		if (force_quit == true || nb_dq == BURST_SIZE) {
+			break;
+		}
+		rte_delay_us_block(1e3);
+	}
 }
 
 static void run_l2_xor(struct ffpp_mvec *vec)
@@ -87,46 +108,6 @@ static void run_l2_aes(struct ffpp_mvec *vec)
 	}
 }
 
-void run_mainloop(const struct ffpp_munf_manager_ctx *ctx)
-{
-	struct rte_mbuf *pkt_burst[BURST_SIZE];
-	uint16_t nb_rx, nb_tx;
-
-	struct ffpp_mvec vec;
-	ffpp_mvec_init(&vec, BURST_SIZE);
-	uint16_t i;
-
-	while (!force_quit) {
-		nb_rx = rte_eth_rx_burst(ctx->rx_port_id, 0, pkt_burst,
-					 BURST_SIZE);
-		if (nb_rx == 0) {
-			continue;
-		}
-		ffpp_mvec_set_mbufs(&vec, pkt_burst, nb_rx);
-
-		switch (func_num) {
-		case 0:
-			run_update_dl_dst(&vec);
-			break;
-		case 1:
-			run_l2_xor(&vec);
-			run_l2_xor(&vec);
-			run_update_dl_dst(&vec);
-			break;
-		case 2:
-			run_l2_aes(&vec);
-			run_update_dl_dst(&vec);
-			break;
-		default:
-			rte_exit(EXIT_FAILURE, "Unknown function type!\n");
-		}
-
-		// No buffering is used like l2fwd.
-		rte_eth_tx_burst(ctx->tx_port_id, 0, pkt_burst, nb_rx);
-	}
-	ffpp_mvec_free(&vec);
-}
-
 static void parse_args(int argc, char *argv[])
 {
 	int opt = 0;
@@ -142,6 +123,39 @@ static void parse_args(int argc, char *argv[])
 	}
 }
 
+void run_mainloop(struct rte_ring *rx_ring, struct rte_ring *tx_ring)
+{
+	struct rte_mbuf *buf[BURST_SIZE];
+	uint16_t nb_rx, nb_tx;
+
+	struct ffpp_mvec vec;
+	ffpp_mvec_init(&vec, BURST_SIZE);
+	uint16_t i;
+
+	while (!force_quit) {
+		run_dequeue_loop(buf, rx_ring);
+
+		ffpp_mvec_set_mbufs(&vec, buf, BURST_SIZE);
+
+		switch (func_num) {
+		case 0:
+			break;
+		case 1:
+			run_l2_xor(&vec);
+			run_l2_xor(&vec);
+			break;
+		case 2:
+			run_l2_aes(&vec);
+			break;
+		default:
+			rte_exit(EXIT_FAILURE, "Unknown function type!\n");
+		}
+
+		run_enqueue_loop(buf, tx_ring);
+	}
+	ffpp_mvec_free(&vec);
+}
+
 int main(int argc, char *argv[])
 {
 	int ret = 0;
@@ -154,19 +168,17 @@ int main(int argc, char *argv[])
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 	parse_args(argc, argv);
-	printf("The function number: %d\n", func_num);
 
-	struct ffpp_munf_manager_ctx munf_manager_ctx;
-	struct rte_mempool *pool = NULL;
-	ffpp_munf_init_manager(&munf_manager_ctx, "test_manager", pool);
-	ret = rte_eth_macaddr_get(munf_manager_ctx.tx_port_id, &tx_port_addr);
-	if (ret < 0) {
-		rte_exit(EXIT_FAILURE, "Cannot get the MAC address.\n");
+	// Ring names are currently hard-coded.
+	struct rte_ring *rx_ring = rte_ring_lookup("munf_1_rx_ring");
+	struct rte_ring *tx_ring = rte_ring_lookup("munf_1_tx_ring");
+
+	if (rx_ring == NULL || tx_ring == NULL) {
+		rte_exit(EXIT_FAILURE, "Can not find the RX or TX ring!\n");
 	}
 
-	run_mainloop(&munf_manager_ctx);
+	run_mainloop(rx_ring, tx_ring);
 
-	ffpp_munf_cleanup_manager(&munf_manager_ctx);
 	rte_eal_cleanup();
 	return 0;
 }

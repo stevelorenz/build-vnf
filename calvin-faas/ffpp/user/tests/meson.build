@@ -19,8 +19,6 @@ test('test_pye', test_pye, is_parallel : false, suite: 'leak')
 
 # Extra non-auto and non-unit tests
 extra_tests = [
-  # 'test_power',
-  # 'test_ring',
 ]
 
 foreach extra_test: extra_tests

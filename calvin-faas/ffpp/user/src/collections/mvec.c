@@ -12,7 +12,7 @@
 #include <ffpp/mvec.h>
 #include <ffpp/utils.h>
 
-int ffpp_mvec_init(struct ffpp_mvec *vec, struct rte_mbuf **buf, uint16_t size)
+int ffpp_mvec_init(struct ffpp_mvec *vec, uint16_t size)
 {
 	vec->len = 0;
 	vec->capacity = size;
@@ -23,6 +23,16 @@ int ffpp_mvec_init(struct ffpp_mvec *vec, struct rte_mbuf **buf, uint16_t size)
 	if (vec->head == NULL) {
 		return -1;
 	}
+	return 0;
+}
+
+int ffpp_mvec_set_mbufs(struct ffpp_mvec *vec, struct rte_mbuf **buf,
+			uint16_t size)
+{
+	if (size > vec->capacity) {
+		return -1;
+	}
+	vec->len = size;
 	uint16_t i = 0;
 	for (i = 0; i < size; ++i) {
 		*(vec->head + i) = buf[i];

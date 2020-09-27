@@ -24,4 +24,7 @@
 /* IO sleep */
 #define FFPP_IO_SLEEP 1000 // ns
 
+/* Number of mbuf pointers in one cache line. */
+#define MBUFS_IN_ONE_CACHE_LINE 8
+
 #endif /* !CONFIG_H */

@@ -120,15 +120,20 @@ void ffpp_munf_cleanup_manager(struct ffpp_munf_manager_ctx *ctx)
 	rte_eth_dev_close(ctx->tx_port_id);
 }
 
-static int munf_register_init_rings(struct munf_entry *entry)
+static int munf_register_init_rings(struct munf_entry *entry,
+				    struct ffpp_munf_data *data)
 {
 	snprintf(entry->rx_ring_name, FFPP_MUNF_RING_NAME_MAX_LEN, "%s%s",
+		 entry->munf_name, "_rx_ring");
+	snprintf(data->rx_ring_name, FFPP_MUNF_RING_NAME_MAX_LEN, "%s%s",
 		 entry->munf_name, "_rx_ring");
 	entry->_rx_ring =
 		rte_ring_create(entry->rx_ring_name, FFPP_MUNF_RX_RING_SIZE,
 				rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
 
 	snprintf(entry->tx_ring_name, FFPP_MUNF_RING_NAME_MAX_LEN, "%s%s",
+		 entry->munf_name, "_tx_ring");
+	snprintf(data->tx_ring_name, FFPP_MUNF_RING_NAME_MAX_LEN, "%s%s",
 		 entry->munf_name, "_tx_ring");
 
 	entry->_tx_ring =
@@ -155,7 +160,7 @@ static inline struct munf_entry *find_munf_entry_by_name(const char *name)
 	return entry;
 }
 
-int ffpp_munf_register(const char *name)
+int ffpp_munf_register(const char *name, struct ffpp_munf_data *data)
 {
 	struct munf_entry *entry;
 	entry = malloc(sizeof(struct munf_entry));
@@ -164,7 +169,7 @@ int ffpp_munf_register(const char *name)
 		return -1;
 	}
 	strlcpy(entry->munf_name, name, sizeof(entry->munf_name));
-	if (munf_register_init_rings(entry) < 0) {
+	if (munf_register_init_rings(entry, data) < 0) {
 		RTE_LOG(ERR, FFPP, "Failed to create rings for the MuNF: %s\n",
 			entry->munf_name);
 		return -1;

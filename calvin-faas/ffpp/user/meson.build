@@ -8,6 +8,7 @@ project('ffpp', 'c',
     'warning_level=3',
     'default_library=both',
     'werror=true',
+    'b_lundef=true',
   ],
 )
 

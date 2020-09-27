@@ -1,3 +1,3 @@
 sources = files(
-  'server.c'
+  'munf.c'
 )

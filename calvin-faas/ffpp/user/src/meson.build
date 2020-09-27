@@ -8,6 +8,7 @@ ffpp_sources = [
   'io.c',
   'memory.c',
   'munf.c',
+  'packet_processors.c',
   'python.c',
   'scaling_helpers_user.c',
   'task.c',
