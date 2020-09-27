@@ -1,5 +1,5 @@
 /*
- * nf.c
+ * munf.c
  */
 
 #include <stdint.h>
@@ -8,25 +8,34 @@
 
 #include <rte_common.h>
 #include <rte_eal.h>
+#include <rte_errno.h>
+
 #include <rte_ethdev.h>
 #include <rte_lcore.h>
 #include <rte_string_fns.h>
+#include <rte_tailq.h>
 
 #include <ffpp/config.h>
 #include <ffpp/device.h>
 #include <ffpp/memory.h>
 #include <ffpp/munf.h>
 
-// TODO: Add config file based interface.
-int ffpp_munf_eal_init(int argc, char *argv[])
-{
-	int ret = rte_eal_init(argc, argv);
-	if (ret < 0)
-		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
-	return ret;
-}
+struct munf_entry {
+	TAILQ_ENTRY(munf_entry) next;
+	char munf_name[FFPP_MUNF_NAME_MAX_LEN];
+	char rx_ring_name[FFPP_MUNF_RING_NAME_MAX_LEN];
+	char tx_ring_name[FFPP_MUNF_RING_NAME_MAX_LEN];
+	// Private fields.
+	struct rte_ring *_rx_ring;
+	struct rte_ring *_tx_ring;
+};
 
-static void ffpp_munf_init_primary_port(uint16_t port_id,
+// Double linked list of munf entries
+TAILQ_HEAD(munf_entry_list, munf_entry);
+static struct munf_entry_list munf_entry_list =
+	TAILQ_HEAD_INITIALIZER(munf_entry_list);
+
+static void ffpp_munf_init_manager_port(uint16_t port_id,
 					struct rte_mempool *pool)
 {
 	// MARK: Device parameters are HARD-CODED here.
@@ -41,34 +50,8 @@ static void ffpp_munf_init_primary_port(uint16_t port_id,
 	ffpp_dpdk_init_device(&dev_cfg);
 }
 
-static int ffpp_munf_init_primary_rings(struct munf_ctx_t *ctx)
-{
-	char ring_name[FFPP_MUNF_NAME_MAX_LEN + 10];
-	snprintf(ring_name, FFPP_MUNF_NAME_MAX_LEN + 10, "%s%s", ctx->nf_name,
-		 "_rx_ring");
-	// RX queue is single-producer, single-consumer
-	// TODO: Use ring_table or multi-producers or -consumers for load
-	// balancing.
-	ctx->rx_ring =
-		rte_ring_create(ring_name, FFPP_MUNF_RX_RING_SIZE,
-				rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
-
-	snprintf(ring_name, FFPP_MUNF_NAME_MAX_LEN + 10, "%s%s", ctx->nf_name,
-		 "_tx_ring");
-
-	ctx->tx_ring =
-		rte_ring_create(ring_name, FFPP_MUNF_TX_RING_SIZE,
-				rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
-
-	if (ctx->rx_ring == NULL || ctx->tx_ring == NULL) {
-		return -1;
-	}
-
-	return 0;
-}
-
-int ffpp_munf_init_primary(struct munf_ctx_t *ctx, const char *nf_name,
-			   struct rte_mempool *pool)
+int ffpp_munf_init_manager(struct ffpp_munf_manager_ctx *ctx,
+			   const char *nf_name, struct rte_mempool *pool)
 {
 	// Sanity checks
 	if (rte_eal_process_type() != RTE_PROC_PRIMARY) {
@@ -113,26 +96,93 @@ int ffpp_munf_init_primary(struct munf_ctx_t *ctx, const char *nf_name,
 	uint16_t port_id = 0;
 	RTE_ETH_FOREACH_DEV(port_id)
 	{
-		ffpp_munf_init_primary_port(port_id, pool);
-	}
-
-	if (ffpp_munf_init_primary_rings(ctx) == -1) {
-		rte_exit(EXIT_FAILURE,
-			 "MuNF: Failed to create RX and TX rings\n");
+		ffpp_munf_init_manager_port(port_id, pool);
 	}
 
 	return 0;
 }
 
-void ffpp_munf_cleanup_primary(struct munf_ctx_t *ctx)
+void ffpp_munf_cleanup_manager(struct ffpp_munf_manager_ctx *ctx)
 {
-	rte_ring_free(ctx->rx_ring);
-	rte_ring_free(ctx->tx_ring);
+	// Cleanup the MuNF queue.
+	struct munf_entry *entry;
+	while (!TAILQ_EMPTY(&munf_entry_list)) {
+		entry = TAILQ_FIRST(&munf_entry_list);
+		rte_ring_free(entry->_rx_ring);
+		rte_ring_free(entry->_tx_ring);
+		TAILQ_REMOVE(&munf_entry_list, entry, next);
+		free(entry);
+	}
 
 	rte_eth_dev_stop(ctx->rx_port_id);
 	rte_eth_dev_close(ctx->rx_port_id);
 	rte_eth_dev_stop(ctx->tx_port_id);
 	rte_eth_dev_close(ctx->tx_port_id);
+}
 
-	rte_eal_cleanup();
+static int munf_register_init_rings(struct munf_entry *entry)
+{
+	snprintf(entry->rx_ring_name, FFPP_MUNF_RING_NAME_MAX_LEN, "%s%s",
+		 entry->munf_name, "_rx_ring");
+	entry->_rx_ring =
+		rte_ring_create(entry->rx_ring_name, FFPP_MUNF_RX_RING_SIZE,
+				rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
+
+	snprintf(entry->tx_ring_name, FFPP_MUNF_RING_NAME_MAX_LEN, "%s%s",
+		 entry->munf_name, "_tx_ring");
+
+	entry->_tx_ring =
+		rte_ring_create(entry->tx_ring_name, FFPP_MUNF_TX_RING_SIZE,
+				rte_socket_id(), RING_F_SP_ENQ | RING_F_SC_DEQ);
+
+	if (entry->_rx_ring == NULL || entry->_tx_ring == NULL) {
+		return -1;
+	}
+
+	return 0;
+}
+
+static inline struct munf_entry *find_munf_entry_by_name(const char *name)
+{
+	struct munf_entry *entry;
+	TAILQ_FOREACH(entry, &munf_entry_list, next)
+	{
+		if (strncmp(entry->munf_name, name, FFPP_MUNF_NAME_MAX_LEN) ==
+		    0) {
+			break;
+		}
+	}
+	return entry;
+}
+
+int ffpp_munf_register(const char *name)
+{
+	struct munf_entry *entry;
+	entry = malloc(sizeof(struct munf_entry));
+	if (entry == NULL) {
+		rte_errno = ENOMEM;
+		return -1;
+	}
+	strlcpy(entry->munf_name, name, sizeof(entry->munf_name));
+	if (munf_register_init_rings(entry) < 0) {
+		RTE_LOG(ERR, FFPP, "Failed to create rings for the MuNF: %s\n",
+			entry->munf_name);
+		return -1;
+	}
+	TAILQ_INSERT_TAIL(&munf_entry_list, entry, next);
+
+	return 0;
+}
+
+int ffpp_munf_unregister(const char *name)
+{
+	struct munf_entry *entry;
+	entry = find_munf_entry_by_name(name);
+	if (entry == NULL) {
+		rte_errno = -EINVAL;
+		return -1;
+	}
+	TAILQ_REMOVE(&munf_entry_list, entry, next);
+	free(entry);
+	return 0;
 }

@@ -1,17 +1,23 @@
-#include <rte_cycles.h>
 #include <rte_eal.h>
+
+#include <rte_cycles.h>
 #include <rte_mempool.h>
 
 #include <ffpp/munf.h>
 
 int main(int argc, char *argv[])
 {
-	ffpp_munf_eal_init(argc, argv);
+	if (rte_eal_init(argc, argv) < 0)
+		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
 
-	struct munf_ctx_t ctx;
+	struct ffpp_munf_manager_ctx munf_manager_ctx;
 	struct rte_mempool *pool = NULL;
-	ffpp_munf_init_primary(&ctx, "test_primary_process", pool);
+	ffpp_munf_init_manager(&munf_manager_ctx, "test_manager", pool);
+	ffpp_munf_register("test_munf_1");
+	ffpp_munf_unregister("test_munf_1");
 
-	ffpp_munf_cleanup_primary(&ctx);
+	ffpp_munf_cleanup_manager(&munf_manager_ctx);
+
+	rte_eal_cleanup();
 	return 0;
 }

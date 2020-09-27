@@ -7,7 +7,7 @@ test('test_mvec', test_mvec, args:['-l 0'], is_parallel : false, suite: 'no-leak
 test('test_munf', test_munf,
   args:['-l 0', '--no-pci','--proc-type', 'primary',
     '--vdev=net_null0', '--vdev=net_null1'],
-  is_parallel : false, suite: 'no-leak'
+  is_parallel : false, suite: ['no-leak', 'dev']
 )
 test('test_pye', test_pye, is_parallel : false, suite: 'leak')
 

@@ -23,13 +23,16 @@ tests:
 # Run all auto unit tests
 # (Some tests can not be checked with ASAN and valgrind due to issues in the dependencies...)
 run-tests:
+	@echo "* Run unit tests..."
 	cd ./build && meson test --suite no-leak --print-errorlogs
+
+run-tests-dev:
+	@echo "* Run unit tests (under development)..."
+	cd ./build && meson test --suite dev --print-errorlogs
 
 # Run tests that currently have memory leaks (Could because of used dependencies).
 run-tests-leak:
 	cd ./build/ && meson test --suite leak --print-errorlogs
-run-tests-leak-valgrind:
-	cd ./build/ && meson test --wrap='valgrind --leak-check=yes' --suite leak --print-errorlogs
 
 run-coverage:
 	cd ./build && ninja test && ninja coverage-html
@@ -54,21 +57,21 @@ C_ALL_SRCS := $(C_FFPP_SRCS) $(C_TESTS_SRCS) $(C_EXAMPLES_SRCS)
 C_ALL_HEADERS := $(C_FFPP_SHARED_HEADERS) $(C_FFPP_PRIVATE_HEADERS)
 C_ALL_SRCS_AND_HEADERS := $(C_ALL_SRCS) $(C_ALL_HEADERS)
 
-codecheck: $(C_ALL_SRCS_AND_HEADERS)
+run-codecheck: $(C_ALL_SRCS_AND_HEADERS)
 	@echo "* Run basic static checkers..."
 	@echo "- Run cppcheck: "
 	cppcheck --enable=warning,style,performance,information --force \
 		-I /usr/local/include $(C_ALL_SRCS_AND_HEADERS)
 
-clang-scan: $(C_ALL_SRCS_AND_HEADERS)
+run-clangscan: $(C_ALL_SRCS_AND_HEADERS)
 	cd ./build && ninja scan-build
 
-flawcheck: $(C_ALL_SRCS_AND_HEADERS)
+run-flawcheck: $(C_ALL_SRCS_AND_HEADERS)
 	@echo "* Check torrential flaws and vulnerabilities with static checker..."
 	flawfinder --minlevel 2 $(C_ALL_SRCS_AND_HEADERS)
 
-format: $(C_ALL_SRCS_AND_HEADERS)
+run-format: $(C_ALL_SRCS_AND_HEADERS)
 	@echo "* Format all C sources with clang-format"
 	clang-format --style=file -i $(C_ALL_SRCS_AND_HEADERS)
 
-.PHONY: codecheck flawcheck format clang-scan
+.PHONY: run-codecheck run-clangscan run-flawcheck run-format
