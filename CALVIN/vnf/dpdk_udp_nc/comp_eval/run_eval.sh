@@ -7,4 +7,3 @@ LCORES="0"
 for (( i = 0; i < 1; i++ )); do
         sudo ./build/eval -l $LCORES -m $SOCKET_MEM
 done
-

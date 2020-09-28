@@ -18,9 +18,8 @@
 #include <rte_mempool.h>
 #include <rte_udp.h>
 
-#include <dpdk_helper.h>
-
 #include "aes.h"
+#include "dpdk_helper.h"
 #include "ncmbuf.h"
 
 #define UDP_HDR_LEN 8
