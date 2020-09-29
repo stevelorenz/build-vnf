@@ -189,6 +189,7 @@ venv.bak/
 *.pdf
 *.weights
 massif.*
+*.data
 
 .vagrant/
 build/

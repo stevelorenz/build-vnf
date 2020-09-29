@@ -8,7 +8,7 @@ LABEL RUN docker run --privileged --cap-add=ALL -v /mnt/huge:/mnt/huge -v /lib/m
 RUN apt-get update --fix-missing \
     && DEBIAN_FRONTEND="noninteractive" apt-get install -y wget ca-certificates iproute2 net-tools telnet tcpdump iputils-ping procps \
        sudo build-essential pkg-config python3 python3-setuptools zlib1g-dev pciutils kmod strace \
-       libnuma-dev libpcap-dev libelf-dev clang llvm gcc-multilib linux-headers-5.4.0-48-generic linux-tools-common linux-tools-5.4.0-48-generic \
+       libnuma-dev libpcap-dev libelf-dev clang llvm gcc-multilib linux-headers-`uname -r` linux-tools-common linux-tools-`uname -r` \
        python3-numpy python3-scipy \
     && rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
