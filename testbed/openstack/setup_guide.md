@@ -1,4 +1,4 @@
-# Setup Guide for the OpenStack Testbed #
+# (Archive) Setup Guide for the OpenStack Testbed #
 
 1.  Use OVS-DPDK for accelerating Neutron bridges.
 

@@ -45,9 +45,9 @@ math_dep = cc.find_library('m', required: true)
 
 bpf_dep = dependency('libbpf', required: true)
 dpdk_dep = dependency('libdpdk', required: true)
-json_dep = dependency('jansson', required: false)
+json_dep = dependency('jansson', required: true)
 python_embed_dep = dependency('python3-embed', required: true)
-zmq_dep = dependency('libzmq', required: false)
+zmq_dep = dependency('libzmq', required: true)
 
 ffpp_dep_list = [
   bpf_dep,
