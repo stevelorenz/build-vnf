@@ -50,8 +50,7 @@ This project focuses on (still **WIP**):
 ## Catalog
 
 -   [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
--   [CALVIN-FaaS](./calvin-faas/): A system (**under-development**) for the idea of serverless NFV.
--   [FFPP](./calvin-faas/ffpp/): A library for fast packet processing with both DPDK and XDP.
+-   [FFPP](./ffpp/): A library for fast packet processing with both DPDK and XDP.
 -   [pktgen](./pktgen/):  Utilities to configure and run software packet generators for VNF performance measurements.
 -   [scripts](./scripts/): Utility shell/python scripts to install, setup, configure tools used in this project.
 
@@ -85,7 +84,7 @@ $ vagrant up vnf
 $ vagrant ssh vnf
 ```
 By default, the `build-vnf` source directory is synced with `/vagrant/` folder inside the VM.
-Once inside the created VM, `FFPP` library can be built and tested with steps described [here](./calvin-faas/ffpp/README.md).
+Once inside the created VM, `FFPP` library can be built and tested with steps described [here](./ffpp/README.md).
 
 #### Use KVM as the Provider
 

@@ -10,7 +10,7 @@
 COUNTER=0
 
 HOME="/home/malte/"
-DIR="build-vnf/calvin-faas/ffpp/util/"
+DIR="build-vnf/ffpp/util/"
 
 cd $DIR
 sudo ./setup_hugepage.sh

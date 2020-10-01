@@ -36,7 +36,7 @@ For deployment, tricks like multi-stage build can be used to reduce the image si
 Inside the `Vagrant` VM (better with a clean state), run following commands to install dependencies and build the image:
 
 ```bash
-cd /vagrant/calvin-faas/ffpp/util
+cd /vagrant/ffpp/util
 sudo ./setup_devtools.sh
 # This step takes time to compile DPDK and FFPP libraries.
 sudo ./ffpp-dev.py build_image
@@ -59,7 +59,7 @@ This is definitely not suggested for production deployment.
 In summary, once inside the `Vagrant` VM run following commands for setup:
 
 ```bash
-cd /vagrant/calvin-faas/ffpp/util
+cd /vagrant/ffpp/util
 sudo ./setup_host_os.sh
 
 cd /vagrant/pktgen/trex
