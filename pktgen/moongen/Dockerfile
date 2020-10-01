@@ -1,7 +1,5 @@
 FROM ubuntu:20.04
 
-ENV MOONGEN_VERSION master_latest
-
 RUN apt-get update --fix-missing \
     && DEBIAN_FRONTEND="noninteractive" apt-get install -y wget git ca-certificates iproute2 net-tools telnet tcpdump iputils-ping procps \
        build-essential cmake linux-headers-`uname -r` pciutils libnuma-dev \
