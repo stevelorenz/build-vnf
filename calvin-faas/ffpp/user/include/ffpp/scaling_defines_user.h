@@ -13,9 +13,9 @@
 #define RELEASE 1 // Uncomment to show debug information
 
 // Hyper-parameter for scaling decision
-#define INTERVAL 10000 //1000 // Map reading interval during traffic
+#define INTERVAL 1000 //10000 // Map reading interval during traffic
 #define IDLE_INTERVAL 100 // Map reading interval during ISG
-#define MAX_EMPTY_CNT 2 //8 // So, after two empty polls we sleep :)
+#define MAX_EMPTY_CNT 10 //2// So, after two empty polls we sleep :)
 #define UTIL_THRESHOLD_UP 0.75 // We don't actually want tu surpass the 0.8
 #define UTIL_THRESHOLD_DOWN 0.65
 #define HARD_UP_THRESHOLD 0.85
@@ -24,21 +24,22 @@
 #define HARD_DECREASE 4 // Util < @HARD_DOWN_THRESH -> increase down counter
 #define TREND_INCREASE 3 // Increase for up trend
 #define TREND_DECREASE 2
-#define COUNTER_THRESH 10 //50 // Scale if surpassed
-#define NUM_READINGS_SMA 10 //50 // Number of samples for moving averages
-#define NUM_READINGS_WMA 5 //25
+#define COUNTER_THRESH 50 //10 // Scale if surpassed
+#define NUM_READINGS_SMA 50 //10 // Number of samples for moving averages
+#define NUM_READINGS_WMA 25 //5
 #define TINTERVAL 1.8 // Confidence interval
 #define D_PKT_DOWN_THRESH                                                      \
 	ceil(INTERVAL * 1e-6 *                                                 \
 	     1200) // Allowed packet count deviation for down scaling
 #define D_PKT_UP_THRESH                                                        \
-	ceil(INTERVAL * 1e-6 * 1800) // If we surpass this count -> scale up
-#define HARD_D_PKT_UP_THRESH ceil(INTERVAL * 1e-6 * 2500)
+	ceil(INTERVAL * 1e-6 * 2100) // If we surpass this count -> scale up
+#define HARD_D_PKT_UP_THRESH ceil(INTERVAL * 1e-6 * 3100)
 
+// System parameter
 #define NUM_CORES 8 // Total cores of the system
 #define CORE_MASK 2 // Cores to initialize
 #define CORE_OFFSET 1 // First core to initialize
-#define C_PACKET 6550 // CPU cycles for one packet
+#define C_PACKET 506880 //6550 // CPU cycles for one packet
 #define MAX_PSTATES 32 // Max possible P-states
 
 #define CPU_UTIL(INTER_TIME, FREQ) (C_PACKET / (INTER_TIME * FREQ))

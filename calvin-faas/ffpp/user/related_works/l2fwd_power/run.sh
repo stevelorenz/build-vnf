@@ -46,6 +46,17 @@ elif [[ $1 == "-c" ]]; then # Test crypto
         --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
         -- -p 0x03 -m 0 -T 0 --enable-crypto $REPS <<<'y'
+elif [[ $1 == "-pc" ]]; then # Test crypto with code instrumentation PM -> Doesn't work
+    REPS="5"
+    if [ "$2" ]; then
+        REPS="$2"
+    fi
+    xdp-loader unload vnf-in
+    xdp-loader unload vnf-out
+    ./ffpp_l2fwd_power -l 1,3 \
+        --vdev net_af_xdp0,iface=vnf-in --vdev net_af_xdp1,iface=vnf-out \
+        --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
+        -- -p 0x03 -m 1 -T 0 --enable-crypto $REPS <<<'y'
 elif [[ $1 == "-m" ]]; then # Bare vnf0 w/o code instrumentation PM
     xdp-loader unload vnf-in
     xdp-loader unload vnf-out

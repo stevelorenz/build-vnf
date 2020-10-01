@@ -20,6 +20,7 @@ extern unsigned int g_csv_freq[TOTAL_VALS];
 extern double g_csv_in_pps[TOTAL_VALS];
 extern double g_csv_out_pps[TOTAL_VALS];
 extern int g_csv_out_delta[TOTAL_VALS];
+extern int g_csv_offset[TOTAL_VALS];
 // Two VNfs
 extern double g_csv_pps_mult[NUM_VNFS][TOTAL_VALS];
 extern double g_csv_iat_mult[NUM_VNFS][TOTAL_VALS];

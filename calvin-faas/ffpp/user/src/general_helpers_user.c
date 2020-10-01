@@ -57,8 +57,9 @@ void write_csv_file_fb_in()
 	}
 	unsigned int i;
 	for (i = 0; i < g_csv_num_val; i++) {
-		fprintf(fptr, "%f,%f,%f,%d,%u\n", g_csv_ts[i], g_csv_in_pps[i],
-			g_csv_out_pps[i], g_csv_out_delta[i], g_csv_freq[i]);
+		fprintf(fptr, "%f,%f,%f,%d,%d,%u\n", g_csv_ts[i],
+			g_csv_in_pps[i], g_csv_out_pps[i], g_csv_out_delta[i],
+			g_csv_offset[i], g_csv_freq[i]);
 	}
 	fclose(fptr);
 }

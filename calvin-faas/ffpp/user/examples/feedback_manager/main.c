@@ -42,6 +42,7 @@ double g_csv_out_pps[TOTAL_VALS];
 double g_csv_ts[TOTAL_VALS];
 unsigned int g_csv_freq[TOTAL_VALS];
 int g_csv_out_delta[TOTAL_VALS];
+int g_csv_offset[TOTAL_VALS];
 unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
@@ -146,9 +147,10 @@ static void check_lcore_power_caps(void)
 	}
 }
 
-static void collect_global_stats(struct traffic_stats *ts, struct freq_info *f,
-				 struct feedback_info *fb,
-				 struct measurement *m, struct scaling_info *si)
+static void
+collect_global_stats(struct traffic_stats *ts, struct freq_info *f,
+		     struct feedback_info *fb, struct measurement *m,
+		     __attribute__((unused)) struct scaling_info *si)
 {
 	if (m->had_first_packet) {
 		g_csv_ts[g_csv_num_val] = get_time_of_day();
@@ -158,6 +160,7 @@ static void collect_global_stats(struct traffic_stats *ts, struct freq_info *f,
 		// Egress
 		g_csv_out_pps[g_csv_num_val] = ts[1].pps;
 		g_csv_out_delta[g_csv_num_val] = fb->delta_packets;
+		g_csv_offset[g_csv_num_val] = fb->packet_offset;
 		g_csv_num_val++;
 		if (ts[0].delta_packets > 0) {
 			g_csv_empty_cnt = 0;
@@ -172,7 +175,7 @@ static void collect_global_stats(struct traffic_stats *ts, struct freq_info *f,
 				g_csv_empty_cnt = 0;
 				g_csv_num_val = 0;
 				g_csv_num_round++;
-				si->scaled_to_min = false;
+				// si->scaled_to_min = false;
 				m->had_first_packet = false;
 			}
 		}
@@ -391,8 +394,8 @@ int main(int argc, char *argv[])
 	printf("Scale frequency of VNF CPU down to minimum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
-		ret = rte_power_freq_min(lcore_id);
-		// ret = rte_power_freq_max(lcore_id);
+		// ret = rte_power_freq_min(lcore_id);
+		ret = rte_power_freq_max(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
 				"Could not scale lcore %d frequency to minimum",

@@ -274,7 +274,7 @@ void check_feedback(struct feedback_info *fb, struct scaling_info *si)
 	if (si->empty_cnt > MAX_EMPTY_CNT) {
 		si->scale_to_min = true;
 	} else if (fb->delta_packets < D_PKT_DOWN_THRESH) {
-		si->scale_down_cnt += TREND_DECREASE;
+		si->scale_down_cnt += 1; //TREND_DECREASE;
 		si->scale_up_cnt = 0;
 		if (si->scale_down_cnt > COUNTER_THRESH) {
 			fb->freq_down = true;

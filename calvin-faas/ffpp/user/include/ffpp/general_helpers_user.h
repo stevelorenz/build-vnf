@@ -24,6 +24,7 @@ unsigned int g_csv_freq[TOTAL_VALS];
 double g_csv_in_pps[TOTAL_VALS];
 double g_csv_out_pps[TOTAL_VALS];
 int g_csv_out_delta[TOTAL_VALS];
+int g_csv_offset[TOTAL_VALS];
 unsigned int g_csv_num_val;
 int g_csv_num_round;
 double cur_time;
