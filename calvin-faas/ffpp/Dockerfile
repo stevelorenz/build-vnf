@@ -1,5 +1,5 @@
 #
-# This image is ONLY used for the development and tests of FFPP library.
+# This image is ONLY used for the DEVELOPMENT and TESTS of FFPP library.
 #
 # TODO (Zuo): The image size is too big currently... Reduce it later.
 #      - Adjust DPDK_BUILD_OPTION to remove unused PMD drivers or library.

@@ -27,7 +27,7 @@ TODO: Add a fantastic introduction of this (maybe) novel research idea.
 
 ## Quick Start
 
-The easiest way to start developing `FFPP` is to use the provided `Dockerfile` to build a development image.
+The easiest way to start developing `FFPP` is to use the provided [Dockerfile](./Dockerfile).
 This image includes all dependencies required for development and also testing.
 Therefore, it has a large size of 2GB.
 It is only designed for **development**.

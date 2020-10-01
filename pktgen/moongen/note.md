@@ -1,9 +1,9 @@
-# MoonGen Guide #
+# MoonGen Guide
 
 Tip when configuring devices
 local dev = device.config{dropEnable = false}
---- dropEnable optional (default = true) Drop packets directly if no rx descriptors are availble
-but sometimes nic doesn't support this.
+--- dropEnable optional (default = true) Drop packets directly if no RX descriptors are available
+but sometimes NIC doesn't support this.
 
 82540EM doesn't support Hardware-timestamping
 

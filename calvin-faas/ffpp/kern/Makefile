@@ -48,4 +48,4 @@ format: $(C_ALL_SRCS_AND_HEADERS)
 	@echo "* Format all C sources with clang-format"
 	clang-format --style=file -i $(C_ALL_SRCS_AND_HEADERS)
 
-.PHONY: flawcheck format
+.PHONY: codecheck flawcheck format
