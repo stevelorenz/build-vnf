@@ -5,6 +5,17 @@ if [ "$EUID" -ne 0 ]; then
     exit
 fi
 
+DIST="Unknown"
+
+grep Ubuntu /etc/lsb-release >/dev/null 2>&1 && DIST="Ubuntu"
+grep Manjaro /etc/lsb-release >/dev/null 2>&1 && DIST="Manjaro"
+
+if [[ "$DIST" == "Unknown" ]]; then
+    echo "Error: Unknown distribution!"
+fi
+
+echo "The detected distribution is: $DIST"
+
 if [[ -z ${XDP_TOOLS_DIR} ]]; then
     readonly XDP_TOOLS_DIR="/opt/xdp-tools"
 fi
@@ -68,9 +79,13 @@ echo "* Download, build and install XDP-Tools (version ${XDP_TOOLS_VER})."
 echo "- Dependency packages are also installed."
 echo "- Source is downloaded into directory: ${XDP_TOOLS_DIR}."
 
-DEBIAN_FRONTEND="noninteractive" apt-get install -y wget build-essential pkg-config python3 \
-    libelf-dev clang llvm gcc-multilib "linux-headers-$(uname -r)" linux-tools-common "linux-tools-$(uname -r)" \
-    iproute2 libpcap-dev iputils-ping tcpdump
+if [[ "$DIST" == "Ubuntu" ]]; then
+    DEBIAN_FRONTEND="noninteractive" apt-get install -y wget build-essential pkg-config python3 \
+        libelf-dev clang llvm gcc-multilib "linux-headers-$(uname -r)" linux-tools-common "linux-tools-$(uname -r)" \
+        iproute2 libpcap-dev iputils-ping tcpdump
+elif [[ "$DIST" == "Manjaro" ]]; then
+    pacman -S wget pkgconf python libelf clang llvm iproute2 libpcap tcpdump linux-tools
+fi
 
 mkdir -p ${XDP_TOOLS_DIR}
 cd ${XDP_TOOLS_DIR} || exit
@@ -89,10 +104,12 @@ fi
 
 ./configure && make -j $(nproc) install && cd ./lib/libbpf/src && make -j $(nproc) install
 
-if ! grep -Fq "/usr/lib64/pkgconfig" /etc/environment; then
-    echo "- Setup ENV variables for pkg-config in /etc/environment ."
-    echo "export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/lib64/pkgconfig" >>/etc/environment
-    echo "export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64" >>/etc/environment
+if [[ "$DIST" == "Ubuntu" ]]; then
+    if ! grep -Fq "/usr/lib64/pkgconfig" /etc/environment; then
+        echo "- Setup ENV variables for pkg-config in /etc/environment ."
+        echo "export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/lib64/pkgconfig" >>/etc/environment
+        echo "export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64" >>/etc/environment
+    fi
 fi
 
 echo "- Add /usr/lib64 to ldconfig path for libbpf."

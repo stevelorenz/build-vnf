@@ -52,7 +52,6 @@ This project focuses on (still **WIP**):
 -   [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).
 -   [CALVIN-FaaS](./calvin-faas/): A system (**under-development**) for the idea of serverless NFV.
 -   [FFPP](./calvin-faas/ffpp/): A library for fast packet processing with both DPDK and XDP.
--   [perf_eval](./perf_eval/): Tools to monitor and profiling the underlying physical or virtual systems running VNFs.
 -   [pktgen](./pktgen/):  Utilities to configure and run software packet generators for VNF performance benchmarking.
 -   [scripts](./scripts/): Utility shell/python scripts to install, setup, configure tools used in this project.
 

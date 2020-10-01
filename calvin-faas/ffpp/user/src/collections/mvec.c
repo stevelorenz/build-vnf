@@ -1,34 +1,52 @@
 /*
- * mvec.c
+ * ffpp_mvec.c
  */
 
 #include <rte_byteorder.h>
 #include <rte_common.h>
 #include <rte_compat.h>
+#include <rte_lcore.h>
 #include <rte_malloc.h>
 #include <rte_mbuf.h>
 
 #include <ffpp/mvec.h>
 #include <ffpp/utils.h>
 
-struct mvec {
-	uint16_t len; /**< Number of mbufs in the vector */
-	uint16_t capacity; /**< Maximal number of mbufs in the vector */
-	struct rte_mbuf **head; /**< Head pointer of a rte_mbuf array */
-} __rte_cache_aligned;
-
-struct mvec *mvec_new()
+int ffpp_mvec_init(struct ffpp_mvec *vec, uint16_t size)
 {
-	struct mvec *vec =
-		(struct mvec *)(rte_zmalloc("mvec", sizeof(struct mvec), 0));
 	vec->len = 0;
-	vec->capacity = MVEC_INIT_CAPACITY;
-	vec->head = rte_zmalloc("mvec_head",
-				sizeof(struct rte_mbuf *) * vec->capacity, 0);
-	return vec;
+	vec->capacity = size;
+	vec->socket_id = rte_socket_id();
+	vec->head = rte_malloc_socket("ffpp_mvec",
+				      sizeof(struct rte_mbuf *) * vec->capacity,
+				      64, vec->socket_id);
+	if (vec->head == NULL) {
+		return -1;
+	}
+	return 0;
 }
 
-__rte_always_inline struct rte_mbuf *mvec_at_index(struct mvec *vec, uint16_t n)
+int ffpp_mvec_set_mbufs(struct ffpp_mvec *vec, struct rte_mbuf **buf,
+			uint16_t size)
+{
+	if (size > vec->capacity) {
+		return -1;
+	}
+	vec->len = size;
+	uint16_t i = 0;
+	for (i = 0; i < size; ++i) {
+		*(vec->head + i) = buf[i];
+	}
+	return 0;
+}
+
+void ffpp_mvec_free(struct ffpp_mvec *vec)
+{
+	rte_free(vec->head);
+}
+
+__rte_always_inline struct rte_mbuf *ffpp_mvec_at_index(struct ffpp_mvec *vec,
+							uint16_t n)
 {
 	if (n >= vec->len) {
 		return NULL;
@@ -36,18 +54,12 @@ __rte_always_inline struct rte_mbuf *mvec_at_index(struct mvec *vec, uint16_t n)
 	return *(vec->head + n);
 }
 
-__rte_always_inline uint16_t ffpp_mvec_len(struct mvec *vec)
+__rte_always_inline uint16_t ffpp_mvec_len(struct ffpp_mvec *vec)
 {
 	return vec->len;
 }
 
-void mvec_free(struct mvec *vec)
-{
-	rte_free(vec->head);
-	rte_free(vec);
-}
-
-void mvec_free_mbufs_part(struct mvec *vec, uint16_t offset)
+void ffpp_mvec_free_mbufs_part(struct ffpp_mvec *vec, uint16_t offset)
 {
 	uint16_t i = 0;
 
@@ -57,19 +69,19 @@ void mvec_free_mbufs_part(struct mvec *vec, uint16_t offset)
 	rte_free(vec);
 }
 
-void mvec_free_mbufs(struct mvec *vec)
+void ffpp_mvec_free_mbufs(struct ffpp_mvec *vec)
 {
-	mvec_free_mbufs_part(vec, 0);
+	ffpp_mvec_free_mbufs_part(vec, 0);
 }
 
-void print_mvec(struct mvec *vec)
+void ffpp_mvec_print(const struct ffpp_mvec *vec)
 {
 	printf("Vector length: %u\n", vec->len);
 	printf("Vector capacity: %u\n", vec->capacity);
 	printf("Mbuf head offset: %d\n", rte_pktmbuf_headroom(*(vec->head)));
 }
 
-int mvec_datacmp(struct mvec *vec1, struct mvec *vec2)
+int ffpp_mvec_datacmp(struct ffpp_mvec *vec1, struct ffpp_mvec *vec2)
 {
 	uint16_t len = 0;
 	uint16_t i = 0;
@@ -85,13 +97,13 @@ int mvec_datacmp(struct mvec *vec1, struct mvec *vec2)
 	return 0;
 }
 
-void mvec_push(struct mvec *vec, uint16_t len)
+void ffpp_mvec_push(struct ffpp_mvec *vec, uint16_t len)
 {
 	uint16_t i = 0;
 	char *ret = NULL;
 	struct rte_mbuf *mbuf;
 
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		ret = rte_pktmbuf_prepend(mbuf, len);
 		if (ret == NULL) {
@@ -101,13 +113,13 @@ void mvec_push(struct mvec *vec, uint16_t len)
 	}
 }
 
-void mvec_push_u8(struct mvec *vec, uint8_t value)
+void ffpp_mvec_push_u8(struct ffpp_mvec *vec, uint8_t value)
 {
 	uint16_t i = 0;
 	struct rte_mbuf *mbuf;
 
-	mvec_push(vec, sizeof(value));
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	ffpp_mvec_push(vec, sizeof(value));
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		rte_prefetch_non_temporal(rte_pktmbuf_mtod(mbuf, void *));
 		rte_memcpy(rte_pktmbuf_mtod(mbuf, uint8_t *), &value,
@@ -115,14 +127,14 @@ void mvec_push_u8(struct mvec *vec, uint8_t value)
 	}
 }
 
-void mvec_push_u16(struct mvec *vec, uint16_t value)
+void ffpp_mvec_push_u16(struct ffpp_mvec *vec, uint16_t value)
 {
 	uint16_t i = 0;
 	struct rte_mbuf *mbuf;
 
-	mvec_push(vec, sizeof(value));
+	ffpp_mvec_push(vec, sizeof(value));
 	value = rte_cpu_to_be_16(value);
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		rte_prefetch_non_temporal(rte_pktmbuf_mtod(mbuf, void *));
 		rte_memcpy(rte_pktmbuf_mtod(mbuf, uint16_t *), &value,
@@ -130,14 +142,14 @@ void mvec_push_u16(struct mvec *vec, uint16_t value)
 	}
 }
 
-void mvec_push_u32(struct mvec *vec, uint32_t value)
+void ffpp_mvec_push_u32(struct ffpp_mvec *vec, uint32_t value)
 {
 	uint16_t i = 0;
 	struct rte_mbuf *mbuf;
 
-	mvec_push(vec, sizeof(value));
+	ffpp_mvec_push(vec, sizeof(value));
 	value = rte_cpu_to_be_32(value);
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		rte_prefetch_non_temporal(rte_pktmbuf_mtod(mbuf, void *));
 		rte_memcpy(rte_pktmbuf_mtod(mbuf, uint32_t *), &value,
@@ -145,14 +157,14 @@ void mvec_push_u32(struct mvec *vec, uint32_t value)
 	}
 }
 
-void mvec_push_u64(struct mvec *vec, uint64_t value)
+void ffpp_mvec_push_u64(struct ffpp_mvec *vec, uint64_t value)
 {
 	uint16_t i = 0;
 	struct rte_mbuf *mbuf;
 
-	mvec_push(vec, sizeof(value));
+	ffpp_mvec_push(vec, sizeof(value));
 	value = rte_cpu_to_be_64(value);
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		rte_prefetch_non_temporal(rte_pktmbuf_mtod(mbuf, void *));
 		rte_memcpy(rte_pktmbuf_mtod(mbuf, uint64_t *), &value,
@@ -160,13 +172,13 @@ void mvec_push_u64(struct mvec *vec, uint64_t value)
 	}
 }
 
-void mvec_pull(struct mvec *vec, uint16_t len)
+void ffpp_mvec_pull(struct ffpp_mvec *vec, uint16_t len)
 {
 	uint16_t i;
 	char *ret = NULL;
 	struct rte_mbuf *mbuf;
 
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		ret = rte_pktmbuf_adj(mbuf, len);
 		if (ret == NULL) {
@@ -176,59 +188,59 @@ void mvec_pull(struct mvec *vec, uint16_t len)
 	}
 }
 
-void mvec_pull_u8(struct mvec *vec, uint8_t *values)
+void ffpp_mvec_pull_u8(struct ffpp_mvec *vec, uint8_t *values)
 {
 	uint16_t i;
 	struct rte_mbuf *mbuf;
 
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		*(values + i) = *(rte_pktmbuf_mtod(mbuf, uint8_t *));
 	}
-	mvec_pull(vec, sizeof(uint8_t));
+	ffpp_mvec_pull(vec, sizeof(uint8_t));
 }
 
-void mvec_pull_u16(struct mvec *vec, uint16_t *values)
+void ffpp_mvec_pull_u16(struct ffpp_mvec *vec, uint16_t *values)
 {
 	uint16_t i;
 	struct rte_mbuf *mbuf;
 
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		rte_prefetch0(rte_pktmbuf_mtod(mbuf, void *));
 		rte_memcpy(values + i, rte_pktmbuf_mtod(mbuf, uint16_t *),
 			   sizeof(uint16_t));
 		*(values + i) = rte_be_to_cpu_16(*(values + i));
 	}
-	mvec_pull(vec, sizeof(uint16_t));
+	ffpp_mvec_pull(vec, sizeof(uint16_t));
 }
 
-void mvec_pull_u32(struct mvec *vec, uint32_t *values)
+void ffpp_mvec_pull_u32(struct ffpp_mvec *vec, uint32_t *values)
 {
 	uint16_t i;
 	struct rte_mbuf *mbuf;
 
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		rte_prefetch0(rte_pktmbuf_mtod(mbuf, void *));
 		rte_memcpy(values + i, rte_pktmbuf_mtod(mbuf, uint32_t *),
 			   sizeof(uint32_t));
 		*(values + i) = rte_be_to_cpu_32(*(values + i));
 	}
-	mvec_pull(vec, sizeof(uint32_t));
+	ffpp_mvec_pull(vec, sizeof(uint32_t));
 }
 
-void mvec_pull_u64(struct mvec *vec, uint64_t *values)
+void ffpp_mvec_pull_u64(struct ffpp_mvec *vec, uint64_t *values)
 {
 	uint16_t i;
 	struct rte_mbuf *mbuf;
 
-	MVEC_FOREACH_MBUF(i, mbuf, vec)
+	FFPP_MVEC_FOREACH(vec, i, mbuf)
 	{
 		rte_prefetch0(rte_pktmbuf_mtod(mbuf, void *));
 		rte_memcpy(values + i, rte_pktmbuf_mtod(mbuf, uint64_t *),
 			   sizeof(uint64_t));
 		*(values + i) = rte_be_to_cpu_64(*(values + i));
 	}
-	mvec_pull(vec, sizeof(uint64_t));
+	ffpp_mvec_pull(vec, sizeof(uint64_t));
 }

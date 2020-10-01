@@ -146,8 +146,9 @@ static void check_lcore_power_caps(void)
 	}
 }
 
-static void collect_global_stats(struct freq_info *f, struct measurement *m,
-				__attribute__((unused)) struct scaling_info *si)
+static void
+collect_global_stats(struct freq_info *f, struct measurement *m,
+		     __attribute__((unused)) struct scaling_info *si)
 {
 	// if (m->had_first_packet) {
 	g_csv_ts[g_csv_num_val] = get_time_of_day();

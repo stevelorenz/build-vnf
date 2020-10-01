@@ -44,8 +44,8 @@
 #include <rte_ring.h>
 #include <rte_udp.h>
 
-#include <dpdk_helper.h>
-#include <ncmbuf.h>
+#include "../dpdk_helper.h"
+#include "../ncmbuf.h"
 
 #define NB_MBUF 2048
 #define MBUF_DATA_SIZE 2048

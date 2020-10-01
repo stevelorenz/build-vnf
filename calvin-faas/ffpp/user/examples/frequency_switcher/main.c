@@ -54,18 +54,18 @@ static void check_lcore_power_caps(void)
 
 // static void freq_min(void)
 // {
-	// int ret;
-	// int lcore_id;
-	// printf("Scale frequency down to minimum.\n");
-	// for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
-	    //  lcore_id += CORE_MASK) {
-		// ret = rte_power_freq_min(lcore_id);
-		// if (ret < 0) {
-			// RTE_LOG(ERR, POWER,
-				// "Could not scale lcore %d frequency to minimum",
-				// lcore_id);
-		// }
-	// }
+// int ret;
+// int lcore_id;
+// printf("Scale frequency down to minimum.\n");
+// for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
+//  lcore_id += CORE_MASK) {
+// ret = rte_power_freq_min(lcore_id);
+// if (ret < 0) {
+// RTE_LOG(ERR, POWER,
+// "Could not scale lcore %d frequency to minimum",
+// lcore_id);
+// }
+// }
 // }
 
 static void set_freq(int pstate)

@@ -37,7 +37,7 @@ void dpdk_enter_mainloop_master(lcore_function_t *func, void *args)
 	rte_eal_mp_wait_lcore();
 
 	RTE_LOG(INFO, FFPP, "Exit main loop. Run cleanups.\n");
-	dpdk_cleanup_devices();
+	ffpp_dpdk_cleanup_devices();
 
 	/* MARK: Add cleanups for master core */
 

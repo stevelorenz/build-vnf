@@ -8,7 +8,7 @@
 
 #include <ffpp/device.h>
 
-int dpdk_init_device(struct dpdk_device_config *cfg)
+int ffpp_dpdk_init_device(struct ffpp_dpdk_device_config *cfg)
 {
 	int ret = 0;
 	struct rte_eth_dev_info dev_info;
@@ -111,7 +111,7 @@ int dpdk_init_device(struct dpdk_device_config *cfg)
 	return 0;
 }
 
-void dpdk_cleanup_devices(void)
+void ffpp_dpdk_cleanup_devices(void)
 {
 	uint32_t port_id;
 	RTE_ETH_FOREACH_DEV(port_id)

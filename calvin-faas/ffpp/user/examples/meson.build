@@ -7,6 +7,9 @@ all_examples = [
   'c1_manager',
   'feedback_manager',
   '2_vnf_manager',
+  'multi_process_munf/mp_munf_mono',
+  'multi_process_munf/mp_munf_manager',
+  'multi_process_munf/mp_munf_munf',
 ]
 
 foreach example: all_examples
@@ -15,7 +18,8 @@ foreach example: all_examples
   subdir(example)
   executable('ffpp_' + name, sources,
     include_directories: [inc, include_directories(example)],
-    dependencies: [ffpp_dep],
-    link_with : [ffpplib_shared],
-    link_args : '-lcpufreq')
+    dependencies: ffpp_deps,
+    link_with : [ffpplib_shared])
 endforeach
+
+# link_args : '-lcpufreq'

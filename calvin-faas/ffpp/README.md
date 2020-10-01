@@ -1,6 +1,5 @@
 # FFPP - Fast Functional Packet Processing
 
-
 ## Table of Contents
 
 *   [Overview](#overview)
@@ -151,19 +150,16 @@ Since FFPP utilizes latest fast packet IO technologies in both Linux kernel and 
 Sources running in user space (located in `./user`) are built with `Meson`.
 Sources running in kernel space (located in `./kern`) are built with the makefile-based system provided by the [xdp-tools](https://github.com/xdp-project/xdp-tools) project.
 
-The following packages and libraries are needed:
+-   Required dependencies:
 
+  *   [Meson](https://mesonbuild.com/)(>=0.47.1)
+  *   [Ninja](https://github.com/ninja-build/ninja)(>=1.10.0)
+  *   [DPDK](https://core.dpdk.org/download/)(v20.02): DPDK's API and ABI could change in every release, so this library only supports a specific version.
+  *   [xdp-tools](https://github.com/xdp-project/xdp-tools)(v0.0.3)
+  *   [Jansson](https://digip.org/jansson/)
+  *   [libzmq](https://zeromq.org/)
+  *   python3-dev: Used for embedding Python.
 
-*   `Meson (>=0.47.1)`: The standard automatic build system for `DPDK`, therefore it is also used in this project.
-*   `Ninja (>=1.10.0)`: Build system (focus on speed) used by `Meson`.
-
-*   `DPDK (v20.02)`: [DPDK](https://core.dpdk.org/download/) library should be installed and can be found by `pkg-config`.
-    DPDK's API and ABI could change in every release, so this library only supports a specific version.
-    Please check DPDK's [guide](https://doc.dpdk.org/guides-20.02/linux_gsg/index.html) to build DPDK for Linux.
-
-*   `xdp-tools (v0.0.3)`: [xdp-tools](https://github.com/xdp-project/xdp-tools) contains a collection of utilities and example code to be used with the eXpress Data Path
-    facility of the Linux kernel.
-    It also contains a git submodule with [libbpf](https://github.com/libbpf/libbpf). Libbpf is required (be accssible via `pkg-config`) to build the AF_XDP PMD of DPDK.
 
 If all dependencies are installed correctly, then you should be able to simply run following commands to build and install (**ONLY** user space library) both shared and
 static library of FFPP:
@@ -181,11 +177,11 @@ make install
 A: This project is research oriented and the focus is on latency performance.
 C is chosen since the libraries (DPDK and eBPF/XDP) used by this project are all written in C and provide C APIs
 directly. It is easier to adapt and test latest features introduced in this libraries.
-By the way, C is a simple and "old" language with a really small runtime, so there is not much magic there. This makes the latency performance
-evaluation results more representative and "stable" for the algorithm used instead of the magic inside the runtime of
-the programming language. C has its limitations and security issues. However, they are not the focus of this project and
-it is just a PhD work :). I plan to add Rust/Go bindings after I fully understand how to integrate the use them
-efficiently...
+By the way, C is a simple and "old" language with a really small runtime, so there is not much magic there.
+This makes the latency performance evaluation results more representative and "stable" for the algorithm used instead of the magic inside the runtime of
+the programming language.
+C has its limitations and security issues. However, they are not the focus of this project and it is just a PhD work :).
+I plan to add Rust/Go support after I fully understand how to integrate them correctly and efficiently...
 
 
 ## Contact

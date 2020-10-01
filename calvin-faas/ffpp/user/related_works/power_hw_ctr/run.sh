@@ -15,6 +15,13 @@ if [[ $1 == "-m" ]]; then # Run on hw setup
         --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
         --log-level=user1,8 \
         -- -b 0.01
+elif [[ $1 == "-n" ]]; then # Just for test without power management.
+    echo "Run test without power management!"
+    ./ffpp_power_hw_ctr --proc-type=secondary \
+        -l 0,1 \
+        --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,8 \
+        --log-level=user1,8 \
+        -- -b 0.01 -n
 else
     ./ffpp_power_hw_ctr --proc-type=secondary \
         -l 0,1 \

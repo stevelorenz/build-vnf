@@ -460,10 +460,10 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 		// @+1 -> do not detect the ISG too early
 		/// Does this really work?
 		// if (m->empty_cnt > MAX_EMPTY_CNT + 1) {
-			// m->valid_vals = 0;
-			// m->wma_cpu_util = 0;
-			// m->sma_cpu_util = 0;
-			// m->sma_std_err = 0;
+		// m->valid_vals = 0;
+		// m->wma_cpu_util = 0;
+		// m->sma_cpu_util = 0;
+		// m->sma_std_err = 0;
 		// }
 	}
 }
