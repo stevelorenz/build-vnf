@@ -62,7 +62,7 @@ static void run_dequeue_loop(struct rte_mbuf **buf, struct rte_ring *rx_ring)
 	}
 }
 
-static void run_mainloop(const struct ffpp_munf_manager_ctx *ctx,
+static void run_mainloop(const struct ffpp_munf_manager *ctx,
 			 const struct ffpp_munf_data *munf_data)
 {
 	struct rte_mbuf *rx_buf[BURST_SIZE];
@@ -124,10 +124,10 @@ int main(int argc, char *argv[])
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
-	struct ffpp_munf_manager_ctx munf_manager_ctx;
+	struct ffpp_munf_manager munf_manager;
 	struct rte_mempool *pool = NULL;
-	ffpp_munf_init_manager(&munf_manager_ctx, "test_manager", pool);
-	ret = rte_eth_macaddr_get(munf_manager_ctx.tx_port_id, &tx_port_addr);
+	ffpp_munf_init_manager(&munf_manager, "test_manager", pool);
+	ret = rte_eth_macaddr_get(munf_manager.tx_port_id, &tx_port_addr);
 	if (ret < 0) {
 		rte_exit(EXIT_FAILURE, "Cannot get the MAC address.\n");
 	}
@@ -136,10 +136,10 @@ int main(int argc, char *argv[])
 	struct ffpp_munf_data munf_data;
 	ffpp_munf_register("munf_1", &munf_data);
 
-	run_mainloop(&munf_manager_ctx, &munf_data);
+	run_mainloop(&munf_manager, &munf_data);
 
 	ffpp_munf_unregister("munf_1");
-	ffpp_munf_cleanup_manager(&munf_manager_ctx);
+	ffpp_munf_cleanup_manager(&munf_manager);
 	rte_eal_cleanup();
 	return 0;
 }

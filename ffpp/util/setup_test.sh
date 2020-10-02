@@ -6,7 +6,6 @@ IFACE="enp5s0f0"
 CORE="5" # For XDP program
 SETUP=true
 PM=true
-BASE_DIR=$(pwd)
 KERN_DIR="../kern/xdp_time/"
 
 # Argparse for setup or teardown and interface

@@ -9,7 +9,6 @@ set -o errexit
 set -o nounset
 umask 077
 
-NEEDED_TOOLS="ip tc ping"
 CLEANUP_FUNC=
 CMD=
 NS="test"
@@ -95,7 +94,10 @@ OPTS="h"
 LONGOPTS="help"
 
 OPTIONS=$(getopt -o "$OPTS" --long "$LONGOPTS" -- "$@")
-[ "$?" -ne "0" ] && usage >&2 || true
+if [[ "$?" -ne "0" ]]; then
+    usage >&2
+fi
+
 eval set -- "$OPTIONS"
 
 while true; do

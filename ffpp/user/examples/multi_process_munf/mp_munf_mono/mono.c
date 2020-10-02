@@ -87,7 +87,7 @@ static void run_l2_aes(struct ffpp_mvec *vec)
 	}
 }
 
-void run_mainloop(const struct ffpp_munf_manager_ctx *ctx)
+void run_mainloop(const struct ffpp_munf_manager *ctx)
 {
 	struct rte_mbuf *pkt_burst[BURST_SIZE];
 	uint16_t nb_rx, nb_tx;
@@ -156,17 +156,17 @@ int main(int argc, char *argv[])
 	parse_args(argc, argv);
 	printf("The function number: %d\n", func_num);
 
-	struct ffpp_munf_manager_ctx munf_manager_ctx;
+	struct ffpp_munf_manager munf_manager;
 	struct rte_mempool *pool = NULL;
-	ffpp_munf_init_manager(&munf_manager_ctx, "test_manager", pool);
-	ret = rte_eth_macaddr_get(munf_manager_ctx.tx_port_id, &tx_port_addr);
+	ffpp_munf_init_manager(&munf_manager, "test_manager", pool);
+	ret = rte_eth_macaddr_get(munf_manager.tx_port_id, &tx_port_addr);
 	if (ret < 0) {
 		rte_exit(EXIT_FAILURE, "Cannot get the MAC address.\n");
 	}
 
-	run_mainloop(&munf_manager_ctx);
+	run_mainloop(&munf_manager);
 
-	ffpp_munf_cleanup_manager(&munf_manager_ctx);
+	ffpp_munf_cleanup_manager(&munf_manager);
 	rte_eal_cleanup();
 	return 0;
 }

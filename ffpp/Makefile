@@ -33,10 +33,9 @@ ALL_SCRIPT_SRCS := $(BASH_SRCS) $(PY_SRCS)
 
 codecheck-scripts: $(ALL_SCRIPT_SRCS)
 	@echo "* Run flake8 for Python sources..."
-	flake8 --ignore=E501,E266,E203,E231,W503,F401,F841 $(PY_SRCS)
-	# TODO: Fix warnings from shellcheck.
-	# @echo "* Run shellcheck for BASH sources..."
-	# shellcheck $(BASH_SRCS)
+	flake8 --ignore=E501,E266,E203,E231,W503,F401,F841 --max-complexity 10 $(PY_SRCS)
+	@echo "* Run shellcheck for BASH sources..."
+	shellcheck $(BASH_SRCS)
 
 format-scripts: $(ALL_SCRIPT_SRCS)
 	@echo "* Format all Python sources with black..."

@@ -15,16 +15,14 @@ cd openNetVM || exit
 # Init DPDK sub-module
 git submodule sync
 git submodule update --init
-export ONVM_HOME=$(pwd)
+export ONVM_HOME
+ONVM_HOME=$(pwd)
 echo export ONVM_HOME=$(pwd) >>~/.bashrc
 cd dpdk || exit
-export RTE_SDK=$(pwd)
+export RTE_SDK
+RTE_SDK=$(pwd)
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 export ONVM_NUM_HUGEPAGES=512
-echo export RTE_SDK=$(pwd) >>~/.bashrc
-echo export RTE_TARGET=x86_64-native-linuxapp-gcc >>~/.bashrc
-echo export ONVM_NUM_HUGEPAGES=512 >>~/.bashrc
-source ~/.bashrc
 
 # Disable ASLR since it makes sharing memory with NFs harder:
 sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"

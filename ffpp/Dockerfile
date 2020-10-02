@@ -53,7 +53,7 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
     python3-pip libczmq-dev python3-zmq libjansson-dev python3-dev python3-numpy \
     rustc golang git
 
-RUN pip3 install -q docker
+RUN pip3 install -q docker cffi
 
 # Build FFPP library
 ENV FFPP_PATH /ffpp
@@ -61,6 +61,8 @@ RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
 RUN make release && make install
+WORKDIR ${FFPP_PATH}/pyffpp
+RUN python3 setup.py develop
 
 # ONLY used for performance benchmarking
 RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y sockperf

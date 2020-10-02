@@ -27,9 +27,9 @@ extern "C" {
 #define FFPP_MUNF_TX_RING_SIZE 128
 
 /**
- * Context meta data of the MuNF manager.
+ * MuNF manager.
  */
-struct ffpp_munf_manager_ctx {
+struct ffpp_munf_manager {
 	char nf_name[FFPP_MUNF_NAME_MAX_LEN];
 	uint16_t rx_port_id;
 	uint16_t tx_port_id;
@@ -42,20 +42,14 @@ struct ffpp_munf_data {
 
 /**
  * Initialize the MuNF manager running as a primary process.
- *
- * @param ctx: The context of type struct ffpp_munf_manager_ctx.
- * @param nf_name: The name of the the network function.
- * @param pool: rte_mempool.
- *
- * @return 
  */
-int ffpp_munf_init_manager(struct ffpp_munf_manager_ctx *ctx,
+int ffpp_munf_init_manager(struct ffpp_munf_manager *manager,
 			   const char *nf_name, struct rte_mempool *pool);
 
 /**
  * Cleanup the MuNF manager.
  */
-void ffpp_munf_cleanup_manager(struct ffpp_munf_manager_ctx *ctx);
+void ffpp_munf_cleanup_manager(struct ffpp_munf_manager *manager);
 
 /**
  * Register a new MuNF at the end of the queue.

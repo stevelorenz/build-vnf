@@ -1,2 +1,1 @@
-# Exit on fail cd
-disable=SC2164
+disable=SC2164,SC2086,SC2046,SC1091,SC2181

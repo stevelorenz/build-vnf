@@ -181,7 +181,6 @@ By the way, C is a simple and "old" language with a really small runtime, so the
 This makes the latency performance evaluation results more representative and "stable" for the algorithm used instead of the magic inside the runtime of
 the programming language.
 C has its limitations and security issues. However, they are not the focus of this project and it is just a PhD work :).
-I plan to add Rust/Go support after I fully understand how to integrate them correctly and efficiently...
 
 
 ## Contact

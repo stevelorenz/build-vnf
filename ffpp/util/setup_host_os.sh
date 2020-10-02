@@ -102,7 +102,7 @@ else
     rm ./xdp-tools-${XDP_TOOLS_VER}.tar.gz
 fi
 
-./configure && make -j $(nproc) install && cd ./lib/libbpf/src && make -j $(nproc) install
+./configure && make -j "$(nproc)" install && cd ./lib/libbpf/src && make -j "$(nproc)" install
 
 if [[ "$DIST" == "Ubuntu" ]]; then
     if ! grep -Fq "/usr/lib64/pkgconfig" /etc/environment; then

@@ -96,7 +96,7 @@ def run_interactive():
     # Ref: https://github.com/xdp-project/xdp-tutorial/tree/master/basic04-pinning-maps
     c_vnf.exec_run("mount -t bpf bpf /sys/fs/bpf/")
     client.close()
-    subprocess.run(shlex.split("docker attach {}".format(opts["name"])))
+    subprocess.run(shlex.split("docker attach {}".format(opts["name"])), check=True)
 
 
 parser = argparse.ArgumentParser(

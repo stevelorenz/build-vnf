@@ -50,7 +50,7 @@ static void ffpp_munf_init_manager_port(uint16_t port_id,
 	ffpp_dpdk_init_device(&dev_cfg);
 }
 
-int ffpp_munf_init_manager(struct ffpp_munf_manager_ctx *ctx,
+int ffpp_munf_init_manager(struct ffpp_munf_manager *manager,
 			   const char *nf_name, struct rte_mempool *pool)
 {
 	// Sanity checks
@@ -75,9 +75,9 @@ int ffpp_munf_init_manager(struct ffpp_munf_manager_ctx *ctx,
 			"Each MuNF must have TWO avaiable ports (Used as ingress and egress ports)\n");
 	}
 
-	ctx->rx_port_id = 0;
-	ctx->tx_port_id = 1;
-	rte_strscpy(ctx->nf_name, nf_name, FFPP_MUNF_NAME_MAX_LEN);
+	manager->rx_port_id = 0;
+	manager->tx_port_id = 1;
+	rte_strscpy(manager->nf_name, nf_name, FFPP_MUNF_NAME_MAX_LEN);
 
 	// Init memory pool.
 	RTE_LOG(INFO, FFPP,
@@ -102,7 +102,7 @@ int ffpp_munf_init_manager(struct ffpp_munf_manager_ctx *ctx,
 	return 0;
 }
 
-void ffpp_munf_cleanup_manager(struct ffpp_munf_manager_ctx *ctx)
+void ffpp_munf_cleanup_manager(struct ffpp_munf_manager *manager)
 {
 	// Cleanup the MuNF queue.
 	struct munf_entry *entry;
@@ -114,10 +114,10 @@ void ffpp_munf_cleanup_manager(struct ffpp_munf_manager_ctx *ctx)
 		free(entry);
 	}
 
-	rte_eth_dev_stop(ctx->rx_port_id);
-	rte_eth_dev_close(ctx->rx_port_id);
-	rte_eth_dev_stop(ctx->tx_port_id);
-	rte_eth_dev_close(ctx->tx_port_id);
+	rte_eth_dev_stop(manager->rx_port_id);
+	rte_eth_dev_close(manager->rx_port_id);
+	rte_eth_dev_stop(manager->tx_port_id);
+	rte_eth_dev_close(manager->tx_port_id);
 }
 
 static int munf_register_init_rings(struct munf_entry *entry,
