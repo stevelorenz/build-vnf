@@ -32,8 +32,8 @@ int main(int argc, char *argv[])
 	ffpp_mvec_init(&vec, 64);
 
 	for (n = 0; n < 17; ++n) {
-		rx_count = rte_eth_rx_burst(munf_manager.rx_port_id, 0,
-					    rx_buf, 64);
+		rx_count = rte_eth_rx_burst(munf_manager.rx_port_id, 0, rx_buf,
+					    64);
 		assert(rx_count == 64);
 		ffpp_mvec_set_mbufs(&vec, rx_buf, 64);
 		ffpp_mvec_print(&vec);
@@ -43,8 +43,8 @@ int main(int argc, char *argv[])
 		{
 			assert(rte_pktmbuf_headroom(m) == 128);
 		}
-		tx_count = rte_eth_tx_burst(munf_manager.tx_port_id, 0,
-					    rx_buf, 64);
+		tx_count = rte_eth_tx_burst(munf_manager.tx_port_id, 0, rx_buf,
+					    64);
 		assert(tx_count == 64);
 	}
 

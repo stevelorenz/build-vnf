@@ -28,7 +28,7 @@ run-tests:
 
 run-tests-dev:
 	@echo "* Run unit tests (under development)..."
-	cd ./build && meson test --suite dev --print-errorlogs
+	cd ./build && meson test --suite dev  --print-errorlogs
 
 # Run tests that currently have memory leaks (Could because of used dependencies).
 run-tests-leak:

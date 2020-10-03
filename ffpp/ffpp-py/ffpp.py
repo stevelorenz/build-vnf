@@ -7,7 +7,7 @@ About: Python bindings for FFPP library.
 
 import sys
 
-from _pyffpp_ffi import ffi, lib
+from _ffpp_ffi import ffi, lib
 
 # EAL
 
@@ -27,7 +27,7 @@ def eal_cleanup():
 
 
 if __name__ == "__main__":
-    print("--- Run pyffpp tests")
-    cli_args = ["pyffpp", "-l", "1"]
+    print("--- Run ffpp tests")
+    cli_args = ["ffpp", "-l", "1"]
     eal_init(cli_args)
     eal_cleanup()

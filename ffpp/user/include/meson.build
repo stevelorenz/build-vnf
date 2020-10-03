@@ -14,6 +14,7 @@ ffpp_headers = files(
   'ffpp/munf.h',
   'ffpp/mvec.h',
   'ffpp/packet_processors.h',
+  'ffpp/pye.h',
   'ffpp/scaling_defines_user.h',
   'ffpp/scaling_helpers_user.h',
   'ffpp/task.h',

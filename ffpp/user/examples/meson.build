@@ -1,15 +1,15 @@
 all_examples = [
-  'frequency_manager',
-  'frequency_switcher',
-  'power_manager',
-  'zmq',
-  'traffic_monitor',
+  '2_vnf_manager',
   'c1_manager',
   'feedback_manager',
-  '2_vnf_manager',
-  'multi_process_munf/mp_munf_mono',
+  'frequency_manager',
+  'frequency_switcher',
   'multi_process_munf/mp_munf_manager',
+  'multi_process_munf/mp_munf_mono',
   'multi_process_munf/mp_munf_munf',
+  'power_manager',
+  'traffic_monitor',
+  'zmq',
 ]
 
 foreach example: all_examples

@@ -10,11 +10,8 @@ RAM = 2048
 
 # Use Ubuntu LTS for development
 BOX = "bento/ubuntu-20.04"
-BOX_VER = "202004.27.0"
-
 # Box for using libvirt as the provider, bento boxes do not support libvirt.
 BOX_LIBVIRT = "generic/ubuntu2004"
-BOX_LIBVIRT_VER = "3.0.0"
 
 #######################
 #  Provision Scripts  #
@@ -95,11 +92,9 @@ Vagrant.configure("2") do |config|
 
     if provider == "virtualbox"
       vnf.vm.box = BOX
-      vnf.vm.box_version = BOX_VER
       vnf.vm.synced_folder ".", "/vagrant"
     elsif provider == "libvirt"
       vnf.vm.box = BOX_LIBVIRT
-      vnf.vm.box_version = BOX_LIBVIRT_VER
       # This option does not invoke vagrant rsync automatically.
       # Run `vagrant rsync-auto vnf` after the VM is booted.
       vnf.vm.synced_folder ".", "/vagrant", disabled: true

@@ -2,7 +2,7 @@ subdir('unit')
 
 # All auto unit tests
 # MARK: Primary process is used to run the tests, so parallel need to be disabled.
-test('test_dummy', test_dummy, args:['-l 0'], is_parallel : false, suite: 'no-leak')
+test('test_dummy', test_dummy, args:['-l 0'], is_parallel : false, suite: ['no-leak'])
 
 test('test_mvec', test_mvec, 
   args:['-l 0', '--no-pci','--proc-type', 'primary',
@@ -15,7 +15,7 @@ test('test_munf', test_munf,
   is_parallel : false, suite: ['no-leak', 'dev']
 )
 
-test('test_pye', test_pye, is_parallel : false, suite: 'leak')
+test('test_pye', test_pye, is_parallel : false, suite: ['leak', 'dev'])
 
 # Extra non-auto and non-unit tests
 extra_tests = [

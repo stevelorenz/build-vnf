@@ -13,6 +13,7 @@ ENV XDP_TOOLS_VER="0.0.3"
 ENV DPDK_VER="20.02"
 ENV RTE_SDK="/opt/dpdk"
 ENV RTE_TARGET="x86_64-native-linuxapp-gcc"
+# TODO: Disable un-used PMDs
 # Do not build tests for DPDK libraries, reduce image size.
 ENV DPDK_BUILD_OPTION="-Dtests=false"
 
@@ -61,11 +62,8 @@ RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
 RUN make release && make install
-WORKDIR ${FFPP_PATH}/pyffpp
-RUN python3 setup.py develop
-
-# ONLY used for performance benchmarking
-RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y sockperf
+WORKDIR ${FFPP_PATH}/ffpp-py
+RUN python3 setup.py install
 
 # APT cleanup.
 RUN rm -rf /var/lib/apt/lists /var/cache/apt/archives

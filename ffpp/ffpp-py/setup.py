@@ -5,7 +5,7 @@
 from os.path import join
 from setuptools import setup, find_packages
 
-modname = distname = "pyffpp"
+modname = distname = "ffpp"
 
 setup(
     name=distname,

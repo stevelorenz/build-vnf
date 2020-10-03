@@ -15,7 +15,7 @@ ffibuilder.cdef(
 )
 
 ffibuilder.set_source(
-    "_pyffpp_ffi",
+    "_ffpp_ffi",
     """
     #include <rte_eal.h>
 
