@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 
+* XDP forwarder withotu TM
+*/
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 

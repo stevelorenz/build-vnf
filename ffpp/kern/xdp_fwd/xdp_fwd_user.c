@@ -112,7 +112,9 @@ int main(int argc, char *argv[])
 		case 'w':
 			snprintf(eth_new_src_str, 18, "%s", optarg);
 			break;
-		case 'p': // Left this option to make vnf.py easier
+		// Left this option to make vnf.py easier
+		// Actauilly used to supply packet sizes for forwarding decision
+		case 'p':
 			printf("Smart forwarding isn't supported in this version, sorry.\n");
 			break;
 		case 0:

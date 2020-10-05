@@ -29,6 +29,7 @@
 
 static const char *pin_basedir = "/sys/fs/bpf";
 static const char *map_name = "xdp_stats_map";
+// default filename name can be changed with addtional input arg
 static char *default_filename = "xdp_fwd_kern.o";
 
 int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, const char *subdir)
@@ -90,6 +91,7 @@ int main(int argc, char *argv[])
 		.ifname = argv[1],
 	};
 
+	// If another XDP forwarder should be loaded (for instance with TM ;)
 	if (argc > 2) {
 		default_filename = argv[2];
 	}

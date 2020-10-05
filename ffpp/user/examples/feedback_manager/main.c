@@ -1,6 +1,7 @@
 /*
- * About: A cool power manager that manage the CPU frequency based on the
- * statistics provided by the XDP program(s).
+ * About: A cool power manager that manage the CPU frequency based on 
+ * feedback from the CNF egress interface. Scaling is based upon AIMD-algorithm
+ * All stats are provided by fancy XDP traffic monitors
  */
 
 #include <stdio.h>
@@ -31,12 +32,14 @@
 #include <math.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
+// supress prints
 #ifdef RELEASE
 #define printf(fmt, ...) (0)
 #endif
 
 static volatile bool force_quit;
 
+// Gloabl measuremnt arrays
 double g_csv_in_pps[TOTAL_VALS];
 double g_csv_out_pps[TOTAL_VALS];
 double g_csv_ts[TOTAL_VALS];
@@ -47,7 +50,7 @@ unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
 int g_csv_empty_cnt_threshold =
-	(3 * 1e6) / IDLE_INTERVAL; //50; // Calc depending on interval
+	(3 * 1e6) / IDLE_INTERVAL; 
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -77,6 +80,7 @@ static int init_power_library(void)
 	return ret;
 }
 
+// Core of the OS and XDP
 static int init_power_library_on_system(void)
 {
 	int ret = 0;
@@ -170,7 +174,6 @@ collect_global_stats(struct traffic_stats *ts, struct freq_info *f,
 			}
 			if (g_csv_empty_cnt > g_csv_empty_cnt_threshold) {
 				write_csv_file_fb_in();
-				// write_csv_file_fb_out();
 				g_csv_saved_stream = true;
 				g_csv_empty_cnt = 0;
 				g_csv_num_val = 0;
@@ -212,7 +215,7 @@ static void stats_collect(int map_fd, struct stats_record *stats_rec)
 
 static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 {
-	/// @2 -> ingress and egress map
+	/// @2 -> ingress and egress map -> Put macro!!
 	int i;
 	struct stats_record prev[2], record[2] = { 0 };
 	struct measurement m = { 0 };
@@ -221,7 +224,7 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 	struct scaling_info si = { 0 };
 	struct last_stream_settings lss = { 0 };
 
-	m.lcore = rte_lcore_id();
+	m.lcore = rte_lcore_id(); // obsolet
 	m.min_cnts = NUM_READINGS_SMA;
 	m.had_first_packet = false;
 
@@ -238,7 +241,7 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 		/// Do the full thing only for the ingress
 		/// Egress is just total packets (and pps)
 		for (i = 0; i < 2; i++) {
-			/// Put a small break between the reading of the two
+			/// TEST: Put a small break between the reading of the two
 			/// interfaces -> reduce difference
 			// if (i == 0) {
 			// usleep(floor(10000)); // Avg. vnf latency
@@ -255,13 +258,13 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 
 		if (si.restore_settings) {
 			restore_last_stream_settings(&lss, freq_info, &si);
-			// m.valid_vals = 0;
 		}
 		/// Go here directly after ISG? -> We do :)
 		if (m.valid_vals > 0) {
 			check_feedback(&fb, &si);
 			if (si.scale_to_min) {
 				// Store settings of last stream
+				// @1: highest frequency P-state
 				lss.last_pstate = 1; //freq_info->pstate;
 				if (freq_info->pstate !=
 				    (freq_info->num_freqs - 1)) {
@@ -272,7 +275,7 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 				} else {
 					printf("Already at min\n");
 				}
-				// Reset flags
+				// Reset flags and counters
 				si.scale_to_min = false;
 				si.scaled_to_min = true;
 				si.need_scale = false;
@@ -281,7 +284,6 @@ static void stats_poll(int *stats_map_fd, struct freq_info *freq_info)
 				fb.freq_up = false;
 				si.scale_down_cnt = 0;
 				si.scale_up_cnt = 0;
-				//m.had_first_packet = false;
 			} else if (fb.freq_down) {
 				si.next_pstate = freq_info->pstate + 1;
 				set_pstate(freq_info, &si);
@@ -391,10 +393,9 @@ int main(int argc, char *argv[])
 	struct freq_info freq_info = { 0 };
 	get_frequency_info(CORE_OFFSET, &freq_info, true);
 
-	printf("Scale frequency of VNF CPU down to minimum.\n");
+	printf("Scale frequency of CNF CPU down to maximum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
-		// ret = rte_power_freq_min(lcore_id);
 		ret = rte_power_freq_max(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
@@ -405,7 +406,7 @@ int main(int argc, char *argv[])
 	printf("Scale frequency of system CPU up to maximum.\n");
 	set_system_pstate(1);
 
-	// Print stats from xdp_stats_map
+	// Start eBPF map polling and scaling
 	printf("Collecting stats from BPF map:\n");
 	freq_info.pstate = rte_power_get_freq(CORE_OFFSET);
 	freq_info.freq = freq_info.freqs[freq_info.pstate];

@@ -20,7 +20,7 @@ with open("../VERSION", "r") as vfile:
 
 PARENT_DIR = os.path.abspath(os.path.join(os.path.curdir, os.pardir))
 BPF_MAP_BASEDIR = "/sys/fs/bpf"
-LOCKED_IN_MEMORY_SIZE = 65536  # kbytes
+LOCKED_IN_MEMORY_SIZE = -1  # -> unlimited
 
 POWER_MANAGER_OPTS_DEFAULT = {
     "auto_remove": True,
@@ -36,7 +36,6 @@ POWER_MANAGER_OPTS_DEFAULT = {
         "/sys/devices/system/node": {"bind": "/sys/devices/system/node", "mode": "rw"},
         "/sys/devices/system/cpu": {"bind": "/sys/devices/system/cpu", "mode": "rw"},
         "/dev": {"bind": "/dev", "mode": "rw"},
-        # "/tmp": {"bind": "/tmp", "mode": "rw"},
         "/var/run/docker.sock": {"bind": "/var/run/docker.sock", "mode": "rw"},
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
         BPF_MAP_BASEDIR: {"bind": BPF_MAP_BASEDIR, "mode": "rw"},
@@ -54,34 +53,14 @@ POWER_MANAGER_OPTS_DEFAULT = {
 }
 
 
-def loadXDP(iface):
-    print("* Load xdp-pass on ingress interface ", iface)
-    xdp_pass_dir = os.path.abspath("../kern/xdp_time/")
-    if not os.path.exists(xdp_pass_dir):
-        print("ERR: Can not find the xdp_time program.")
-        sys.exit(1)
-    os.chdir(xdp_pass_dir)
-    if not os.path.exists(os.path.join(xdp_pass_dir, "./xdp_time_kern.o")):
-        print("\tINFO: Compile programs in xdp_time.")
-        subprocess.run(shlex.split("make"), check=True)
-    print("\t- Load xdp_time kernel program")
-    subprocess.run(shlex.split("sudo ./xdp_loader_time {}".format(iface)), check=True)
-
-    print("* Current XDP status: ")
-    subprocess.run(shlex.split("xdp-loader status"), check=True)
-
-
-def unloadXDP(iface):
-    subprocess.run(shlex.split("sudo xdp-loader unload {}".format(iface)), check=True)
-    print("* Unloaded XPD programm from interface ", iface)
-
-
-def run(iface, core):
+def start(core):
     client = docker.from_env()
 
     pm_args = POWER_MANAGER_OPTS_DEFAULT.copy()
     pm_args["name"] = "power-manager"
+    # PM need host network mode to see all interfaces
     pm_args["network_mode"] = "host"
+    # One core is sufficient for the PM
     pm_args["cpuset_cpus"] = core
     c_pm = client.containers.run(**pm_args)
 
@@ -93,10 +72,9 @@ def run(iface, core):
     print("* The power manager container is running with PID: {}".format(c_pm_pid))
 
     client.close()
-    # loadXDP(iface)
 
 
-def stop(iface):
+def stop():
     client = docker.from_env()
     c_list = client.containers.list(
         all=True, filters={"label": "group=ffpp-power-manager"}
@@ -105,7 +83,6 @@ def stop(iface):
         print("* Remove container: {}".format(c.name))
         c.remove(force=True)
     client.close()
-    # unloadXDP(iface)
 
 
 if __name__ == "__main__":
@@ -113,19 +90,9 @@ if __name__ == "__main__":
         description="Run/stop power manager Docker container on the host OS."
     )
     parser.add_argument(
-        "action",
-        type=str,
-        choices=["run", "stop"],
-        help="The action to perform.",
+        "action", type=str, choices=["run", "stop"], help="The action to perform.",
     )
-    parser.add_argument(
-        "-i",
-        default="enp5s0f0",
-        const="enp5s0f0",
-        nargs="?",
-        type=str,
-        help="Interface to attach XDP to.",
-    )
+    # Can be any core on the system, best a different from the CNF ones
     parser.add_argument(
         "-c",
         default="5",
@@ -138,6 +105,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.action == "run":
-        run(args.i, args.c)
+        start(args.c)
     elif args.action == "stop":
         stop(args.i)

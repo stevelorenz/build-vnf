@@ -89,7 +89,6 @@ void set_turbo()
 {
 	int ret;
 	int lcore_id;
-	/// Enable already in the begining?
 	printf("Enable Turbo Boost.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
@@ -123,7 +122,7 @@ void disable_turbo_boost()
 	}
 }
 
-void set_c1(char *msg)
+void set_c1(const char *msg)
 {
 	int ret;
 	json_t *root = json_object();
@@ -156,11 +155,6 @@ void set_pstate(struct freq_info *f, struct scaling_info *si)
 	// Do not use turbo boost
 	if (si->next_pstate == 0) {
 		si->next_pstate = 1;
-		/// Do we want to use Turbo Boost?
-		// set_turbo();
-		// f->pstate = si->next_pstate;
-		// f->freq =
-		// f->freqs[f->pstate]; // Actual frequency will be higher
 	} else if (si->next_pstate >= f->num_freqs) {
 		si->next_pstate = f->num_freqs - 1;
 	}
@@ -188,9 +182,8 @@ void calc_pstate(struct measurement *m, struct freq_info *f,
 {
 	// First, calc which frequency is needed for a good CPU utilization
 	unsigned int new_freq;
-	/// Up scaling with larger margin
-	/// Calc inter arrival time from cpu_util
-	// new_freq = (unsigned int)(CPU_FREQ(m->inter_arrival_time) * 1e-3);
+	// Up scaling with larger margin
+	// Calc inter-arrival time from cpu_util
 	new_freq = (unsigned int)(CPU_FREQ(m->wma_cpu_util, f->freq));
 
 	// Now, choose the next highest frequency
@@ -397,17 +390,10 @@ void check_isg(struct measurement *m)
 	}
 }
 
+// Not needed anymore -> always go to max for new stream
 void restore_last_stream_settings(struct last_stream_settings *lss,
 				  struct freq_info *f, struct scaling_info *si)
 {
-	/// Make a quick check against the current cpu utilization to
-	/// see if the same frequency is needed
-	// set_c1("on");
-	// f->pstate = rte_power_get_freq(CORE_OFFSET);
-	// f->freq = f->freqs[f->pstate];
-	// printf("Frequency %d and p-state %d after wake up\n", f->freq,
-	//    f->pstate);
-	/// Do we need to scale up after c1?
 	si->next_pstate = lss->last_pstate;
 	set_pstate(f, si);
 	si->restore_settings = false;
@@ -445,10 +431,9 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 		} else {
 			m->had_first_packet = true;
 			g_csv_saved_stream = false; /// global
-			// set_c1("on"); /// Doesn't belong here, just for measurements
 		}
 	} else if (t_s->delta_packets == 0 && m->had_first_packet) {
-		m->empty_cnt += 1; /// Reset if next poll brings a packet
+		m->empty_cnt += 1; /// Reset if next poll returns a packet
 		m->inter_arrival_time = 0.0;
 		m->cnt += 1;
 		if (!si->scaled_to_min) {
@@ -456,15 +441,6 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 				 m->min_cnts; /// Remove min_cnts and use macro
 			m->valid_vals += 1;
 		}
-		// ISG?
-		// @+1 -> do not detect the ISG too early
-		/// Does this really work?
-		// if (m->empty_cnt > MAX_EMPTY_CNT + 1) {
-		// m->valid_vals = 0;
-		// m->wma_cpu_util = 0;
-		// m->sma_cpu_util = 0;
-		// m->sma_std_err = 0;
-		// }
 	}
 }
 

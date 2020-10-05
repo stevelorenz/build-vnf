@@ -7,6 +7,7 @@
 
 #include "common_kern_user.h"
 
+// This is the eBPF map where the TM data is stored in
 struct bpf_map_def SEC("maps") xdp_stats_map = {
 	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
 	.key_size = sizeof(__u32),
@@ -24,14 +25,17 @@ static __always_inline __u32 xdp_stats_record_action(struct xdp_md *ctx,
 		return XDP_ABORTED;
 	}
 
+	// Get map access
 	struct datarec *rec = bpf_map_lookup_elem(&xdp_stats_map, &key);
 	if (!rec) {
 		return XDP_ABORTED;
 	}
 
+	// Update packet count and time stamp in map
 	rec->rx_packets++;
 	rec->rx_time = timestamp;
 
+	// Pass packet to the NW stack
 	return action;
 }
 
@@ -39,6 +43,7 @@ SEC("xdp_pass")
 int xdp_pass_func(struct xdp_md *ctx)
 {
 	__u32 action = XDP_PASS; /* XDP_PASS = 2 */
+	// Get the time stamp asap
 	__u64 timestamp = bpf_ktime_get_ns();
 
 	return xdp_stats_record_action(ctx, action, timestamp);
