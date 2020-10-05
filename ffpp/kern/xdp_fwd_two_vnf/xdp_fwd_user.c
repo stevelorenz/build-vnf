@@ -72,8 +72,8 @@ const char *pin_basedir = "/sys/fs/bpf";
 
 void print_usage(void)
 {
-	printf("Usage: xdp_fwd_user -i <ifname> -r <redirect_ifname> -s <src-mac> -d <dst-mac> -w <new-src-mac>\n");
-	printf("Example: xdp_fwd_user -i eth0 -r eth1 -s 02:42:ac:11:00:02 -d 02:42:ac:11:00:03 -w 02:42:ac:11:00:01\n");
+	printf("Usage: xdp_fwd_user -i <ifname> -r <redirect_ifname> -s <src-mac> -d <dst-mac> -w <new-src-mac> -p <udp-payload-size>\n");
+	printf("Example: xdp_fwd_user -i eth0 -r eth1 -s 02:42:ac:11:00:02 -d 02:42:ac:11:00:03 -w 02:42:ac:11:00:01 -p 1400\n");
 }
 
 int main(int argc, char *argv[])

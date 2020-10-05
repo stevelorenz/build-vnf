@@ -23,7 +23,7 @@ void write_csv_file()
 	}
 	printf("File: %s\n", save_path);
 	FILE *fptr;
-	// name test-num.csv for each num
+	// name: test-"num".csv for each num
 	fptr = fopen(save_path, "w+");
 	if (fptr == NULL) {
 		printf("File does not exist.\n");
@@ -42,6 +42,7 @@ void write_csv_file_fb_in()
 	int len;
 	const char *file_dir = "/home";
 	char save_path[1024] = "";
+	// name: fb-"num".csv for each num
 	len = snprintf(save_path, 1024, "%s/fb-%d.csv", file_dir,
 		       g_csv_num_round);
 	if (len < 0) {
@@ -49,7 +50,6 @@ void write_csv_file_fb_in()
 	}
 	printf("File: %s\n", save_path);
 	FILE *fptr;
-	// name test-num.csv for each num
 	fptr = fopen(save_path, "w+");
 	if (fptr == NULL) {
 		printf("File does not exist.\n");
@@ -60,32 +60,6 @@ void write_csv_file_fb_in()
 		fprintf(fptr, "%f,%f,%f,%d,%d,%u\n", g_csv_ts[i],
 			g_csv_in_pps[i], g_csv_out_pps[i], g_csv_out_delta[i],
 			g_csv_offset[i], g_csv_freq[i]);
-	}
-	fclose(fptr);
-}
-
-void write_csv_file_fb_out()
-{
-	int len;
-	const char *file_dir = "/home";
-	char save_path[1024] = "";
-	len = snprintf(save_path, 1024, "%s/fb-out-%d.csv", file_dir,
-		       g_csv_num_round);
-	if (len < 0) {
-		fprintf(stderr, "Failed to generate csv save path.\n");
-	}
-	printf("File: %s\n", save_path);
-	FILE *fptr;
-	// name test-num.csv for each num
-	fptr = fopen(save_path, "w+");
-	if (fptr == NULL) {
-		printf("File does not exist.\n");
-		return;
-	}
-	unsigned int i;
-	for (i = 0; i < g_csv_num_val; i++) {
-		fprintf(fptr, "%f,%f,%d\n", g_csv_ts[i], g_csv_out_pps[i],
-			g_csv_out_delta[i]);
 	}
 	fclose(fptr);
 }
@@ -120,6 +94,7 @@ void write_csv_file_2vnf(int num_vnf)
 	int len;
 	const char *file_dir = "/home";
 	char save_path[1024] = "";
+	// name: vnf-"num_vnf"_test-"num".csv for each num
 	len = snprintf(save_path, 1024, "%s/vnf-%d_test-%d.csv", file_dir,
 		       num_vnf, g_csv_num_round);
 	if (len < 0) {
@@ -127,7 +102,6 @@ void write_csv_file_2vnf(int num_vnf)
 	}
 	printf("File: %s\n", save_path);
 	FILE *fptr;
-	// name test-num.csv for each num
 	fptr = fopen(save_path, "w+");
 	if (fptr == NULL) {
 		printf("File does not exist.\n");
@@ -145,9 +119,8 @@ void write_csv_file_2vnf(int num_vnf)
 double get_time_of_day()
 {
 	struct timeval tv;
-	gettimeofday(&tv, NULL);
+	gettimeofday(&tv, NULL); // same timestamp like turbostat
 	cur_time = ((unsigned int)tv.tv_sec + (tv.tv_usec / 1e6));
-	// printf("Time %f\n", cur_time);
 
 	return cur_time;
 }

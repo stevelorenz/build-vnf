@@ -1,6 +1,8 @@
 /*
  * About: A cool power manager that manage the CPU frequency based on the
  * statistics provided by the XDP program(s).
+ * This PM scales a server running multiple CNF's; pretty cool
+ * CPU frequency is suited for the most busy CNF
  */
 
 #include <stdio.h>
@@ -30,6 +32,7 @@
 #include <ffpp/global_stats_user.h>
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
+// Supress prints
 // #define RELEASE 1
 #ifdef RELEASE
 #define printf(fmt, ...) (0)
@@ -151,19 +154,15 @@ collect_global_stats(struct freq_info *f, struct measurement *m,
 		     __attribute__((unused)) struct scaling_info *si,
 		     int num_vnfs)
 {
-	// if (m->had_first_packet) {
 	int i;
 	g_csv_ts[g_csv_num_val] = get_time_of_day();
 	g_csv_freq[g_csv_num_val] = f->freq;
 	for (i = 0; i < num_vnfs; i++) {
-		// g_csv_ts[g_csv_num_val] = get_time_of_day();
 		g_csv_pps_mult[i][g_csv_num_val] =
 			(1 / m[i].inter_arrival_time); //ts->pps;
 		g_csv_iat_mult[i][g_csv_num_val] = m[i].inter_arrival_time;
 		g_csv_cpu_util_mult[i][g_csv_num_val] = m[i].cpu_util[m[i].idx];
-		// g_csv_freq[g_csv_num_val] = f->freq;
-		// g_csv_num_val++;
-		if (m[i].empty_cnt == 0) { //(ts[0].delta_packets > 0) {
+		if (m[i].empty_cnt == 0) {
 			g_csv_empty_cnt = 0;
 		} else {
 			if (!g_csv_saved_stream) {
@@ -171,29 +170,18 @@ collect_global_stats(struct freq_info *f, struct measurement *m,
 				g_csv_cpu_util_mult[i][g_csv_num_val] = 0.0;
 				g_csv_empty_cnt += 1;
 			}
-			// if (g_csv_empty_cnt > g_csv_empty_cnt_threshold) {
-			// write_csv_file();
-			// // write_csv_file_fb_out();
-			// g_csv_saved_stream = true;
-			// g_csv_empty_cnt = 0;
-			// g_csv_num_val = 0;
-			// g_csv_num_round++;
-			// si->scaled_to_min = false;
-			// m->had_first_packet = false;
-			// }
 		}
 	}
 	g_csv_num_val++;
 	if (g_csv_empty_cnt > g_csv_empty_cnt_threshold) {
+		// @ int: CNF index
 		write_csv_file_2vnf(0);
 		write_csv_file_2vnf(1);
-		// write_csv_file_fb_out();
 		g_csv_saved_stream = true;
 		g_csv_empty_cnt = 0;
 		g_csv_num_val = 0;
 		g_csv_num_round++;
-		// si->scaled_to_min = false;
-		// si->restore_settings = true;
+		// To correctly react to new session
 		m[0].had_first_packet = false;
 		m[1].had_first_packet = false;
 	}
@@ -227,7 +215,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 	int i;
 	int active_vnf;
 	bool manage = false;
-	int raw_keys[2] = { 1400, 1399 }; // Currently hard-coded
+	int raw_keys[2] = { 1400, 1399 }; // Currently hard-coded, keys for stats map
 	struct stats_record prev[2], record[2] = { 0 };
 	struct measurement m[2] = { 0 };
 	struct scaling_info si = { 0 };
@@ -241,7 +229,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 		__u32 key = raw_keys[i] & 0xff;
 		stats_collect(map_fd, &record[i], key);
 	}
-	// stats_collect(map_fd, &record);
 	usleep(1000000 / 4);
 
 	while (!force_quit) {
@@ -263,8 +250,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 				get_cpu_utilization(&m[i], freq_info);
 				calc_sma(&m[i]);
 				calc_wma(&m[i]);
-				// g_csv_cpu_util[g_csv_num_val] =
-				// m[i].cpu_util[m[i].idx];
 			}
 			if (active) {
 				manage = true;
@@ -287,7 +272,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 			collect_global_stats(freq_info, m, &si, num_vnfs);
 		}
 
-		// // if (m.cnt > 0 && m.had_first_packet) {
 		if (manage) { //(m.valid_vals > 0) {
 			check_traffic_trends(&m[active_vnf], &si);
 			/// Double check if all VNFs are empty
@@ -323,7 +307,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 				for (i = 0; i < num_vnfs; i++) {
 					m[i].valid_vals = 0;
 				}
-				/// Reset these counters?
+				/// Reset these counters
 				si.scale_down_cnt = 0;
 				si.scale_up_cnt = 0;
 			}
@@ -336,7 +320,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 					for (i = 0; i < num_vnfs; i++) {
 						m[i].valid_vals = 0;
 					}
-					/// Reset these counters?
+					/// Reset these counters
 					si.scale_down_cnt = 0;
 					si.scale_up_cnt = 0;
 				} else {
@@ -374,8 +358,7 @@ int main(int argc, char *argv[])
 	char pin_dir[PATH_MAX] = "";
 	int xdp_stats_map_fd = 0;
 
-	// MARK: Currently hard-coded to avoid conflicts with DPDK's CLI parser.
-	// const char *ifname = "eno2";
+	// MARK: currently XDP interface is not savely obtained
 	const char *ifname = argv[1];
 
 	int len = 0;

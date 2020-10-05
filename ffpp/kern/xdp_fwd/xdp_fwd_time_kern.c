@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 
+* XDP forwarder with traffic monitor X-MAN (packet count and TS)
+*/
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 
@@ -30,6 +32,7 @@ struct bpf_map_def SEC("maps") tx_port = {
 	.max_entries = 256,
 };
 
+// eBPF map for traffic stats
 struct bpf_map_def SEC("maps") xdp_stats_map = {
 	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
 	.key_size = sizeof(__u32),
@@ -40,7 +43,7 @@ struct bpf_map_def SEC("maps") xdp_stats_map = {
 SEC("xdp_redirect_map")
 int xdp_fwd_func(struct xdp_md *ctx)
 {
-	__u64 timestamp = bpf_ktime_get_ns();
+	__u64 timestamp = bpf_ktime_get_ns(); /* Get TS asap */
 	void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
 	struct hdr_cursor nh;
@@ -74,7 +77,7 @@ int xdp_fwd_func(struct xdp_md *ctx)
 
 	tx_port_key = fwd_params->eth_src[ETH_ALEN - 1];
 
-	// Update stats
+	// Traffic monitor part
 	__u32 key = 0;
 	struct datarec *rec = bpf_map_lookup_elem(&xdp_stats_map, &key);
 	if (!rec) {

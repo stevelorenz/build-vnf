@@ -46,7 +46,6 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "image": "ffpp-dev:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-vnf"},
-    # "nano_cpus": int(1e9),
     "cpuset_cpus": "1,3,5,7",
     "ulimits": [
         docker.types.Ulimit(
@@ -75,7 +74,8 @@ def start(num_vnf, host_nw, load_pm, load_fb):
         c_vnf.exec_run("mount -t bpf bpf /sys/fs/bpf")
         print("* The VNF container is running with PID: ", c_vnf_pid[m_vnf])
 
-        # Setup veth peers within the containers
+        # Setup veth peers within the containers and
+        # load all neccessary XDP programs
         if host_nw:
             setup_host_network(c_vnf_pid[m_vnf], m_vnf, load_pm, load_fb, num_vnf)
 
@@ -111,26 +111,22 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
 
     # Load XDP pass on vnf-in and vnf-out for af_packet
     print("* Load XDP-Pass on ingress and egress interface inside VNF")
-    exit_code, out = c_vnf.exec_run(
-        cmd="make",
-        workdir="/ffpp/kern/xdp_time",
-    )
+    exit_code, out = c_vnf.exec_run(cmd="make", workdir="/ffpp/kern/xdp_time",)
     if exit_code != 0:
         print("ERR: Failed to compile xdp-time program in vnf.")
         sys.exit(1)
     for iface in ["vnf-in", "vnf-out"]:
-        ## Load traffic monitoring on the vnf-in interface
-        ## If we do not need it, it's unloaded anyway by af_xdp
+        # Load traffic monitoring on the vnf-in interface
+        # If we do not need it, it's unloaded anyway by af_xdp
         exit_code, out = c_vnf.exec_run(
-            cmd="./xdp_time_loader {}".format(iface),
-            workdir="/ffpp/kern/xdp_time/",
+            cmd="./xdp_time_loader {}".format(iface), workdir="/ffpp/kern/xdp_time/",
         )
         if exit_code != 0:
             print("ERR: Failed to load xdp-time program on interface {}".format(iface))
             sys.exit(1)
 
     # Load XDP forwarder between phy NIC and virt vnf-in-root/ vnf-out-root
-    ## We currently use the xdp_stats_map from the xdp_fwd program
+    # We currently use the xdp_stats_map from the xdp_fwd program
     with open("/sys/class/net/vnf{}-in-root/address".format(m_vnf), "r") as f:
         vnf_in_root_mac = f.read().strip()
     with open("/sys/class/net/vnf{}-out-root/address".format(m_vnf), "r") as f:
@@ -143,6 +139,7 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
     pktgen_in_phy_mac = "0c:42:a1:51:41:d9"  # dst enp65s0f1
     vnf_in_phy_mac = "0c:42:a1:51:42:bc"  # enp5s0f0
     vnf_out_phy_mac = "0c:42:a1:51:42:bd"  # enp5s0f1
+    # To differentiate flows ;)
     upd_payload_size = [1400, 1399]
 
     print("- The MAC address of vnf-in in vnf-{}: {}".format(m_vnf, vnf_in_mac))
@@ -163,7 +160,8 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
         print("ERR: Can not find the xdp_fwd program.")
         sys.exit(1)
     os.chdir(xdp_fwd_dir)
-    # @load_pm load setup for power management
+    # @load_pm load setup for util power management
+    # @load_fb load setup for feedback power managemt
     if load_pm and not load_fb:
         if not os.path.exists(
             os.path.join(xdp_fwd_dir, "./xdp_fwd_time_kern.o")
@@ -187,6 +185,7 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
             ),
             check=True,
         )
+    # If no PM is wanted
     else:
         if not os.path.exists(os.path.join(xdp_fwd_dir, "./xdp_fwd_kern.o")):
             print("\tINFO: Compile xdp_fwd program")
@@ -226,10 +225,11 @@ def setup_host_network(c_vnf_pid, m_vnf, load_pm, load_fb, num_vnf):
 
 def unloadXDP(num_vnf):
     ifaces = list()
+    # Get list of all loaded XDP programs
     for iface in range(0, num_vnf, 1):
         ifaces.append("vnf{}-out-root".format(iface))
     ifaces.append("enp5s0f0")
-    for iface in ifaces:  # ["vnf0-out-root", "vnf1-out-root", "enp5s0f0"]:
+    for iface in ifaces:
         bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, iface)
         if os.path.exists(bpf_map_dir):
             print("- Remove BPF maps directory: {}".format(bpf_map_dir))
@@ -282,10 +282,7 @@ if __name__ == "__main__":
         help="Load traffic monitor on egress interface to obtain feedback",
     )
     parser.add_argument(
-        "--num_vnf",
-        type=int,
-        default=1,
-        help="Number of VNF containers to deploy",
+        "--num_vnf", type=int, default=1, help="Number of VNF containers to deploy",
     )
 
     args = parser.parse_args()

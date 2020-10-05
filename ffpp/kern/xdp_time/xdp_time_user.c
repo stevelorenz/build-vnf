@@ -1,3 +1,10 @@
+/*
+* XDP time user space program
+* Reads the eBPF map, calculates some stats and prints them.
+* Also mimes CPU frequency scaling.
+* For more information about was happens and why check the
+* actual power manager and FFPP user space helpers
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,7 +81,7 @@ static double get_cpu_frequency()
 	while ((fgets(str, sizeof str, cpuinfo)) != NULL) {
 		if (strstr(str, key) != NULL) {
 			char *s = strtok(str, ":");
-			s = strtok(NULL, s); // get second element (frequency)
+			s = strtok(NULL, s); // get second element -> frequency
 			freq = atof(s);
 
 			// Currently we get the frequency only for the first core
@@ -98,7 +105,7 @@ static void scale_cpu_frequency(struct measurement *measurement)
 		if (measurement->scale_down_count > scale_threshold) {
 			// Check which frequency is needed to bring the utilization
 			// back up to 80%
-			// Use only last inter-arrival time sample or also average?
+			// Use only last inter-arrival time sample
 			measurement->scale_down_count = 0;
 			new_cpu_freq = c_packet /
 				       (measurement->inter_arrival_time * 0.85);
@@ -273,7 +280,7 @@ int main(int argc, char **argv)
 	};
 	char pin_dir[PATH_MAX] = "";
 	int stats_map_fd = 0;
-	int interval = 2; // seconds
+	int interval = 2; // seconds between map reading -> smoothes read stats
 	struct bpf_map_info info = { 0 };
 	int len = 0;
 	int err = 0;

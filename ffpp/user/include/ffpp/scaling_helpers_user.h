@@ -63,11 +63,13 @@ void disable_turbo_boost();
 
 /**
  * Send or wake up VNF to/from c1
+ * 
+ * @param msg: on or off for wake up or sleep, respectively
  */
-void set_c1();
+void set_c1(char *msg);
 
 /**
- * Sends CPU to the given P-state
+ * Sends CNF CPU to the given P-state
  *
  * @param f: struct with frequency information of the CPU
  * @param pstate: pstate the CPU shall enter
@@ -88,7 +90,7 @@ void calc_pstate(struct measurement *m, struct freq_info *f,
 		 struct scaling_info *si);
 
 /**
- * Check if the traffic follows certain trends
+ * Check if the traffic follows certain trends by comparing sma and wma
  * 
  * @param m: struct of the current measurement status and values
  * @param si: struct for scaling informations
@@ -107,7 +109,7 @@ void check_frequency_scaling(struct measurement *m, struct freq_info *f,
 			     struct scaling_info *si);
 
 /**
- * Compares the pnumber of packets at the ingress and egress interface
+ * Compares the number of packets at the ingress and egress interface
  * 
  * @param t_s: struct of traffic stats (pkt counf and pps)
  * @param fb: struct with information regarding the feedback mechanism
@@ -129,7 +131,7 @@ void calc_sma(struct measurement *m);
 void calc_wma(struct measurement *m);
 
 /**
- * Finds the VNF that is facing the highest traffic
+ * Finds the CNF that is facing the highest traffic
  * 
  * @param m: struct of current measurement status and values
  * @param num_vnfs: number of active VNFs
@@ -138,7 +140,7 @@ void calc_wma(struct measurement *m);
 int find_max_wma(struct measurement *m, int num_vnfs);
 
 /**
- * Checks if a VNF is currently facing an ISG
+ * Checks if a CNF is currently facing an ISG
  * 
  * @param m: struct of current measurement status and values
  */
@@ -170,9 +172,9 @@ void calc_traffic_stats(struct measurement *m, struct record *r,
 /**
  * Get stats of the egress interface
  * 
- * @param ts 
- * @param r 
- * @param p 
+ * @param ts struct of traffic stats
+ * @param r struct of current map reading
+ * @param p struct of previous map reading
  */
 void get_feedback_stats(struct traffic_stats *ts, struct feedback_info *fb,
 			struct record *r, struct record *p);

@@ -31,12 +31,14 @@
 #include "../../../kern/xdp_fwd/common_kern_user.h"
 
 // #define RELEASE 1
+// Supress prints
 #ifdef RELEASE
 #define printf(fmt, ...) (0)
 #endif
 
 static volatile bool force_quit;
 
+// global measurement arrays
 double g_csv_pps[TOTAL_VALS];
 double g_csv_ts[TOTAL_VALS];
 double g_csv_iat[TOTAL_VALS];
@@ -46,7 +48,7 @@ unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
 int g_csv_empty_cnt_threshold =
-	(2 * 1e6) / IDLE_INTERVAL; //50; // Calc depending on interval
+	(2 * 1e6) / IDLE_INTERVAL; 
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";
@@ -76,6 +78,7 @@ static int init_power_library(void)
 	return ret;
 }
 
+// The cores where the OS and XDP runs on
 static int init_power_library_on_system(void)
 {
 	int ret = 0;
@@ -171,7 +174,7 @@ collect_global_stats(struct freq_info *f, struct measurement *m,
 			g_csv_empty_cnt = 0;
 			g_csv_num_val = 0;
 			g_csv_num_round++;
-			// si->scaled_to_min = false;
+			// correctly start with new session
 			m->had_first_packet = false;
 		}
 	}
@@ -211,13 +214,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 
 	m.lcore = rte_lcore_id();
 	m.min_cnts = NUM_READINGS_SMA;
-	// m.had_first_packet = false;
-	// si.up_trend = false; /// Do we have to set them to false explicitly?
-	// si.down_trend = false;
-	// si.scale_to_min = false;
-	// si.need_scale = false;
-	// si.scaled_to_min = false;
-	// si.restore_settings = false;
 
 	setlocale(LC_NUMERIC, "en_US");
 	stats_collect(map_fd, &record);
@@ -230,35 +226,26 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 		if (si.restore_settings) {
 			restore_last_stream_settings(&lss, freq_info, &si);
 			m.valid_vals = -1; // Skip first burst
-			// get_cpu_utilization(&m, freq_info);
-			// g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
 		}
 		if (m.had_first_packet) {
 			collect_global_stats(freq_info, &m, &si);
-			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
 		}
-		// if (m.cnt > 0 && m.had_first_packet) {
 		if (m.valid_vals > 0) {
 			get_cpu_utilization(&m, freq_info);
-			// g_csv_cpu_util[g_csv_num_val - 1] = m.cpu_util[m.idx];
 			g_csv_cpu_util[g_csv_num_val - 1] = m.wma_cpu_util;
-			// g_csv_freq[g_csv_num_val - 1] = freq_info->freq;
-			// }
-			// if (m.valid_vals > 1) {
 			calc_sma(&m);
 			calc_wma(&m);
 			check_traffic_trends(&m, &si);
 			check_frequency_scaling(&m, freq_info, &si);
-			/// Move scaling to beginning => nicer plots ;)
-			/// Rename scale_to_min with set_c1 etc.
+
+			// ISG detected
 			if (si.scale_to_min) {
 				// Store settings of last stream
 				lss.last_pstate = 1; //freq_info->pstate;
 				lss.last_sma = m.sma_cpu_util;
 				lss.last_sma_std_err = m.sma_std_err;
 				lss.last_wma = m.wma_cpu_util;
-				/// Scale down before sleep? -> c1e
-				/// else just c1
+
 				if (freq_info->pstate !=
 				    (freq_info->num_freqs - 1)) {
 					printf("Scale due to empty polls\n");
@@ -268,7 +255,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 				} else {
 					printf("Already at min\n");
 				}
-				// set_c1("off");
 				// Reset flags
 				si.scale_to_min = false;
 				si.scaled_to_min = true;
@@ -276,7 +262,6 @@ static void stats_poll(int map_fd, struct freq_info *freq_info)
 				si.down_trend = false;
 				si.need_scale = false;
 				m.valid_vals = 0;
-				//m.had_first_packet = false;
 			}
 			/// Check for empty_cnt and wait with scaling if !=0?
 			if (si.need_scale) {
@@ -318,8 +303,7 @@ int main(int argc, char *argv[])
 	char pin_dir[PATH_MAX] = "";
 	int xdp_stats_map_fd = 0;
 
-	// MARK: Currently hard-coded to avoid conflicts with DPDK's CLI parser.
-	// const char *ifname = "eno2";
+	// MARK: Currently no save arg-parsing for XDP interface
 	const char *ifname = argv[1];
 
 	int len = 0;
@@ -378,10 +362,9 @@ int main(int argc, char *argv[])
 	struct freq_info freq_info = { 0 };
 	get_frequency_info(CORE_OFFSET, &freq_info, true);
 
-	printf("Scale frequency of VNF CPU up to maximum.\n");
+	printf("Scale frequency of CNF CPU up to maximum.\n");
 	for (lcore_id = CORE_OFFSET; lcore_id < NUM_CORES;
 	     lcore_id += CORE_MASK) {
-		// ret = rte_power_freq_min(lcore_id);
 		ret = rte_power_freq_max(lcore_id);
 		if (ret < 0) {
 			RTE_LOG(ERR, POWER,
@@ -392,7 +375,7 @@ int main(int argc, char *argv[])
 	printf("Scale frequency of system CPU up to maximum.\n");
 	set_system_pstate(1);
 
-	// Print stats from xdp_stats_map
+	// Start mappolling and scaling
 	printf("Collecting stats from BPF map:\n");
 	freq_info.pstate = rte_power_get_freq(CORE_OFFSET);
 	freq_info.freq = freq_info.freqs[freq_info.pstate];
@@ -405,41 +388,3 @@ int main(int argc, char *argv[])
 	printf("\nBye..\n");
 	return 0;
 }
-
-// --- Load of BPF tx_port map and ini of EAL ---
-// - Currently not needed
-// struct bpf_map_info tx_port_map_info = { 0 };
-// const struct bpf_map_info tx_port_map_expect = {
-// .key_size = sizeof(int),
-// .value_size = sizeof(int),
-// .max_entries = 256,
-// };
-// int tx_port_map_fd = 0;
-
-// tx_port_map_fd =
-// open_bpf_map_file(pin_dir, "tx_port", &tx_port_map_info);
-// if (tx_port_map_fd < 0) {
-// fprintf(stderr, "ERR: Can not open the tx-port map file.\n");
-// return EXIT_FAIL_BPF;
-// }
-
-// int err = 0;
-// err = check_map_fd_info(&tx_port_map_info, &tx_port_map_expect);
-// if (err) {
-// fprintf(stderr, "ERR: tx-port map via FD not compatible\n");
-// return err;
-// }
-// printf("Successfully open the map file of tx_port!\n");
-
-// // Test if rte_power works.
-// int ret = 0;
-// ret = rte_eal_init(argc, argv);
-// if (ret < 0) {
-// rte_exit(EXIT_FAILURE, "Invalid EAL arguements\n");
-// }
-// argc -= ret;
-// argv += ret;
-
-// rte_timer_subsystem_init();
-
-// rte_eal_cleanup();

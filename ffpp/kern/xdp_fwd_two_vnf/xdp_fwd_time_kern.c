@@ -1,4 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0 
+* XDP forwarder for two CNF's with traffic monitor X-MAN (packet count and TS)
+*/
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 
@@ -84,7 +86,7 @@ int xdp_fwd_func(struct xdp_md *ctx)
 	tx_port_key = bpf_ntohs(tx_port_key);
 	tx_port_key = tx_port_key & 0xff;
 
-	// Update stats
+	// Traffic monitoring
 	struct datarec *rec = bpf_map_lookup_elem(&xdp_stats_map, &tx_port_key);
 	if (!rec) {
 		return action;

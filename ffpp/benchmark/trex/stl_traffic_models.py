@@ -71,10 +71,10 @@ def init_ports(client):
     return (tx_port, rx_port)
 
 
+# Store results as .json dump
 def save_rx_stats(data, filename, burst_num):
     wrote_first = False
     with open(filename, "w") as f:
-        # for index, _ in enumerate(stream_params):
         for index in range(0, burst_num, 1):
             if not wrote_first:
                 f.write("[\n")
@@ -134,11 +134,12 @@ def create_stream_params_poisson(pps, burst_num, src_num, tot_pkts_burst):
     burst_rate = pps / tot_pkts_burst
     # Inter-arrival times for each bursts
     isgs = [np.random.exponential(1 / burst_rate) for _ in range(burst_num)]
-    ISGS_SAVE = isgs.copy()
     isgs_sanity_check(isgs)
     flow_duration = math.ceil(burst_num * single_burst_time + sum(isgs[:burst_num]))
     # Get packet length for each burst based on IMIX probability.
     ip_tot_lens = [get_ip_tot_len() for _ in range(burst_num)]
+    # To later include into Rx stats
+    ISGS_SAVE = isgs.copy()
     IP_TOT_LENS_SAVE = ip_tot_lens.copy()
 
     print(f"- Flow duration of {burst_num} bursts: {flow_duration} seconds")
@@ -249,7 +250,7 @@ def get_streams(
         streams.append(
             STLStream(
                 name=f"s{index}",
-                isg=param["isg"] * 10 ** 6,
+                isg=param["isg"] * 10 ** 6,  # TRex interprets them as µs
                 packet=pkt,
                 flow_stats=STLFlowLatencyStats(pg_id=index),
                 mode=STLTXSingleBurst(
@@ -316,10 +317,7 @@ def main():
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
 
     parser.add_argument(
-        "--out",
-        type=str,
-        default="",
-        help="Stores file with given name",
+        "--out", type=str, default="", help="Stores file with given name",
     )
 
     args = parser.parse_args()
@@ -365,9 +363,8 @@ def main():
         )
 
         print("--- The latency results of all streams:")
-        # pprint.pp(err_cntrs_results)
-        # pprint.pp(latency_results)
         for m_burst in range(args.burst_num):
+            # Include ISG duratio, packet size and time stamps into .json dump
             err_cntrs_results[m_burst]["isg"] = ISGS_SAVE[m_burst]
             err_cntrs_results[m_burst]["len"] = IP_TOT_LENS_SAVE[m_burst]
             err_cntrs_results[m_burst]["start_ts"] = start_ts

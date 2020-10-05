@@ -14,6 +14,8 @@
 #include <ffpp/scaling_defines_user.h>
 #include <ffpp/global_stats_user.h>
 
+// Global variables for measurements
+// Defined in global_stats_user.h
 double g_csv_pps[TOTAL_VALS];
 double g_csv_pps_mult[NUM_VNFS][TOTAL_VALS];
 double g_csv_ts[TOTAL_VALS];
@@ -29,16 +31,44 @@ unsigned int g_csv_num_val;
 int g_csv_num_round;
 double cur_time;
 
+/**
+ * @brief Writes .csv dump of X-MAN
+ * Outile: timestamp, pps, cpu util, cpu frequency
+ * Filename: test-"num_round".csv
+ * 
+ */
 void write_csv_file();
 
+/**
+ * @brief Writes .csv dump of X-MAN-FB
+ * Outile: timestamp, in pps, out pps, delta between in and out,
+ * offset between in and out, cpu frequency
+ * Filename: fb-"num_round".csv
+ * 
+ */
 void write_csv_file_fb_in();
 
-void write_csv_file_fb_out();
-
+/**
+ * @brief Writes .csv dump of traffic monitor
+ * Outile: timestamp, pps, inter-arrival time
+ * Filename: test-"num_round".csv
+ * 
+ */
 void write_csv_file_tm();
 
+/**
+ * @brief Writes .csv dump of X-MAN for 2 CNF's (per CNF dump)
+ * outline: timestamp, cnf pps, cnf cpu util, cpu freq
+ * 
+ * @param num_vnf vnf id
+ */
 void write_csv_file_2vnf(int num_vnf);
 
+/**
+ * @brief Get the time of day object
+ * 
+ * @return double current time
+ */
 double get_time_of_day();
 
 #endif /* !GENERAL_HELPERS_USER_H */

@@ -75,6 +75,7 @@ def init_ports(client):
     return (tx_port, rx_port)
 
 
+# Save Rx stats as .json dump; add "," and "\n" separators
 def save_rx_stats(data, filename, stream_params):
     wrote_first = False
     with open(filename, "w") as f:
@@ -109,8 +110,7 @@ def get_rx_stats(client, tx_port, rx_port, stream_params, second_stream_params=N
         else:
             latency[index] = lat_stats["latency"]
             err_cntrs[index] = lat_stats["err_cntrs"]
-            # m_idx = index
-            m_idx += 1
+            m_idx += 1  # keep track of retrieved streams
 
     err_cntrs_results.append(err_cntrs)
     latency_results.append(latency)
@@ -130,7 +130,6 @@ def get_rx_stats(client, tx_port, rx_port, stream_params, second_stream_params=N
         err_cntrs_results.append(err_cntrs)
         latency_results.append(latency)
 
-    # return (err_cntrs_results, latency_results)
     return (err_cntrs_results, latency_results)
 
 
@@ -426,10 +425,14 @@ def main():
 
     if args.enable_second_flow:
         print("INFO: The second flow is enabled. Two flows share the physical link.")
+        # Simply reverse the link utilizations
         second_stream_params = copy.deepcopy(list(reversed(stream_params)))
+        # Change ISG's of 2nd flow to 2s
         for s in second_stream_params:
             s["on_time"] = args.on_time - (args.on_time * 0.2)
             s["isg"] = s["isg"] + (args.on_time * 0.2) * 10 ** 6
+        # Reset ISG of first stream of the 2nd flow back to 1
+        # -> they always start together then
         if args.soft:
             second_stream_params[0]["isg"] = 1 * 10 ** 6
         print("\n--- Updated stream parameters with the second flow:")
@@ -493,10 +496,12 @@ def main():
         print(f"- Number of streams first flow: {len(latency_results[0])}")
         for index, _ in enumerate(stream_params):
             print(f"- Stream: {index}")
+            # Add timestamps to .json dump to parse turbostat results later
             err_cntrs_results[0][index]["start_ts"] = start_ts
             err_cntrs_results[0][index]["end_ts"] = end_ts
             print(err_cntrs_results[0][index])
             print(latency_results[0][index])
+        # Save stats as .json dump
         if args.out:
             savedir_latency = "/home/malte/malte/latency/flow1/"
             savedir_error = "/home/malte/malte/error/flow1/"
