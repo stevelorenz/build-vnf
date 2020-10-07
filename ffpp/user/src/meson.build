@@ -13,7 +13,7 @@ ffpp_sources = [
   'scaling_helpers_user.c',
   'task.c',
   'utils.c',
-  ]
+]
 
 ffpplib_shared = shared_library('ffpp',
   ffpp_sources,

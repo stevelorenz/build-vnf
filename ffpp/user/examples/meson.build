@@ -9,8 +9,8 @@ all_examples = [
   'multi_process_munf/mp_munf_munf',
   'power_manager',
   'traffic_monitor',
-  'zmq',
-  'zmq_exchange_mbufs',
+  'zmq/zmq_control',
+  'zmq/zmq_exchange_mbufs',
 ]
 
 foreach example: all_examples

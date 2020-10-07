@@ -215,7 +215,8 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 	int i;
 	int active_vnf;
 	bool manage = false;
-	int raw_keys[2] = { 1400, 1399 }; // Currently hard-coded, keys for stats map
+	int raw_keys[2] = { 1400,
+			    1399 }; // Currently hard-coded, keys for stats map
 	struct stats_record prev[2], record[2] = { 0 };
 	struct measurement m[2] = { 0 };
 	struct scaling_info si = { 0 };

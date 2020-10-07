@@ -49,8 +49,7 @@ int g_csv_offset[TOTAL_VALS];
 unsigned int g_csv_num_val = 0;
 int g_csv_num_round = 0;
 int g_csv_empty_cnt = 0;
-int g_csv_empty_cnt_threshold =
-	(3 * 1e6) / IDLE_INTERVAL; 
+int g_csv_empty_cnt_threshold = (3 * 1e6) / IDLE_INTERVAL;
 bool g_csv_saved_stream = false;
 
 const char *pin_basedir = "/sys/fs/bpf";

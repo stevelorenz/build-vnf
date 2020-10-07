@@ -96,6 +96,6 @@ void ffpp_pye_cleanup(void)
 	PyGC_Collect();
 	if (Py_FinalizeEx() < 0) {
 		fprintf(stderr, "Failed to cleaup Python interpreter.\n");
-                }
+	}
 	PyMem_RawFree(g_ctx.program);
 }
