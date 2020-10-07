@@ -14,6 +14,8 @@
 
 #include <stdint.h>
 
+#include <rte_mempool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

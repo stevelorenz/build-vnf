@@ -2,6 +2,7 @@
   version: 2
   # Use Linux interfaces mode for veth devices
   interfaces: ['--vdev=net_af_packet0,iface=pktgen-out', '--vdev=net_af_packet1,iface=pktgen-in']
+  # All TRex threads will be assigned to single core, by default, the core 0.
   low_end: true
   port_info:
             # Egress interface of pktgen

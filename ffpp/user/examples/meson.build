@@ -10,6 +10,7 @@ all_examples = [
   'power_manager',
   'traffic_monitor',
   'zmq',
+  'zmq_exchange_mbufs',
 ]
 
 foreach example: all_examples

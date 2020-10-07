@@ -52,9 +52,9 @@ RUN rm -rf /opt/xdp-tools-${XDP_TOOLS_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz
 # Install FFPP dependencies.
 RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
     python3-pip libczmq-dev python3-zmq libjansson-dev python3-dev python3-numpy \
-    rustc golang git
+    git
 
-RUN pip3 install -q docker cffi
+RUN pip3 install -q docker cffi conan
 
 # Build FFPP library
 ENV FFPP_PATH /ffpp

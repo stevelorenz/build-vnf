@@ -42,7 +42,6 @@ RUN ln -s /usr/bin/python3 /usr/bin/python && \
 # Remove unused files.
 RUN rm -rf /opt/xdp-tools-${XDP_TOOLS_VER}.tar.gz
 
-RUN mkdir -p /trex/${TREX_VERSION}/local
-COPY ./run_basic_test.sh /trex/${TREX_VERSION}/local/run_basic_test.sh
+COPY ./trex_helpers.py /usr/local/lib/python3.8/dist-packages/
 
 CMD ["bash"]
