@@ -126,7 +126,7 @@ inc = include_directories('include')
 
 math_dep = cc.find_library('m', required: true)
 
-bpf_dep = dependency('libbpf', required: true)
+bpf_dep = dependency('libbpf', required: false)
 dpdk_dep = dependency('libdpdk', required: true)
 json_dep = dependency('jansson', required: true)
 python_embed_dep = dependency('python3-embed', required: true)
