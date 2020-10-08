@@ -8,15 +8,6 @@
 
 FROM ubuntu:20.04 as builder
 
-ENV XDP_TOOLS_VER="0.0.3"
-
-ENV DPDK_VER="20.02"
-ENV RTE_SDK="/opt/dpdk"
-ENV RTE_TARGET="x86_64-native-linuxapp-gcc"
-# TODO: Disable un-used PMDs
-# Do not build tests for DPDK libraries, reduce image size.
-ENV DPDK_BUILD_OPTION="-Dtests=false"
-
 # Install build essentials for DPDK and XDP.
 # - DPDK 20.02 uses Meson and Ninja as its default build system (instead of its plan makefile based system).
 # - Clang LLVM are required to build XDP program.
@@ -29,6 +20,7 @@ RUN apt-get update && \
 
 WORKDIR /opt/
 
+ENV XDP_TOOLS_VER="0.0.3"
 # Download and build xdp-tools. It has libbpf included which is required to build AF_XDP PMD driver for DPDK.
 ENV XDP_TOOLS_DIR="/opt/xdp-tools"
 RUN mkdir -p ${XDP_TOOLS_DIR}
@@ -36,6 +28,19 @@ RUN wget https://github.com/xdp-project/xdp-tools/releases/download/v${XDP_TOOLS
     tar -zxvf xdp-tools-${XDP_TOOLS_VER}.tar.gz -C ./xdp-tools --strip-components 1 && \
     cd ./xdp-tools && ./configure && make && make install && cd ./lib/libbpf/src && make install
 
+ENV DPDK_VER="20.02"
+ENV DPDK_BUILD_OPTION="-Dtests=false \
+-Ddisable_drivers=baseband/*,bus/ifpga,bus/fslmc,bus/dpaa,\
+event/dsw,event/opdl,event/octeontx,event/octeontx2,\
+net/ark,net/avp,net/atlantic,net/bond,net/bnxt,net/bnx2x,net/cxgbe,net/ena,net/enetc,\
+net/failsafe,net/fm10k,net/hinic,net/hns3,net/ice,net/kni,net/liquidio,net/mlx5,net/octeontx,net/octeontx2,\
+net/qede,net/sfc,net/softnic,net/thunderx,net/vmxnet3,\
+crypto/nitrox,crypto/octeontx_crypto,crypto/octeontx2_crypto,\
+compress/octeontx_compress,\
+vdpa/*\
+"
+ENV RTE_SDK="/opt/dpdk"
+ENV RTE_TARGET="x86_64-native-linuxapp-gcc"
 RUN mkdir -p ${RTE_SDK}
 RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz && \
     tar -xJf dpdk-${DPDK_VER}.tar.xz -C ./dpdk --strip-components 1 && \

@@ -4,6 +4,7 @@ project('ffpp', 'c', 'cpp',
   meson_version: '>= 0.53.0',
   default_options: [
     'c_std=gnu18',
+    'cpp_std=c++11',
     'buildtype=release',
     'warning_level=3',
     'default_library=both',
@@ -17,8 +18,7 @@ host_system = host_machine.system()
 cc = meson.get_compiler('c')
 cppc = meson.get_compiler('cpp')
 
-cc_flags = [
-    # From open5gs project.
+c_flags = [
     '-Wlogical-op',
     '-Werror=missing-include-dirs',
     '-Werror=pointer-arith',
@@ -26,7 +26,6 @@ cc_flags = [
     '-Wfloat-equal',
     '-Wsuggest-attribute=noreturn',
     # '-Werror=missing-prototypes',
-    # '-Werror=missing-declarations',
     '-Werror=implicit-function-declaration',
     '-Werror=return-type',
     '-Werror=incompatible-pointer-types',
@@ -59,26 +58,24 @@ cc_flags = [
     # ABI stability of DPDK is not considered here.
     # Because the test container always uses a specific DPDK version.
     '-Wno-deprecated-declarations',
-    # They should be used in 6G and beyond :)
+    # They will be used in 6G and beyond :)
     '-Wno-unused-value',
     '-Wno-unused-variable',
     '-Wno-unused-but-set-variable',
 ]
 
 cpp_flags = [
-    # From open5gs project.
     '-Wlogical-op',
     '-Werror=missing-include-dirs',
     '-Werror=pointer-arith',
     '-Werror=init-self',
     '-Wfloat-equal',
     '-Wsuggest-attribute=noreturn',
-    # '-Werror=missing-prototypes',
     # '-Werror=missing-declarations',
     '-Werror=return-type',
     '-Werror=format=2',
-    # '-Wstrict-prototypes',
-    # '-Wredundant-decls',
+    '-Wstrict-prototypes',
+    '-Wredundant-decls',
     '-Wimplicit-fallthrough=5',
     '-Wendif-labels',
     '-Wstrict-aliasing=3',
@@ -102,31 +99,33 @@ cpp_flags = [
     '-fstack-protector-strong',
     '--param=ssp-buffer-size=4',
 
+    # ABI stability of DPDK is not considered here.
+    # Because the test container always uses a specific DPDK version.
     '-Wno-deprecated-declarations',
+    # They will be used in 6G and beyond :)
     '-Wno-unused-value',
     '-Wno-unused-variable',
     '-Wno-unused-but-set-variable',
 ]
 
 add_project_arguments(
-    cc.get_supported_arguments(cc_flags),
+    cc.get_supported_arguments(c_flags),
     language: 'c',
 )
-
 add_project_arguments(
     cppc.get_supported_arguments(cpp_flags),
     language: 'cpp',
 )
 
 if get_option('buildtype').startswith('debug')
-  add_project_arguments('-DDEBUG', language : 'c')
+  add_project_arguments('-DDEBUG', language : ['c', 'cpp'])
 endif
 
 inc = include_directories('include')
 
 math_dep = cc.find_library('m', required: true)
 
-bpf_dep = dependency('libbpf', required: false)
+bpf_dep = dependency('libbpf', required: true)
 dpdk_dep = dependency('libdpdk', required: true)
 json_dep = dependency('jansson', required: true)
 python_embed_dep = dependency('python3-embed', required: true)
@@ -159,7 +158,6 @@ endif
 if get_option('related_works')
   subdir('related_works')
 endif
-
 
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(
