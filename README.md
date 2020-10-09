@@ -1,6 +1,6 @@
-![MIT licensed][mit-badge]
+[![Build Status](https://travis-ci.com/stevelorenz/build-vnf.svg?branch=master)](https://travis-ci.com/stevelorenz/build-vnf)
+![MIT licensed](https://img.shields.io/github/license/stevelorenz/build-vnf)
 
-[mit-badge]: https://img.shields.io/github/license/stevelorenz/build-vnf
 
 <p align="center">
 <img alt="Build-VNF" src="https://github.com/stevelorenz/build-vnf/raw/master/logo/logo_horizontal.png" width="500">

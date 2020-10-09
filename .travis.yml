@@ -1,0 +1,22 @@
+os: linux
+dist: focal
+language: cpp
+
+services:
+  - docker
+
+before_script:
+  - sudo apt-get install -y linux-headers-$(uname -r)
+  - cd ./ffpp
+  - docker pull ubuntu:focal
+  - docker build -t ffpp-dev .
+  - docker run -it -d --privileged -v /sys/devices/system/node:/sys/devices/system/node --name test-ffpp ffpp-dev /bin/bash
+
+script:
+  - docker exec -i test-ffpp bash -c "cd /ffpp/user/ && bash ./build.sh -a"
+  # Run unit tests
+  - docker exec -i test-ffpp sysctl -w vm.nr_hugepages=1024
+  - docker exec -i test-ffpp sh -c 'echo 1024 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages'
+  - docker exec -i test-ffpp mkdir /mnt/huge
+  - docker exec -i test-ffpp mount -t hugetlbfs nodev /mnt/huge
+  - docker exec -i test-ffpp bash -c "cd /ffpp/user/ && make run-tests"

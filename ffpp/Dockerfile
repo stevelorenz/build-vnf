@@ -9,7 +9,6 @@
 FROM ubuntu:20.04 as builder
 
 # Install build essentials for DPDK and XDP.
-# - DPDK 20.02 uses Meson and Ninja as its default build system (instead of its plan makefile based system).
 # - Clang LLVM are required to build XDP program.
 RUN apt-get update && \
     DEBIAN_FRONTEND="noninteractive" apt-get install -y wget build-essential pkg-config python3 meson ninja-build \
@@ -28,7 +27,7 @@ RUN wget https://github.com/xdp-project/xdp-tools/releases/download/v${XDP_TOOLS
     tar -zxvf xdp-tools-${XDP_TOOLS_VER}.tar.gz -C ./xdp-tools --strip-components 1 && \
     cd ./xdp-tools && ./configure && make && make install && cd ./lib/libbpf/src && make install
 
-ENV DPDK_VER="20.02"
+ENV DPDK_VER="20.08"
 ENV DPDK_BUILD_OPTION="-Dtests=false \
 -Ddisable_drivers=baseband/*,bus/ifpga,bus/fslmc,bus/dpaa,\
 event/dsw,event/opdl,event/octeontx,event/octeontx2,\
