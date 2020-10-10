@@ -107,8 +107,8 @@ fi
 if [[ "$DIST" == "Ubuntu" ]]; then
     if ! grep -Fq "/usr/lib64/pkgconfig" /etc/environment; then
         echo "- Setup ENV variables for pkg-config in /etc/environment ."
-        echo "export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/lib64/pkgconfig" >>/etc/environment
-        echo "export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64" >>/etc/environment
+        echo "export PKG_CONFIG_PATH=/usr/lib64/pkgconfig" >>/etc/environment
+        echo "export LD_LIBRARY_PATH=/usr/lib64" >>/etc/environment
     fi
 fi
 

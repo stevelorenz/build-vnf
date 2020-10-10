@@ -1,12 +1,11 @@
 #
 # This image is ONLY used for the DEVELOPMENT and TESTS of FFPP library.
 #
-# TODO (Zuo): The image size is too big currently... Reduce it later.
-#      - Adjust DPDK_BUILD_OPTION to remove unused PMD drivers or library.
-#      - Use multi-stage build for deployment.
+# TODO (Zuo): Reduce the image size. Currently 1.6 GB.
+#      - Use multi-stage build for deployment. Use a seperate Dockerfile.deploy.
 #
 
-FROM ubuntu:20.04 as builder
+FROM ubuntu:20.04
 
 # Install build essentials for DPDK and XDP.
 # - Clang LLVM are required to build XDP program.
