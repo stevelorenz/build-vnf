@@ -1,5 +1,5 @@
 #!/bin/bash
-# About: Make the development of two_veth_xdp_fwd setup easier.
+# About: Make the development of veth_xdp_fwd setup easier.
 #
 
 if [ "$EUID" -ne 0 ]; then
@@ -14,7 +14,7 @@ umask 077
 
 trap 'pkill -P $$' SIGINT SIGTERM
 
-SESSION_NAME="two_veth_xdp_fwd"
+SESSION_NAME="veth_xdp_fwd"
 TREX_VER="v2.81"
 NANO_CPUS="5e8" # 50%
 
@@ -29,7 +29,7 @@ usage() {
 while getopts "cn:" arg; do
     case "${arg}" in
     c)
-        ./benchmark-local.py --setup_name two_veth_xdp_fwd --pktgen_image trex:$TREX_VER teardown
+        ./benchmark-local.py --setup_name veth_xdp_fwd --pktgen_image trex:$TREX_VER teardown
         tmux kill-session -t $SESSION_NAME
         exit 0
         ;;
@@ -43,15 +43,15 @@ while getopts "cn:" arg; do
 done
 shift $((OPTIND - 1))
 
-echo "- Create a new Tmux session with two_veth_xdp_fwd setup."
-echo "  - The name of the session: two_veth_xdp_fwd"
+echo "- Create a new Tmux session with veth_xdp_fwd setup."
+echo "  - The name of the session: veth_xdp_fwd"
 
 tmux new-session -d -s $SESSION_NAME -n bash
 tmux select-window -t $SESSION_NAME:0
 # The tmux wait-for will block here until the command in this window finishes.
 # This is important since following commands depend on this one.
 tmux send-keys \
-    "./benchmark-local.py --setup_name two_veth_xdp_fwd \
+    "./benchmark-local.py --setup_name veth_xdp_fwd \
     --pktgen_image trex:$TREX_VER \
     --nano_cpus $NANO_CPUS \
     setup; tmux wait-for -S setup" C-m\; wait-for setup
@@ -65,9 +65,9 @@ tmux send-keys "docker exec -it pktgen bash" C-m
 tmux send-keys "cd /trex/$TREX_VER/local" C-m
 tmux new-window -t $SESSION_NAME:3 -n vnf1
 tmux select-window -t $SESSION_NAME:vnf1
-tmux send-keys "docker attach vnf" C-m
+tmux send-keys "docker attach vnf0" C-m
 tmux new-window -t $SESSION_NAME:4 -n vnf2
-tmux send-keys "docker exec -it vnf bash" C-m
+tmux send-keys "docker exec -it vnf0 bash" C-m
 
 tmux select-window -t $SESSION_NAME:0
 tmux attach-session -t $SESSION_NAME

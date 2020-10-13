@@ -9,8 +9,7 @@ branches:
   only:
     - master
     - dev
-    - /dev-*/
-    - /travis.*/
+    - dev-zuo
     - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
 
 before_script:
@@ -31,7 +30,7 @@ script:
   - make clean && make
   # Build all examples, tests of FFPP library.
   - docker exec -i test-ffpp bash -c "cd /ffpp/user/ && bash ./build.sh -a"
-  # Run unit tests
+  # Run unit tests.
   - docker exec -i test-ffpp sysctl -w vm.nr_hugepages=1024
   - docker exec -i test-ffpp sh -c 'echo 1024 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages'
   - docker exec -i test-ffpp mkdir /mnt/huge

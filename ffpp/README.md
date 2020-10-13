@@ -101,7 +101,7 @@ The `/etc/trex_cfg.yaml` in the Docker image built by the helper script is alrea
 1.  Setup the benchmark:
 
 ```bash
-sudo ./benchmark-local.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 setup
+sudo ./benchmark-local.py --pktgen_image trex:v2.81 setup
 ```
 
 2.  Attach to `pktgen` and `vnf` container and run following commands. This step needs multiple terminals, `Tmux` or `GNU Screen` can be used:
@@ -138,7 +138,7 @@ Latency test is passed!
 3.  Tear down the setup with cleanups.
 
 ```bash
-sudo ./benchmark-local.py --setup_name two_veth_xdp_fwd --pktgen_image trex:v2.81 teardown
+sudo ./benchmark-local.py --pktgen_image trex:v2.81 teardown
 ```
 
 ## Build from Source

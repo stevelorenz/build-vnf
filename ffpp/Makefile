@@ -33,13 +33,13 @@ ALL_SCRIPT_SRCS := $(BASH_SRCS) $(PY_SRCS)
 
 codecheck-scripts: $(ALL_SCRIPT_SRCS)
 	@echo "* Run flake8 for Python sources..."
-	flake8 --ignore=E501,E266,E203,E231,W503,F401,F841 --max-complexity 10 $(PY_SRCS)
+	flake8 --ignore=E501,E266,E203,E231,W503,F401,F841 --max-complexity 10 $(PY_SRCS) || true
 	@echo "* Run shellcheck for BASH sources..."
 	shellcheck $(BASH_SRCS)
 
 format-scripts: $(ALL_SCRIPT_SRCS)
 	@echo "* Format all Python sources with black..."
-	black $(PY_SRCS)
+	black $(PY_SRCS)  || true
 	@echo "* Format all Bash sources with shfmt..."
 	shfmt -i 4 -w $(BASH_SRCS)
 

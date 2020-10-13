@@ -11,11 +11,11 @@ if [[ $1 == "-t" ]]; then
         --single-file-segments --file-prefix=ffpp_mp_munf_mono \
         --vdev=net_null0 --vdev=net_null1 \
         -- \
-        -f 1
+        -f 0
 else
     ../../../build/examples/ffpp_mp_munf_mono -l 1 --proc-type primary --no-pci \
         --single-file-segments --file-prefix=mp_munf_mono \
         --vdev net_af_packet0,iface=vnf-in --vdev net_af_packet1,iface=vnf-out \
         -- \
-        -f 2
+        -f 0
 fi

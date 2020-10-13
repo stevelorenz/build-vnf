@@ -1,3 +1,3 @@
 sources = files(
-  'client.cc'
+  'client.c'
 )

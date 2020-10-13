@@ -74,7 +74,6 @@ cpp_flags = [
     # '-Werror=missing-declarations',
     '-Werror=return-type',
     '-Werror=format=2',
-    '-Wstrict-prototypes',
     '-Wredundant-decls',
     '-Wimplicit-fallthrough=5',
     '-Wendif-labels',
@@ -84,7 +83,6 @@ cpp_flags = [
     '-Werror=shift-count-overflow',
     '-Werror=shift-overflow=2',
     '-Wdate-time',
-    '-Wnested-externs',
     '-Wunused',
     '-Wduplicated-branches',
     '-Wmisleading-indentation',
@@ -105,7 +103,6 @@ cpp_flags = [
     # They will be used in 6G and beyond :)
     '-Wno-unused-value',
     '-Wno-unused-variable',
-    '-Wno-unused-but-set-variable',
 ]
 
 add_project_arguments(

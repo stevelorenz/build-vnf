@@ -11,8 +11,6 @@ Differences from the PM used in l3fwd-power:
 -   Currently, only `APP_MODE_LEGACY` is implemented. veth interface does not support interrupt registration and RX
     descriptor counting.
 
-## Build and run in `two_veth_xdp_fwd` benchmark
-
 
 ```bash
 cd ../../

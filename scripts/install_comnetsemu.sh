@@ -1,13 +1,18 @@
 #!/bin/bash
 #
-# About: Install the minimum ComNetsEmu for FFPP tests
+# About: Install the minimum ComNetsEmu for network emulations.
 #
 
-if [[ $1 == "-u" ]]; then
-    echo "- Upgrade installed ComNetsEmu."
-    cd ~/comnetsemu/util || exit
-    bash ./install.sh -u
-else
+if [ "$EUID" -eq 0 ]; then
+    echo "Please run this script without sudo."
+    exit
+fi
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "$#" -eq 0 ]]; then
     echo "- Install ComNetsEmu. Warning: already-installed ComNetsEmu is automatically removed."
     sudo apt-get update
     sudo apt-get install -y python3-pip
@@ -25,4 +30,10 @@ else
     cd ~/comnetsemu/test_containers || exit
     sudo ./build.sh
     sudo docker image prune
+elif [[ $1 == "-u" ]]; then
+    echo "- Upgrade installed ComNetsEmu."
+    cd ~/comnetsemu/util || exit
+    bash ./install.sh -u
+else
+    echo "ERROR: Unknown option."
 fi

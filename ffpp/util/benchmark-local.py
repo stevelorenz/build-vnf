@@ -53,7 +53,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
     "image": "ffpp-dev:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-dev-benchmark"},
-    # Ulimits, memlock should be enough to load eBPF maps.
+    # Ulimits, memlock MUST be enough to load eBPF maps.
     "ulimits": [
         docker.types.Ulimit(
             name="memlock", hard=LOCKED_IN_MEMORY_SIZE, soft=LOCKED_IN_MEMORY_SIZE
@@ -62,21 +62,40 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
 }
 
 
-def setup_containers(pktgen_image, vnf_num=1):
+def setup_containers(pktgen_image, cpu_count, vnf_per_core):
     client = docker.from_env()
-
     c_vnfs = list()
     c_vnfs_pid = list()
 
-    if vnf_num == 1:
-        vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
-        vnf_args["name"] = "vnf"
-        c_vnfs.append(client.containers.run(**vnf_args))
-    else:
-        for i in range(1, vnf_num + 1):
+    # The CPU 0 is used by the pktgen
+    pktgen_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
+    pktgen_args["name"] = "pktgen"
+    pktgen_args["image"] = pktgen_image
+    pktgen_args["volumes"].update(TREX_CONF)
+    pktgen_args["cpuset_cpus"] = "0"
+    c_pktgen = client.containers.run(**pktgen_args)
+    while not c_pktgen.attrs["State"]["Running"]:
+        time.sleep(0.05)
+        c_pktgen.reload()
+    c_pktgen_pid = c_pktgen.attrs["State"]["Pid"]
+    c_pktgen.exec_run("mount -t bpf bpf /sys/fs/bpf/")
+    print("- Pktgen container is running with PID:{}.".format(c_pktgen_pid))
+
+    # The CPU 1 is used by the default gateway vnf0.
+    vnf_num = 0
+    vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
+    vnf_args["name"] = f"vnf{vnf_num}"
+    c_vnfs.append(client.containers.run(**vnf_args))
+    vnf_num += 1
+
+    for c in range(2, cpu_count):
+        for v in range(vnf_per_core):
             vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
-            vnf_args["name"] = "vnf{}".format(i)
+            vnf_args["name"] = f"vnf{c}_{v}"
+            vnf_args["cpuset_cpus"] = f"{c}"
+            print(f"- Run VNF container {c}_{v} on core: {c}")
             c_vnfs.append(client.containers.run(**vnf_args))
+            vnf_num += 1
 
     for c in c_vnfs:
         while not c.attrs["State"]["Running"]:
@@ -85,90 +104,37 @@ def setup_containers(pktgen_image, vnf_num=1):
         pid = c.attrs["State"]["Pid"]
         c_vnfs_pid.append(pid)
         c.exec_run("mount -t bpf bpf /sys/fs/bpf")
-        print(
-            "- VNF container with name: {} and PID: {} is running.".format(c.name, pid)
-        )
+        print(f"- VNF container with name: {c.name} and PID: {pid} is running.")
 
-    pktgen_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
-    pktgen_args["name"] = "pktgen"
-    pktgen_args["image"] = pktgen_image
-    pktgen_args["volumes"].update(TREX_CONF)
-    c_pktgen = client.containers.run(**pktgen_args)
-    while not c_pktgen.attrs["State"]["Running"]:
-        time.sleep(0.05)
-        c_pktgen.reload()
-    c_pktgen_pid = c_pktgen.attrs["State"]["Pid"]
-    c_pktgen.exec_run("mount -t bpf bpf /sys/fs/bpf/")
-    print("- Pktgen container is running with PID:{}.".format(c_pktgen_pid))
     client.close()
-
-    if vnf_num == 1:
-        return (c_vnfs_pid[0], c_pktgen_pid)
-    else:
-        return (c_vnfs_pid, c_pktgen_pid)
+    return (c_vnfs_pid, c_pktgen_pid)
 
 
-def setup_two_direct_veth(pktgen_image):
-    c_vnf_pid, c_pktgen_pid = setup_containers(pktgen_image)
-    print("* Connect ffpp-dev-vnf and pktgen container with veth pairs.")
+def setup_veth_xdp_fwd(pktgen_image, cpu_count, vnf_per_core):
+    c_vnf_pid, c_pktgen_pid = setup_containers(pktgen_image, cpu_count, vnf_per_core)
+    # ONLY vnf0 container has network data plane interfaces.
     cmds = [
         "mkdir -p /var/run/netns",
-        "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
-        "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_pktgen_pid, c_pktgen_pid),
-        "ip link add vnf-in type veth peer name pktgen-out",
-        "ip link set vnf-in up",
-        "ip link set pktgen-out up",
-        "ip link set vnf-in netns {}".format(c_vnf_pid),
-        "ip link set pktgen-out netns {}".format(c_pktgen_pid),
-        "docker exec vnf ip link set vnf-in up",
-        "docker exec pktgen ip link set pktgen-out up",
-        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in",
-        "docker exec pktgen ip addr add 192.168.17.1/24 dev pktgen-out",
-        "ip link add vnf-out type veth peer name pktgen-in",
-        "ip link set vnf-out up",
-        "ip link set pktgen-in up",
-        "ip link set vnf-out netns {}".format(c_vnf_pid),
-        "ip link set pktgen-in netns {}".format(c_pktgen_pid),
-        "docker exec vnf ip link set vnf-out up",
-        "docker exec pktgen ip link set pktgen-in up",
-        "docker exec vnf ip addr add 192.168.18.2/24 dev vnf-out",
-        "docker exec pktgen ip addr add 192.168.18.1/24 dev pktgen-in",
-        "docker exec pktgen ping -q -c 2 192.168.17.2",
-        "docker exec pktgen ping -q -c 2 192.168.18.2",
-    ]
-    for c in cmds:
-        subprocess.run(shlex.split(c), check=True)
-
-    print(
-        "* Setup finished. Run 'docker attach ffpp-dev-vnf' (or pktgen) to attach to the running containers."
-    )
-
-
-# TODO: Use a better DS to beautify the code...
-def setup_two_veth_xdp_fwd(pktgen_image):
-    c_vnf_pid, c_pktgen_pid = setup_containers(pktgen_image)
-    cmds = [
-        "mkdir -p /var/run/netns",
-        "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_vnf_pid, c_vnf_pid),
-        "ln -s /proc/{}/ns/net /var/run/netns/{}".format(c_pktgen_pid, c_pktgen_pid),
+        f"ln -s /proc/{c_vnf_pid[0]}/ns/net /var/run/netns/{c_vnf_pid[0]}",
+        f"ln -s /proc/{c_pktgen_pid}/ns/net /var/run/netns/{c_pktgen_pid}",
         "ip link add vnf-in type veth peer name vnf-in-root",
         "ip link set vnf-in-root up",
-        "ip link set vnf-in netns {}".format(c_vnf_pid),
-        "docker exec vnf ip link set vnf-in up",
-        "docker exec vnf ip addr add 192.168.17.2/24 dev vnf-in",
+        f"ip link set vnf-in netns {c_vnf_pid[0]}",
+        "docker exec vnf0 ip link set vnf-in up",
+        "docker exec vnf0 ip addr add 192.168.17.2/24 dev vnf-in",
         "ip link add vnf-out type veth peer name vnf-out-root",
         "ip link set vnf-out-root up",
-        "ip link set vnf-out netns {}".format(c_vnf_pid),
-        "docker exec vnf ip link set vnf-out up",
-        "docker exec vnf ip addr add 192.168.18.2/24 dev vnf-out",
+        f"ip link set vnf-out netns {c_vnf_pid[0]}",
+        "docker exec vnf0 ip link set vnf-out up",
+        "docker exec vnf0 ip addr add 192.168.18.2/24 dev vnf-out",
         "ip link add pktgen-out type veth peer name pktgen-out-root",
         "ip link set pktgen-out-root up",
-        "ip link set pktgen-out netns {}".format(c_pktgen_pid),
+        f"ip link set pktgen-out netns {c_pktgen_pid}",
         "docker exec pktgen ip link set pktgen-out up",
         "docker exec pktgen ip addr add 192.168.17.1/24 dev pktgen-out",
         "ip link add pktgen-in type veth peer name pktgen-in-root",
         "ip link set pktgen-in-root up",
-        "ip link set pktgen-in netns {}".format(c_pktgen_pid),
+        f"ip link set pktgen-in netns {c_pktgen_pid}",
         "docker exec pktgen ip link set pktgen-in up",
         "docker exec pktgen ip addr add 192.168.18.1/24 dev pktgen-in",
     ]
@@ -177,7 +143,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
 
     client = docker.from_env()
     c_vnf = client.containers.list(
-        all=True, filters={"label": "group=ffpp-dev-benchmark", "name": "vnf"}
+        all=True, filters={"label": "group=ffpp-dev-benchmark", "name": "vnf0"}
     )[0]
     c_pktgen = client.containers.list(
         all=True, filters={"label": "group=ffpp-dev-benchmark", "name": "pktgen"}
@@ -192,8 +158,8 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     _, out = c_pktgen.exec_run(cmd="cat /sys/class/net/pktgen-out/address")
     pktgen_out_mac = out.decode("ascii").strip()
 
-    print("* Load xdp-pass on ingress and egress interfaces inside vnf and pktgen.")
-
+    # Required to forward packets using AF_XDP.
+    print("* Load xdp-pass on ingress and egress interfaces inside vnf0 and pktgen.")
     for c, c_name in zip([c_vnf, c_pktgen], ["vnf", "pktgen"]):
         exit_code, out = c.exec_run(
             cmd="make",
@@ -235,6 +201,9 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     print("- The MAC address of pktgen-in-root: {}".format(pktgen_in_root_mac))
     print("- The MAC address of pktgen-out-root: {}".format(pktgen_out_root_mac))
 
+    # Temporary solution to mimic a SmartNIC or SmartSwitch with XDP support.
+    # The XDP/AF_XDP support of mainline OvS is still experimental now, replace
+    # following pasta code with OvS when the support is stable.
     print("* Run xdp_fwd programs for interfaces in the root namespace.")
     xdp_fwd_prog_dir = os.path.abspath("../kern/xdp_fwd/")
     if not os.path.exists(xdp_fwd_prog_dir):
@@ -250,7 +219,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     subprocess.run(shlex.split("./xdp_fwd_loader pktgen-in-root"), check=True)
     subprocess.run(shlex.split("./xdp_fwd_loader pktgen-out-root"), check=True)
 
-    print("\t- Add forwarding between pktgen-out-root to vnf-in-root")
+    print("\t- Add forwarding between pktgen-out-root to vnf-in-root.")
     subprocess.run(
         shlex.split(
             "./xdp_fwd_user -i pktgen-out-root -r vnf-in-root -s {} -d {} -w {}".format(
@@ -287,7 +256,7 @@ def setup_two_veth_xdp_fwd(pktgen_image):
     client.close()
 
     print(
-        "* Setup finished. Run 'docker attach vnf' (or pktgen) to attach to the running containers."
+        "* Setup finished. Run 'docker attach vnf0' (or pktgen) to attach to the running containers."
     )
 
 
@@ -302,7 +271,7 @@ def teardown_containers():
     client.close()
 
 
-def teardown_two_veth_xdp_fwd():
+def teardown_veth_xdp_fwd():
     teardown_containers()
     for d in ["vnf-in-root", "vnf-out-root", "pktgen-in-root", "pktgen-out-root"]:
         bpf_map_dir = os.path.join(BPF_MAP_BASEDIR, d)
@@ -318,14 +287,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "action",
         type=str,
-        choices=["setup", "teardown"],
+        choices=["setup", "teardown", "test"],
         help="The action to perform.",
     )
     parser.add_argument(
         "--setup_name",
         type=str,
-        default="two_direct_veth",
-        choices=["two_direct_veth", "two_veth_xdp_fwd"],
+        default="veth_xdp_fwd",
+        choices=["veth_xdp_fwd"],
         help="The name of the setup profile for benchmarking.",
     )
     parser.add_argument(
@@ -334,7 +303,7 @@ if __name__ == "__main__":
         default=FFPP_DEV_CONTAINER_OPTS_DEFAULT["image"],
         help="The Docker image to create the pktgen.",
     )
-    nano_cpus_help = " ".join(
+    NANO_CPUS_HELP = " ".join(
         (
             "CPU quota in units of 1e-9 CPUs.",
             "For example, 5e8 means 50%% of the CPU.",
@@ -342,7 +311,13 @@ if __name__ == "__main__":
             "it is converted to integer.",
         )
     )
-    parser.add_argument("--nano_cpus", type=float, default=5e8, help=nano_cpus_help)
+    parser.add_argument("--nano_cpus", type=float, default=5e8, help=NANO_CPUS_HELP)
+    parser.add_argument(
+        "--vnf_per_core",
+        type=int,
+        default=1,
+        help="The number of co-located VNFs on a single worker CPU core.",
+    )
 
     args = parser.parse_args()
 
@@ -354,13 +329,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if args.action == "setup":
-        print("The setup name: {}.".format(args.setup_name))
-        if args.setup_name == "two_direct_veth":
-            setup_two_direct_veth(args.pktgen_image)
-        elif args.setup_name == "two_veth_xdp_fwd":
-            setup_two_veth_xdp_fwd(args.pktgen_image)
+        print("* The setup name: {}.".format(args.setup_name))
+        if args.setup_name == "veth_xdp_fwd":
+            setup_veth_xdp_fwd(args.pktgen_image, cpu_count, args.vnf_per_core)
     elif args.action == "teardown":
-        if args.setup_name == "two_direct_veth":
-            teardown_containers()
-        elif args.setup_name == "two_veth_xdp_fwd":
-            teardown_two_veth_xdp_fwd()
+        if args.setup_name == "veth_xdp_fwd":
+            teardown_veth_xdp_fwd()
+    elif args.action == "test":
+        setup_veth_xdp_fwd(args.pktgen_image, cpu_count, 3)
+        teardown_veth_xdp_fwd()
