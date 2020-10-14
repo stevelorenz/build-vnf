@@ -62,9 +62,22 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
 }
 
 
+def add_veth_pairs(vnf_name, vnf_pid, suffix):
+    for direct in ["in", "out"]:
+        cmds = [
+            f"ip link add vnf-{direct} type veth peer name vnf{suffix}-{direct}-root",
+            f"ip link set vnf{suffix}-{direct}-root up",
+            f"ip link set vnf-{direct} netns {vnf_pid}",
+            f"docker exec {vnf_name} ip link set vnf-{direct} up",
+        ]
+        for c in cmds:
+            subprocess.run(shlex.split(c), check=True)
+
+
 def setup_containers(pktgen_image, cpu_count, vnf_per_core):
     client = docker.from_env()
     c_vnfs = list()
+    c_vnfs_name = list()
     c_vnfs_pid = list()
 
     # The CPU 0 is used by the pktgen
@@ -85,6 +98,7 @@ def setup_containers(pktgen_image, cpu_count, vnf_per_core):
     vnf_num = 0
     vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
     vnf_args["name"] = f"vnf{vnf_num}"
+    c_vnfs_name.append(f"vnf{vnf_num}")
     c_vnfs.append(client.containers.run(**vnf_args))
     vnf_num += 1
 
@@ -92,6 +106,7 @@ def setup_containers(pktgen_image, cpu_count, vnf_per_core):
         for v in range(vnf_per_core):
             vnf_args = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
             vnf_args["name"] = f"vnf{c}_{v}"
+            c_vnfs_name.append(f"vnf{c}_{v}")
             vnf_args["cpuset_cpus"] = f"{c}"
             print(f"- Run VNF container {c}_{v} on core: {c}")
             c_vnfs.append(client.containers.run(**vnf_args))
@@ -107,11 +122,14 @@ def setup_containers(pktgen_image, cpu_count, vnf_per_core):
         print(f"- VNF container with name: {c.name} and PID: {pid} is running.")
 
     client.close()
-    return (c_vnfs_pid, c_pktgen_pid)
+
+    return (c_vnfs_name, c_vnfs_pid, c_pktgen_pid)
 
 
-def setup_veth_xdp_fwd(pktgen_image, cpu_count, vnf_per_core):
-    c_vnf_pid, c_pktgen_pid = setup_containers(pktgen_image, cpu_count, vnf_per_core)
+def setup_veth_xdp_fwd(pktgen_image, cpu_count, vnf_per_core, vnf_veth_pairs):
+    c_vnfs_name, c_vnf_pid, c_pktgen_pid = setup_containers(
+        pktgen_image, cpu_count, vnf_per_core
+    )
     # ONLY vnf0 container has network data plane interfaces.
     cmds = [
         "mkdir -p /var/run/netns",
@@ -140,6 +158,17 @@ def setup_veth_xdp_fwd(pktgen_image, cpu_count, vnf_per_core):
     ]
     for c in cmds:
         subprocess.run(shlex.split(c), check=True)
+
+    if vnf_veth_pairs:
+        print(
+            "* Add additional data plane interfaces to containers: {}".format(
+                ", ".join(c_vnfs_name[1:])
+            )
+        )
+        s = 1
+        for n, p in zip(c_vnfs_name[1:], c_vnf_pid[1:]):
+            add_veth_pairs(n, p, s)
+            s += 1
 
     client = docker.from_env()
     c_vnf = client.containers.list(
@@ -318,6 +347,12 @@ if __name__ == "__main__":
         default=1,
         help="The number of co-located VNFs on a single worker CPU core.",
     )
+    parser.add_argument(
+        "--vnf_veth_pairs",
+        action="store_true",
+        default=False,
+        help="Add additional veth pairs for all VNFs.",
+    )
 
     args = parser.parse_args()
 
@@ -331,10 +366,12 @@ if __name__ == "__main__":
     if args.action == "setup":
         print("* The setup name: {}.".format(args.setup_name))
         if args.setup_name == "veth_xdp_fwd":
-            setup_veth_xdp_fwd(args.pktgen_image, cpu_count, args.vnf_per_core)
+            setup_veth_xdp_fwd(
+                args.pktgen_image, cpu_count, args.vnf_per_core, args.vnf_veth_pairs
+            )
     elif args.action == "teardown":
         if args.setup_name == "veth_xdp_fwd":
             teardown_veth_xdp_fwd()
     elif args.action == "test":
-        setup_veth_xdp_fwd(args.pktgen_image, cpu_count, 3)
+        setup_veth_xdp_fwd(args.pktgen_image, cpu_count, 3, True)
         teardown_veth_xdp_fwd()

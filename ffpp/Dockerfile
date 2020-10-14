@@ -64,6 +64,8 @@ RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
 RUN make release && make install
+ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/lib/x86_64-linux-gnu/pkgconfig
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/x86_64-linux-gnu
 WORKDIR ${FFPP_PATH}/ffpp-py
 RUN python3 setup.py install
 

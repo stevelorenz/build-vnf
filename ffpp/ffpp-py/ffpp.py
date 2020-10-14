@@ -26,6 +26,11 @@ def eal_cleanup():
 # FFPP MuNF manager
 
 
+class MuNFManager(object):
+    def __init__(self):
+        pass
+
+
 if __name__ == "__main__":
     print("--- Run ffpp tests")
     cli_args = ["ffpp", "-l", "1"]
