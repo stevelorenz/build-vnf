@@ -84,7 +84,7 @@ int ffpp_munf_init_manager(struct ffpp_munf_manager *manager,
 		"MuNF: Init the memory pool for network function: %s\n",
 		nf_name);
 	pool = ffpp_init_mempool(nf_name, FFPP_MUNF_NB_MBUFS_DEFAULT * nb_ports,
-				 rte_socket_id(), RTE_MBUF_DEFAULT_BUF_SIZE);
+				 RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
 	if (pool == NULL) {
 		rte_exit(
 			EXIT_FAILURE,

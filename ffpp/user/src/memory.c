@@ -20,7 +20,7 @@
  * Minimal buffer length is 2KB + RTE_PKTMBUF_HEADROOM
  * */
 struct rte_mempool *ffpp_init_mempool(const char *name, uint32_t nb_mbuf,
-				      uint32_t socket, uint32_t mbuf_size)
+				      uint32_t mbuf_size, uint32_t socket_id)
 {
 	struct rte_mempool *pool = NULL;
 	// rte_mempool_create is not thread-safe.
@@ -30,7 +30,7 @@ struct rte_mempool *ffpp_init_mempool(const char *name, uint32_t nb_mbuf,
 	// the socket id can be SOCKET_ID_ANT if there is no NUMA constriant for
 	// reserved zone.
 	pool = rte_pktmbuf_pool_create(name, nb_mbuf, MEMPOOL_CACHE_SIZE, 0,
-				       mbuf_size, socket);
+				       mbuf_size, socket_id);
 	rte_spinlock_unlock(&lock);
 	if (pool == NULL) {
 		RTE_LOG(EMERG, MEMPOOL, "Failed to init memory pool: %s\n",

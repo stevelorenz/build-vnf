@@ -317,7 +317,10 @@ def main():
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
 
     parser.add_argument(
-        "--out", type=str, default="", help="Stores file with given name",
+        "--out",
+        type=str,
+        default="",
+        help="Stores file with given name",
     )
 
     args = parser.parse_args()

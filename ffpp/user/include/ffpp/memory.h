@@ -12,12 +12,12 @@
  *
  * @param name
  * @param nb_mbuf
- * @param socket
  * @param mbuf_size
+ * @param socket_id
  *
  * @return
  */
 struct rte_mempool *ffpp_init_mempool(const char *name, uint32_t nb_mbuf,
-				      uint32_t socket, uint32_t mbuf_size);
+				      uint32_t mbuf_size, uint32_t socket_id);
 
 #endif /* !MEMORY_H */
