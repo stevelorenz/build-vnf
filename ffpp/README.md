@@ -24,6 +24,8 @@ TODO: Add a fantastic introduction of this (maybe) novel research idea.
 
 -   [kern](./kern/): Sources for eBPF and XDP programs running in the kernel space. (Currently, it also contains sources to load/unload XDP programs and XDP user space programs, these codes should be moved to `user` soon.)
 
+-   [emulation](./emulation/): Emulation scripts using [ComNetsEmu](https://git.comnets.net/public-repo/comnetsemu).
+
 
 ## Quick Start
 

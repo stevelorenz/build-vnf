@@ -41,12 +41,12 @@ SCRIPT
 
 $setup_x11_server_apt= <<-SCRIPT
 DEBIAN_FRONTEND=noninteractive apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox xterm
-sed -i 's/#X11UseLocalhost yes/X11UseLocalhost no/g' /etc/ssh/sshd_config
-systemctl restart sshd.service
+DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox xterm xauth
 SCRIPT
 
 $post_installation= <<-SCRIPT
+# Allow vagrant user to use Docker without sudo
+usermod -aG docker vagrant
 if [ -d /home/vagrant/.docker ]; then
   chown -R vagrant:vagrant /home/vagrant/.docker
 fi
@@ -121,6 +121,12 @@ Vagrant.configure("2") do |config|
         echo 3 | sudo tee /proc/sys/vm/drop_caches
         cd /vagrant/scripts || exit
         sudo bash ./setup_hugepage.sh
+    SHELL
+
+    # Make the maketerm of Mininet works in VirtualBox.
+    vnf.vm.provision :shell, privileged: true, run: "always", inline: <<-SHELL
+      sed -i 's/X11UseLocalhost no/X11UseLocalhost yes/g' /etc/ssh/sshd_config
+      systemctl restart sshd.service
     SHELL
 
     vnf.ssh.forward_agent = true

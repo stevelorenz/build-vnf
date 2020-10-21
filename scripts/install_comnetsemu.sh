@@ -19,7 +19,8 @@ if [[ "$#" -eq 0 ]]; then
     if [ -d ~/comnetsemu ]; then sudo rm -rf ~/comnetsemu; fi
     if [ -d ~/comnetsemu_dependencies ]; then sudo rm -rf ~/comnetsemu_dependencies; fi
 
-    git clone https://git.comnets.net/public-repo/comnetsemu.git ~/comnetsemu
+    # Use dev branch by default for testing.
+    git clone https://git.comnets.net/public-repo/comnetsemu.git ~/comnetsemu --branch dev
     cd ~/comnetsemu/util || exit
     bash ./install.sh -d
     bash ./install.sh -nc
@@ -30,6 +31,8 @@ if [[ "$#" -eq 0 ]]; then
     cd ~/comnetsemu/test_containers || exit
     sudo ./build.sh
     sudo docker image prune
+
+    cp ~/comnetsemu/util/Xresources ~/.Xresources
 elif [[ $1 == "-u" ]]; then
     echo "- Upgrade installed ComNetsEmu."
     cd ~/comnetsemu/util || exit

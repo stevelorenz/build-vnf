@@ -220,6 +220,7 @@ calvin-fass/ffpp/docs/latex
 calvin-fass/ffpp/docs/build
 calvin-fass/ffpp/docs/.build
 calvin-fass/ffpp/MoonGen
+!ffpp/ffpp-go/go.mod
 
 -----------
 -  Malte  -
