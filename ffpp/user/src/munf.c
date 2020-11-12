@@ -69,14 +69,20 @@ int ffpp_munf_init_manager(struct ffpp_munf_manager *manager,
 	uint16_t nb_ports;
 	nb_ports = rte_eth_dev_count_avail();
 	RTE_LOG(INFO, FFPP, "MuNF: Avalable ports number: %u\n", nb_ports);
-	if (nb_ports != 2) {
+	if (nb_ports == 0 || nb_ports > 2) {
 		rte_exit(
 			EXIT_FAILURE,
-			"Each MuNF must have TWO avaiable ports (Used as ingress and egress ports)\n");
+			"Each MuNF must have one or two avaiable ports (Used as ingress and egress ports)\n");
 	}
 
-	manager->rx_port_id = 0;
-	manager->tx_port_id = 1;
+	if (nb_ports == 1) {
+		manager->rx_port_id = 0;
+		manager->tx_port_id = 0;
+	} else if (nb_ports == 2) {
+		manager->rx_port_id = 0;
+		manager->tx_port_id = 1;
+	}
+
 	rte_strscpy(manager->nf_name, nf_name, FFPP_MUNF_NAME_MAX_LEN);
 
 	// Init memory pool.
