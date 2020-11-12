@@ -23,7 +23,7 @@ if [[ "$#" -eq 0 ]]; then
     git clone https://git.comnets.net/public-repo/comnetsemu.git ~/comnetsemu --branch dev
     cd ~/comnetsemu/util || exit
     bash ./install.sh -d
-    bash ./install.sh -nc
+    bash ./install.sh -ncy
     cd ~/comnetsemu || exit
     sudo make develop
 

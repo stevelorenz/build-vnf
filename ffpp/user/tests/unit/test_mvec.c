@@ -2,6 +2,8 @@
  * test_mvec.c
  */
 
+#include <assert.h>
+
 #include <rte_eal.h>
 
 #include <rte_cycles.h>

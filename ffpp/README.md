@@ -154,7 +154,7 @@ Sources running in kernel space (located in `./kern`) are built with the makefil
 
   *   [Meson](https://mesonbuild.com/)(>=0.47.1)
   *   [Ninja](https://github.com/ninja-build/ninja)(>=1.10.0)
-  *   [DPDK](https://core.dpdk.org/download/)(v20.08): DPDK's API and ABI could change in every release, so this library only supports a specific version.
+  *   [DPDK](https://core.dpdk.org/download/)(19.11.3): DPDK's API and ABI could change in every release, so this library only supports a specific version.
   *   [xdp-tools](https://github.com/xdp-project/xdp-tools)(v0.0.3)
   *   [Jansson](https://digip.org/jansson/)
   *   [libzmq](https://zeromq.org/)

@@ -32,7 +32,7 @@ c_flags = [
     '-Werror=format=2',
     # '-Wstrict-prototypes',
     # '-Wredundant-decls',
-    '-Wimplicit-fallthrough=5',
+    # '-Wimplicit-fallthrough=5',
     '-Wendif-labels',
     '-Wstrict-aliasing=3',
     '-Wwrite-strings',
@@ -106,11 +106,11 @@ cpp_flags = [
 ]
 
 add_project_arguments(
-    cc.get_supported_arguments(c_flags),
+    c_flags,
     language: 'c',
 )
 add_project_arguments(
-    cppc.get_supported_arguments(cpp_flags),
+    cpp_flags,
     language: 'cpp',
 )
 

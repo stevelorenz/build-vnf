@@ -176,12 +176,15 @@ def testMuNF():
     pktgen.cmd("ip link set pktgen-s1 down")
     dut.cmd("ip addr flush dev dut-s1")
     dut.cmd("ip link set dut-s1 down")
+    pktgen.cmd("ip link set dev pktgen-out arp off")
+    pktgen.cmd("ip link set dev pktgen-in arp off")
 
     pktgen.cmd("ping -c 5 192.168.17.2")
     pktgen.cmd("ping -c 5 192.168.18.2")
 
     duration = time.time() - start_ts
     print(f"Setup duration: {duration:.2f} seconds.")
+
     CLI(net)
 
     info("*** Stopping network\n")
@@ -197,11 +200,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # TODO: Add this pre-setup in comnetsemu.
-    subprocess.run(
-        f"xauth add $(xauth -f /home/{sudo_user}/.Xauthority list|tail -1)",
-        check=True,
-        shell=True,
-    )
+    if os.path.exists(f"/home/{sudo_user}/.Xauthority"):
+        subprocess.run(
+            f"xauth add $(xauth -f /home/{sudo_user}/.Xauthority list|tail -1)",
+            check=True,
+            shell=True,
+        )
     # ISSUE: IPv6 support is currently not implemented in MuNF.
     subprocess.run(
         "sysctl -w net.ipv6.conf.all.disable_ipv6=1",
@@ -214,3 +218,9 @@ if __name__ == "__main__":
 
     setLogLevel("info")
     testMuNF()
+
+    subprocess.run(
+        "sysctl -w net.ipv6.conf.all.disable_ipv6=0",
+        check=True,
+        shell=True,
+    )

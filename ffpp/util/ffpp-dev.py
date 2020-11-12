@@ -35,10 +35,10 @@ class bcolors:
 
 
 FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
-    # I know --privileged is a bad/danger option. It is just used for tests.
     "auto_remove": True,
     "detach": True,  # -d
     "init": True,
+    # I know --privileged is a bad/danger option. It is just used for tests.
     "privileged": True,
     "tty": True,  # -t
     "stdin_open": True,  # -i
@@ -52,7 +52,6 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
     "working_dir": "/ffpp",
-    "image": "ffpp-dev:%s" % (FFPP_VER),
     "name": "ffpp-dev-vnf",
     "command": "bash",
 }
@@ -64,15 +63,25 @@ def build_image():
         + "ACTION: Build the Docker image for FFPP development."
         + bcolors.ENDC
     )
-    dockerfile = Path("../Dockerfile")
+    if FFPP_VER == "experimental":
+        dockerfile = Path("../Dockerfile.experimental")
+    else:
+        dockerfile = Path("../Dockerfile")
     if not dockerfile.is_file():
         print("Can not find the Dockerfile in path: %s." % dockerfile.as_posix())
         sys.exit(1)
     opts = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
-    opts["tag"] = "ffpp-dev:%s" % (FFPP_VER)
+    opts["tag"] = f"ffpp-dev:{FFPP_VER}"
+    opts["image"] = f"ffpp-dev:{FFPP_VER}"
     opts["target"] = "builder"
     client = docker.from_env()
-    image, _ = client.images.build(path="../", quiet=False, rm=True, tag=opts["tag"])
+    image, _ = client.images.build(
+        path=dockerfile.parent.as_posix(),
+        dockerfile=dockerfile.name,
+        quiet=False,
+        rm=True,
+        tag=opts["tag"],
+    )
     print("{} image is already built.\n".format(image.attrs["RepoTags"]))
     print("".join((bcolors.WARNING, "Remove all dangling images.", bcolors.ENDC)))
     client.images.prune(filters={"dangling": True})
@@ -81,6 +90,7 @@ def build_image():
 
 def run_interactive():
     opts = FFPP_DEV_CONTAINER_OPTS_DEFAULT.copy()
+    opts["image"] = f"ffpp-dev:{FFPP_VER}"
     print(
         bcolors.HEADER
         + "Run Docker container with image: {} interactively.".format(opts["image"])
@@ -115,7 +125,15 @@ parser.add_argument(
     ),
 )
 
+parser.add_argument(
+    "--experimental", action="store_true", help="Use experimental version."
+)
+
 args = parser.parse_args()
+
+if args.experimental:
+    print("*** Use experimental version!")
+    FFPP_VER = "experimental"
 
 dispatcher = {
     "build_image": build_image,
