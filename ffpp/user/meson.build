@@ -4,7 +4,7 @@ project('ffpp', 'c', 'cpp',
   meson_version: '>= 0.53.0',
   default_options: [
     'c_std=gnu18',
-    'cpp_std=c++11',
+    'cpp_std=c++17',
     'buildtype=release',
     'warning_level=3',
     'default_library=both',

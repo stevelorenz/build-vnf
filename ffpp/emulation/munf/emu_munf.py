@@ -49,7 +49,7 @@ def setupOvs(sw):
     )
 
 
-def testMuNF():
+def testMuNF(nano_cpus):
     net = Containernet(controller=Controller, link=TCLink)
     mgr = VNFManager(net)
 
@@ -81,9 +81,10 @@ def testMuNF():
     dut = net.addDockerHost(
         "dut",
         dimage=f"ffpp-dev:{FFPP_VER}",
+        ip="10.0.0.2/24",
         docker_args={
             "cpuset_cpus": "1,2",
-            "nano_cpus": int(8e8),
+            "nano_cpus": int(nano_cpus),
             "hostname": "dut",
             "volumes": {
                 "/sys/bus/pci/drivers": {
@@ -111,30 +112,24 @@ def testMuNF():
 
     # Data plane links.
     net.addLink(
-        s1,
+        dut,
         pktgen,
         bw=1000,
         delay="1ms",
-        intfName1="s1-pktgen-out",
+        intfName1="vnf-in",
         intfName2="pktgen-out",
     )
-    pktgen.cmd("ip addr add 192.168.17.1/24 dev pktgen-out")
     net.addLink(
-        s1,
+        dut,
         pktgen,
         bw=1000,
         delay="1ms",
-        intfName1="s1-pktgen-in",
+        intfName1="vnf-out",
         intfName2="pktgen-in",
     )
+    pktgen.cmd("ip addr add 192.168.17.1/24 dev pktgen-out")
     pktgen.cmd("ip addr add 192.168.18.1/24 dev pktgen-in")
-    net.addLink(
-        s1, dut, bw=1000, delay="1ms", intfName1="s1-vnf-in", intfName2="vnf-in"
-    )
     dut.cmd("ip addr add 192.168.17.2/24 dev vnf-in")
-    net.addLink(
-        s1, dut, bw=1000, delay="1ms", intfName1="s1-vnf-out", intfName2="vnf-out"
-    )
     dut.cmd("ip addr add 192.168.18.2/24 dev vnf-out")
 
     # TODO: Deploy a chain of CNFs.
@@ -168,16 +163,11 @@ def testMuNF():
 
     net.start()
 
-    # MUST run after net started.
-    setupOvs(s1)
-
     # Avoid looping
     pktgen.cmd("ip addr flush dev pktgen-s1")
     pktgen.cmd("ip link set pktgen-s1 down")
     dut.cmd("ip addr flush dev dut-s1")
     dut.cmd("ip link set dut-s1 down")
-    pktgen.cmd("ip link set dev pktgen-out arp off")
-    pktgen.cmd("ip link set dev pktgen-in arp off")
 
     pktgen.cmd("ping -c 5 192.168.17.2")
     pktgen.cmd("ping -c 5 192.168.18.2")
@@ -214,10 +204,13 @@ if __name__ == "__main__":
     )
 
     parser = argparse.ArgumentParser(description="Emulation topology for MuNF system.")
+    parser.add_argument(
+        "--nano_cpus", type=float, default=8e8, help="Nano CPUs for VNF."
+    )
     args = parser.parse_args()
 
     setLogLevel("info")
-    testMuNF()
+    testMuNF(nano_cpus=args.nano_cpus)
 
     subprocess.run(
         "sysctl -w net.ipv6.conf.all.disable_ipv6=0",
