@@ -32,6 +32,11 @@ def handle_bytesarray(barray):
     return barray.split(b"_")[0]
 
 
+def print_vector(vector):
+    assert type(vector) == list
+    print(vector)
+
+
 if __name__ == "__main__":
     print("Test file path: %s" % os.path.realpath(__file__))
     print("Today is: %s" % time.ctime(time.time()))

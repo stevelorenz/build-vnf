@@ -21,3 +21,9 @@ test_pye = executable(
   include_directories : inc,
   dependencies: ffpp_deps,
   link_with : [ffpplib_shared])
+
+test_pye_pybind11 = executable(
+  'test_pye_pybind11', 'test_pye_pybind11.cpp',
+  include_directories : inc,
+  dependencies: ffpp_deps,
+  link_with : [ffpplib_shared])

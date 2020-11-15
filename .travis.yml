@@ -1,6 +1,6 @@
 os: linux
 dist: focal
-language: c
+language: cpp
 
 services:
   - docker

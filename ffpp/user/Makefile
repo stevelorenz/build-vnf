@@ -24,7 +24,7 @@ tests:
 # (Some tests can not be checked with ASAN and valgrind due to issues in the dependencies...)
 run-tests:
 	@echo "* Run unit tests..."
-	cd ./build && meson test --suite no-leak --print-errorlogs
+	cd ./build && ASAN_OPTIONS=detect_leaks=0 meson test --suite no-leak --print-errorlogs
 
 run-tests-dev:
 	@echo "* Run unit tests (under development)..."
