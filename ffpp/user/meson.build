@@ -4,7 +4,7 @@ project('ffpp', 'c', 'cpp',
   meson_version: '>= 0.53.0',
   default_options: [
     'c_std=gnu18',
-    'cpp_std=c++17',
+    'cpp_std=c++2a',
     'buildtype=release',
     'warning_level=3',
     'default_library=both',
@@ -120,8 +120,12 @@ endif
 
 inc = include_directories('include')
 
+# For header-only libraries.
+inc = [inc, include_directories('/usr/include/pybind11')]
+
 math_dep = cc.find_library('m', required: true)
 
+# Libraries with support for pkg-config
 bpf_dep = dependency('libbpf', required: true)
 dpdk_dep = dependency('libdpdk', required: true)
 json_dep = dependency('jansson', required: true)

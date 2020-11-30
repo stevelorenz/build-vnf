@@ -47,6 +47,8 @@ This project focuses on (still **WIP**):
 
 -  Rigorous and practical performance benchmarking and analyze using both emulator and hardware testbed.
 
+[ComNetsEmu](https://github.com/stevelorenz/comnetsemu).
+
 ## Catalog
 
 -   [CALVIN](./CALVIN/): Programs and scripts used in [JSAC CALVIN paper](https://ieeexplore.ieee.org/abstract/document/8672612).

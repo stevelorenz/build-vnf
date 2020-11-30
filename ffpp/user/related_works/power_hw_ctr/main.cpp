@@ -24,6 +24,8 @@
 #include <rte_power.h>
 #include <rte_spinlock.h>
 
+#include <vector>
+
 #define FREQ_WINDOW_SIZE 32
 #define RTE_LOGTYPE_POWER_MANAGER RTE_LOGTYPE_USER1
 
@@ -85,7 +87,8 @@ static int core_info_init(struct core_info *ci, float branch_ratio_threshold)
 	ci->core_count = rte_lcore_count();
 
 	ci->branch_ratio_threshold = branch_ratio_threshold;
-	ci->cd = malloc(ci->core_count * sizeof(struct core_details));
+	ci->cd = static_cast<core_details *>(
+		malloc(ci->core_count * sizeof(struct core_details)));
 	memset(ci->cd, 0, ci->core_count * sizeof(struct core_details));
 	if (!ci->cd) {
 		RTE_LOG(ERR, POWER_MANAGER,
