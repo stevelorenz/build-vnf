@@ -15,6 +15,11 @@
 
 TODO: Add a fantastic introduction of this (maybe) novel research idea.
 
+Focuses:
+
+-   Enable COIN applications with functional and stateful packet processing.
+
+-   Combine DPDK and XDP for flexible packet processing.
 
 ## Catalog
 
@@ -25,6 +30,8 @@ TODO: Add a fantastic introduction of this (maybe) novel research idea.
 -   [kern](./kern/): Sources for eBPF and XDP programs running in the kernel space. (Currently, it also contains sources to load/unload XDP programs and XDP user space programs, these codes should be moved to `user` soon.)
 
 -   [emulation](./emulation/): Emulation scripts using [ComNetsEmu](https://git.comnets.net/public-repo/comnetsemu).
+
+-   [user/related_works](./user/related_works/): Related works or reference implementations. They are used for comparison in performance evaluations.
 
 
 ## Quick Start
@@ -159,6 +166,7 @@ Sources running in kernel space (located in `./kern`) are built with the makefil
   *   [Jansson](https://digip.org/jansson/)
   *   [libzmq](https://zeromq.org/)
   *   python3-dev: Used for embedding Python.
+  *   [pybind11](https://github.com/pybind/pybind11): Used for embedding Python.
 
 
 If all dependencies are installed correctly, then you should be able to simply run following commands to build and install (**ONLY** user space library) both shared and

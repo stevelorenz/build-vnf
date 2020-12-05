@@ -13,6 +13,13 @@
 single machine.
 
 This is ONLY a **exploration project** for **research** purposes ( so publish papers ;) ).
+The focus of this collection is for [COmputing In the Network (COIN)](https://datatracker.ietf.org/rg/coinrg/about/) applications.
+According to the [drafts](https://datatracker.ietf.org/rg/coinrg/documents/) of the working group, there are many open questions to explore.
+One key problem is address the limitation of the end-to-end protocols in the transport layer.
+There are some internal projects related to this direction currently under development.
+They will be open sourced after the publication.
+Please send me an Email if you want to discuss about these topics, thanks.
+
 It is currently **under heavy development**.
 The project structure is not yet stabilized.
 Directories will be better organized after the stable 1.0 version.

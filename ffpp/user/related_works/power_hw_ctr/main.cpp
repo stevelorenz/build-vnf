@@ -489,7 +489,7 @@ int main(int argc, char *argv[])
 	RTE_LOG(INFO, POWER_MANAGER,
 		"Run core monitor on the master core :%u\n",
 		rte_get_master_lcore());
-	rte_eal_mp_remote_launch(run_core_monitor, &ci, CALL_MASTER);
+	rte_eal_mp_remote_launch(run_core_monitor, &ci, CALL_MAIN);
 
 	rte_eal_mp_wait_lcore();
 
