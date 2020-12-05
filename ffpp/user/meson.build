@@ -120,9 +120,6 @@ endif
 
 inc = include_directories('include')
 
-# For header-only libraries.
-inc = [inc, include_directories('/usr/include/pybind11')]
-
 math_dep = cc.find_library('m', required: true)
 
 # Libraries with support for pkg-config
@@ -132,6 +129,10 @@ json_dep = dependency('jansson', required: true)
 python_embed_dep = dependency('python3-embed', required: true)
 zmq_dep = dependency('libzmq', required: true)
 
+# Header-only libraries.
+pybind11_inc = include_directories('/usr/include/pybind11')
+pybind11_dep = declare_dependency(include_directories : pybind11_inc)
+
 ffpp_dep_list = [
   bpf_dep,
   dpdk_dep,
@@ -139,6 +140,7 @@ ffpp_dep_list = [
   math_dep,
   python_embed_dep,
   zmq_dep,
+  pybind11_dep,
 ]
 
 ffpp_deps = declare_dependency(
@@ -168,6 +170,11 @@ pkg_mod.generate(
   version: meson.project_version(),
   description : 'A Library for Fast Functional Packet Processing.'
 )
+
+run_target('cppcheck', command: [
+  'cppcheck','--enable=warning,style,performance,information',
+  '--project=' + join_paths(meson.source_root(), 'build', 'compile_commands.json')
+]) 
 
 message('\n'.join([
   '',

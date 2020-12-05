@@ -18,7 +18,7 @@ void print_lcore_infos(void)
 	printf("*** Print the lcores information:\n");
 	printf("- The ID of the master lcore: %u\n", rte_get_master_lcore());
 	printf("%s", "- The ID of the slave lcores: ");
-	RTE_LCORE_FOREACH_SLAVE(i)
+	RTE_LCORE_FOREACH_WORKER(i)
 	{
 		printf("%u,", i);
 	}
@@ -48,7 +48,7 @@ void dpdk_enter_mainloop_master(lcore_function_t *func, void *args)
 int launch_workers(lcore_function_t *func, struct worker *workers)
 {
 	int core;
-	RTE_LCORE_FOREACH_SLAVE(core)
+	RTE_LCORE_FOREACH_WORKER(core)
 	{
 		int ret;
 		ret = rte_eal_remote_launch(func, &workers[core], core);

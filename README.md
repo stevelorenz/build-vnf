@@ -6,12 +6,20 @@
 <img alt="Build-VNF" src="https://github.com/stevelorenz/build-vnf/raw/master/logo/logo_horizontal.png" width="500">
 </p>
 
-A collection (mono-repo) of utilities to build, test and benchmark practical and high-performance and portable Virtualized Network Functions (VNFs) on a single laptop.
-This is a exploration project for research purposes.
 
-**Warning**: This project is currently **under heavy development**.
+## Overview
+
+(**WIP**) A collection (mono-repo) of utilities to build, test and benchmark practical and high-performance and energy-efficient Virtualized Network Functions (VNFs) on a
+single machine.
+
+This is ONLY a **exploration project** for **research** purposes ( so publish papers ;) ).
+It is currently **under heavy development**.
 The project structure is not yet stabilized.
 Directories will be better organized after the stable 1.0 version.
+
+The utilities from this project are used in other projects or prototypes that I worked on during my PhD.
+For example, the FFPP library is used to make prototypes of containerized VNFs.
+These VNFs are used to perform network simulation experiments using [ComNetsEmu](https://github.com/stevelorenz/comnetsemu).
 
 This project is hosted both on [GitHub](https://github.com/stevelorenz/build-vnf) and [BitBucket](https://bitbucket.org/comnets/build-vnf/src/master/). 
 Please create an issue or a pull request if you have any questions or code contribution.
@@ -19,7 +27,7 @@ Please create an issue or a pull request if you have any questions or code contr
 
 ## Table of Contents
 
-*   [Overview](#overview)
+*   [Introduction and Objectives](#introduction-and-objectives)
 *   [Catalog](#catalog)
 *   [Quick Start](#quick-start)
 *   [Citing Our Works](#citing-our-works)
@@ -28,7 +36,7 @@ Please create an issue or a pull request if you have any questions or code contr
 *   [License](#license)
 
 
-## Overview
+## Introduction and Objectives
 
 This repository is a **collection(mono-repo)** of programs/libraries/scripts/utilities related to my PhD topic: Ultra **Low Latency** Network Softwarization for COmputing In the Network (COIN).
 It provides utilities to build, test and benchmark practical and high-performance and portable Virtualized Network Functions (VNFs) or Cloud-native Network Functions
@@ -43,11 +51,10 @@ This project focuses on (still **WIP**):
 
 -  Low per-packet latency, energy efficiency and flexibility: Intelligent network functions should processing packets fast without wasting unnecessary energy.
 
--  Primitives, APIs and protocols support for COmputing In the Network (COIN) applications.
+-  Primitives, APIs and protocols support for [COmputing In the Network (COIN)](https://datatracker.ietf.org/rg/coinrg/about/) applications.
 
 -  Rigorous and practical performance benchmarking and analyze using both emulator and hardware testbed.
 
-[ComNetsEmu](https://github.com/stevelorenz/comnetsemu).
 
 ## Catalog
 
@@ -59,7 +66,9 @@ This project focuses on (still **WIP**):
 
 ## Quick Start
 
-The easiest and most convenient way to try `Build-VNF` utilities is to use the test VM managed by `Vagrant`.
+This is a quick-start guide **ONLY** for development.
+
+The easiest and most **convenient** way to try `Build-VNF` utilities is to use the test VM managed by `Vagrant`.
 
 The development, test and basic benchmarks of VNFs, libraries are performed on a pre-configured VM managed by the Vagrant.
 The receipt to build the VM is in the [Vagrantfile](./Vagrantfile).
@@ -113,6 +122,7 @@ Open a terminal, enter the root directory of `build-vnf` project and run `$ vagr
 For bidirectional sync, [NFS](https://www.vagrantup.com/docs/synced-folders/nfs.html) need to be configured and used as the sync type.
 NFS-based sync tends to have more bugs, so rsync mode is used by default.
 
+
 ## Citing Our Works
 
 If you like tools inside this repository, please cite our papers.
@@ -136,9 +146,11 @@ If you like tools inside this repository, please cite our papers.
 This project exists thanks to all people who contribute.
 The [list](./CONTRIBUTORS) of all contributors.
 
+
 ## Contact
 
 * **Zuo Xiang** - *Project Maintainer* - xianglinks@gmail.com
+
 
 ## License
 
