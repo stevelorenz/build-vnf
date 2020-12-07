@@ -24,6 +24,9 @@
 #include <rte_power.h>
 #include <rte_spinlock.h>
 
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <vector>
 
 #define FREQ_WINDOW_SIZE 32
@@ -43,6 +46,7 @@
 static volatile bool force_quit = false;
 static uint64_t g_branches, g_branch_misses;
 static bool g_pm_on = true;
+static uint32_t test_rounds = 3;
 
 enum { FREQ_UNKNOWN, FREQ_MIN, FREQ_MAX };
 
@@ -392,16 +396,32 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 
 static void run_branch_monitor(struct core_info *ci)
 {
+	using namespace std;
 	int print = 0;
 	int printed = 0;
 	float ratio = 0.0;
 	int reads = 0;
 
+	uint16_t r = 0;
+	vector<double> monitor_latencies;
+
+	fstream csv_file;
+	string csv_file_name =
+		"./monitor_latencies_" + to_string(ci->core_count) + ".csv";
+	csv_file.open(csv_file_name, fstream::out | fstream::app);
+	cout << fixed << setprecision(17) << endl;
+	csv_file << fixed << setprecision(17) << endl;
+
+	uint64_t start_tsc, diff_tsc;
 	while (!force_quit) {
-		usleep(POLL_INTERVAL);
+		r += 1;
+		// usleep(POLL_INTERVAL);
 		int j;
 		print++;
 		printed = 0;
+
+		start_tsc = rte_get_tsc_cycles();
+
 		for (j = 0; j < ci->core_count; ++j) {
 			ratio = apply_policy(ci, j);
 			if ((print > PRINT_LOOP_COUNT)) {
@@ -414,19 +434,27 @@ static void run_branch_monitor(struct core_info *ci)
 				reads++;
 			}
 		}
+		diff_tsc = rte_get_tsc_cycles() - start_tsc;
+		monitor_latencies.push_back(double(diff_tsc) /
+					    rte_get_tsc_hz());
 		if (print > PRINT_LOOP_COUNT) {
 			if (printed) {
 				printf("\n");
 			}
 			print = 0;
 		}
+		if (r == test_rounds) {
+			force_quit = true;
+		}
 	}
-}
-
-static int run_core_monitor(void *arg)
-{
-	run_branch_monitor((struct core_info *)arg);
-	return 0;
+	cout << "Monitor latencies:" << endl;
+	for (auto t : monitor_latencies) {
+		t = t * 1000; // milliseconds.
+		cout << t << ",";
+		csv_file << t << ",";
+	}
+	cout << endl;
+	csv_file.close();
 }
 
 int main(int argc, char *argv[])
@@ -438,15 +466,9 @@ int main(int argc, char *argv[])
 	argc -= ret;
 	argv += ret;
 
-	if (rte_eal_process_type() == RTE_PROC_PRIMARY) {
-		rte_eal_cleanup();
-		rte_exit(EXIT_FAILURE,
-			 "Dummpy VNF must run as secondary process.\n");
-	}
-
 	int opt = 0;
 	float branch_ratio_threshold = 0.1;
-	while ((opt = getopt(argc, argv, "b:n")) != -1) {
+	while ((opt = getopt(argc, argv, "b:r:n")) != -1) {
 		switch (opt) {
 		case 'b':
 			if (strlen(optarg)) {
@@ -460,6 +482,9 @@ int main(int argc, char *argv[])
 		case 'n':
 			g_pm_on = false;
 			break;
+		case 'r':
+			test_rounds = atoi(optarg);
+			break;
 
 		default:
 			rte_eal_cleanup();
@@ -471,6 +496,7 @@ int main(int argc, char *argv[])
 	       branch_ratio_threshold);
 	printf(" The power management is %s.\n",
 	       g_pm_on == true ? "enabled" : "disabled");
+	printf(" Test rounds: %u\n", test_rounds);
 
 	force_quit = false;
 	signal(SIGINT, signal_handler);
@@ -489,7 +515,7 @@ int main(int argc, char *argv[])
 	RTE_LOG(INFO, POWER_MANAGER,
 		"Run core monitor on the master core :%u\n",
 		rte_get_master_lcore());
-	rte_eal_mp_remote_launch(run_core_monitor, &ci, CALL_MAIN);
+	run_branch_monitor(&ci);
 
 	rte_eal_mp_wait_lcore();
 
