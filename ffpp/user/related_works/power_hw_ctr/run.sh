@@ -26,7 +26,7 @@ elif [[ $1 == "-s" ]]; then
     echo "Run test as primary process without power management!"
     ./ffpp_power_hw_ctr --proc-type=primary \
         -l 0,1 \
-        --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,3 \
+        --no-pci --single-file-segments --file-prefix=vnf --log-level=eal,1 \
         --log-level=user1,8 \
         -- -b 0.01 -r 17 -n
 else

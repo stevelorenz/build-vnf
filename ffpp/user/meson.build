@@ -149,6 +149,7 @@ ffpp_deps = declare_dependency(
 
 subdir('include')
 subdir('src')
+subdir('third_party')
 
 if get_option('examples')
   subdir('examples')

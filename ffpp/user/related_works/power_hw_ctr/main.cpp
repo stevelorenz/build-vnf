@@ -95,8 +95,7 @@ static int core_info_init(struct core_info *ci, float branch_ratio_threshold)
 		malloc(ci->core_count * sizeof(struct core_details)));
 	memset(ci->cd, 0, ci->core_count * sizeof(struct core_details));
 	if (!ci->cd) {
-		RTE_LOG(ERR, POWER_MANAGER,
-			"Failed to allocate memory for core info.\n");
+		RTE_LOG(ERR, EAL, "Failed to allocate memory for core info.\n");
 		return -1;
 	}
 	RTE_LCORE_FOREACH(lcore_id)
@@ -115,15 +114,14 @@ static int core_info_init(struct core_info *ci, float branch_ratio_threshold)
 
 static int add_core_to_monitor(struct core_info *ci, uint32_t idx)
 {
-	RTE_LOG(INFO, POWER_MANAGER, "Add lcore: %u to the monitor.\n",
+	RTE_LOG(INFO, EAL, "Add lcore: %u to the monitor.\n",
 		ci->cd[idx].lcore_id);
 	char proc_file[PATH_MAX];
 	int ret;
 	snprintf(proc_file, PATH_MAX, "/dev/cpu/%d/msr", ci->cd[idx].lcore_id);
 	ci->cd[idx].msr_fd = open(proc_file, O_RDWR | O_SYNC);
 	if (ci->cd[idx].msr_fd < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
-			"Failed to open MSR file for lcore.");
+		RTE_LOG(ERR, EAL, "Failed to open MSR file for lcore.");
 	}
 
 	// Setup branch counters
@@ -132,7 +130,7 @@ static int add_core_to_monitor(struct core_info *ci, uint32_t idx)
 	ret = pwrite(ci->cd[idx].msr_fd, &setup, sizeof(setup),
 		     IA32_PERFEVTSEL0);
 	if (ret < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
+		RTE_LOG(ERR, EAL,
 			"Unable to set branch hits counter for lcore");
 		return -1;
 	}
@@ -140,7 +138,7 @@ static int add_core_to_monitor(struct core_info *ci, uint32_t idx)
 	ret = pwrite(ci->cd[idx].msr_fd, &setup, sizeof(setup),
 		     IA32_PERFEVTSEL1);
 	if (ret < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
+		RTE_LOG(ERR, EAL,
 			"Unable to set branch miss counter for lcore");
 		return -1;
 	}
@@ -166,7 +164,7 @@ static int remove_core_from_monitor(struct core_info *ci, uint32_t idx)
 	snprintf(proc_file, PATH_MAX, "/dev/cpu/%d/msr", ci->cd[idx].lcore_id);
 	ci->cd[idx].msr_fd = open(proc_file, O_RDWR | O_SYNC);
 	if (ci->cd[idx].msr_fd < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
+		RTE_LOG(ERR, EAL,
 			"Error opening MSR file for core %d "
 			"(is msr kernel module loaded?)\n",
 			idx);
@@ -176,16 +174,14 @@ static int remove_core_from_monitor(struct core_info *ci, uint32_t idx)
 	ret = pwrite(ci->cd[idx].msr_fd, &setup, sizeof(setup),
 		     IA32_PERFEVTSEL0);
 	if (ret < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
-			"unable to set counter for core %u\n", idx);
+		RTE_LOG(ERR, EAL, "unable to set counter for core %u\n", idx);
 		return ret;
 	}
 	setup = 0x0; /* clear event */
 	ret = pwrite(ci->cd[idx].msr_fd, &setup, sizeof(setup),
 		     IA32_PERFEVTSEL1);
 	if (ret < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
-			"unable to set counter for core %u\n", idx);
+		RTE_LOG(ERR, EAL, "unable to set counter for core %u\n", idx);
 		return ret;
 	}
 
@@ -210,14 +206,14 @@ static int power_manager_init(struct core_info *ci)
 	}
 	for (i = 0; i < max_core_num; ++i) {
 		if (rte_power_init(ci->cd[i].lcore_id) < 0) {
-			RTE_LOG(ERR, POWER_MANAGER,
+			RTE_LOG(ERR, EAL,
 				"Unable to init power manager for lcore: %u\n",
 				ci->cd[i].lcore_id);
 		}
 		num_freqs = rte_power_freqs(i, global_core_freq_info[i].freqs,
 					    RTE_MAX_LCORE_FREQS);
 		if (num_freqs == 0) {
-			RTE_LOG(ERR, POWER_MANAGER,
+			RTE_LOG(ERR, EAL,
 				"Unable to get freq list of lcore: %u\n",
 				ci->cd[i].lcore_id);
 		}
@@ -225,7 +221,7 @@ static int power_manager_init(struct core_info *ci)
 		rte_spinlock_init(&global_core_freq_info[i].power_sl);
 		ret = add_core_to_monitor(ci, i);
 		if (ret < 0) {
-			RTE_LOG(ERR, POWER_MANAGER,
+			RTE_LOG(ERR, EAL,
 				"Failed to enable monitoring on the core.\n");
 			return -1;
 		}
@@ -246,7 +242,7 @@ static int power_manager_exit(struct core_info *ci)
 	}
 	for (i = 0; i < max_core_num; ++i) {
 		if (rte_power_exit(ci->cd[i].lcore_id) < 0) {
-			RTE_LOG(ERR, POWER_MANAGER,
+			RTE_LOG(ERR, EAL,
 				"Unable to shutdown power manager for lcore: %u\n",
 				ci->cd[i].lcore_id);
 			return -1;
@@ -261,8 +257,7 @@ static void scale_all_lcores_max(struct core_info *ci)
 {
 	uint32_t i = 0;
 	for (i = 0; i < ci->core_count; ++i) {
-		RTE_LOG(DEBUG, POWER_MANAGER,
-			"[Scale loop] Scale lcore: %u to max!\n",
+		RTE_LOG(DEBUG, EAL, "[Scale loop] Scale lcore: %u to max!\n",
 			ci->cd[i].lcore_id);
 		rte_spinlock_lock(&global_core_freq_info[i].power_sl);
 		rte_power_freq_max(ci->cd[i].lcore_id);
@@ -274,8 +269,7 @@ static void scale_all_lcores_min(struct core_info *ci)
 {
 	uint32_t i = 0;
 	for (i = 0; i < ci->core_count; ++i) {
-		RTE_LOG(DEBUG, POWER_MANAGER,
-			"[Scale loop] Scale lcore: %u to min!\n",
+		RTE_LOG(DEBUG, EAL, "[Scale loop] Scale lcore: %u to min!\n",
 			ci->cd[i].lcore_id);
 		rte_spinlock_lock(&global_core_freq_info[i].power_sl);
 		rte_power_freq_min(ci->cd[i].lcore_id);
@@ -299,8 +293,7 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 	ret = pread(ci->cd[idx].msr_fd, &counter, sizeof(counter),
 		    IA32_PERFCTR0);
 	if (ret < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
-			"Failed to read the counter for lcore: %u\n",
+		RTE_LOG(ERR, EAL, "Failed to read the counter for lcore: %u\n",
 			ci->cd[idx].lcore_id);
 	}
 	branches = counter;
@@ -309,8 +302,7 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 	ret = pread(ci->cd[idx].msr_fd, &counter, sizeof(counter),
 		    IA32_PERFCTR1);
 	if (ret < 0) {
-		RTE_LOG(ERR, POWER_MANAGER,
-			"Failed to read the counter for lcore: %u\n",
+		RTE_LOG(ERR, EAL, "Failed to read the counter for lcore: %u\n",
 			ci->cd[idx].lcore_id);
 	}
 	branch_misses = counter;
@@ -321,8 +313,8 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 	branches >>= 1;
 	last_branches >>= 1;
 	hits_diff = (int64_t)(branches) - (int64_t)(last_branches);
-	RTE_LOG(DEBUG, POWER_MANAGER, "branches: %lu, branch_misses: %lu\n",
-		branches, branch_misses);
+	RTE_LOG(DEBUG, EAL, "branches: %lu, branch_misses: %lu\n", branches,
+		branch_misses);
 	// Counter is probably overflow.
 	if (hits_diff < 0) {
 		return -1.0;
@@ -339,7 +331,7 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 	g_branches = hits_diff;
 	g_branch_misses = miss_diff;
 	if (hits_diff < (POLL_INTERVAL * 100)) {
-		RTE_LOG(DEBUG, POWER_MANAGER,
+		RTE_LOG(DEBUG, EAL,
 			"No workload detected on lcore %u Scale the frequency to MIN.\n",
 			ci->cd[idx].lcore_id);
 		if (likely(g_pm_on)) {
@@ -375,14 +367,14 @@ static float apply_policy(struct core_info *ci, uint32_t idx)
 
 	if (up_count == 0) {
 		if (ci->cd[idx].freq_state != FREQ_MIN) {
-			RTE_LOG(DEBUG, POWER_MANAGER,
+			RTE_LOG(DEBUG, EAL,
 				"Scale up the frequency to the MIN!\n");
 			scale_all_lcores_min(ci);
 			ci->cd[idx].freq_state = FREQ_MIN;
 		}
 	} else {
 		if (ci->cd[idx].freq_state != FREQ_MAX) {
-			RTE_LOG(DEBUG, POWER_MANAGER,
+			RTE_LOG(DEBUG, EAL,
 				"Scale up the frequency to the MAX!\n");
 			if (likely(g_pm_on)) {
 				scale_all_lcores_max(ci);
@@ -415,7 +407,6 @@ static void run_branch_monitor(struct core_info *ci)
 	uint64_t start_tsc, diff_tsc;
 	while (!force_quit) {
 		r += 1;
-		// usleep(POLL_INTERVAL);
 		int j;
 		print++;
 		printed = 0;
@@ -447,9 +438,9 @@ static void run_branch_monitor(struct core_info *ci)
 			force_quit = true;
 		}
 	}
-	cout << "Monitor latencies:" << endl;
+	cout << "Monitor latencies (microseconds):" << endl;
 	for (auto t : monitor_latencies) {
-		t = t * 1000; // milliseconds.
+		t = t * 1e6; // microseconds.
 		cout << t << ",";
 		csv_file << t << ",";
 	}
@@ -512,17 +503,16 @@ int main(int argc, char *argv[])
 		rte_exit(EXIT_FAILURE, "Failed to init power manager.\n");
 	}
 
-	RTE_LOG(INFO, POWER_MANAGER,
-		"Run core monitor on the master core :%u\n",
+	RTE_LOG(INFO, EAL, "Run core monitor on the master core :%u\n",
 		rte_get_master_lcore());
 	run_branch_monitor(&ci);
 
 	rte_eal_mp_wait_lcore();
 
-	RTE_LOG(INFO, POWER_MANAGER, "* Run the cleanups\n");
+	RTE_LOG(INFO, EAL, "* Run the cleanups\n");
 	ret = power_manager_exit(&ci);
 	if (ret < 0) {
-		RTE_LOG(ERR, POWER_MANAGER, "Failed to exit power manager.\n");
+		RTE_LOG(ERR, EAL, "Failed to exit power manager.\n");
 	}
 	free(ci.cd);
 	rte_eal_cleanup();

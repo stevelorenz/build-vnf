@@ -9,7 +9,10 @@
 #include <bpf/libbpf.h>
 
 #include <ffpp/bpf_defines_user.h>
-#include "../../../kern/xdp_fwd/common_kern_user.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define EXIT_OK 0
 #define EXIT_FAIL 1
@@ -81,5 +84,9 @@ void map_get_value_per_cpu_array(int fd, __u32 key, struct datarec *value);
  * 	- true on succes
  */
 bool map_collect(int fd, __u32 key, struct record *rec);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !BPF_HELPERS_USER_H */
