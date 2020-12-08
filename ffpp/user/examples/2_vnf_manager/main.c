@@ -30,7 +30,6 @@
 #include <ffpp/scaling_defines_user.h>
 #include <ffpp/general_helpers_user.h>
 #include <ffpp/global_stats_user.h>
-#include "../../../kern/xdp_fwd/common_kern_user.h"
 
 // Supress prints
 // #define RELEASE 1

@@ -30,7 +30,6 @@
 #include <ffpp/general_helpers_user.h>
 #include <ffpp/global_stats_user.h>
 #include <math.h>
-#include "../../../kern/xdp_fwd/common_kern_user.h"
 
 // supress prints
 #ifdef RELEASE
