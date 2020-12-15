@@ -183,7 +183,6 @@ venv.bak/
 *.jpg
 *.jpeg
 *.mbuf
-*.pcap
 !logo/*.png
 *.png
 *.pdf

@@ -2,8 +2,17 @@
  * utils.h
  */
 
-#ifndef DPDK_HELPER_H
-#define DPDK_HELPER_H
+#ifndef UTILS_H
+#define UTILS_H
+
+#include <stdint.h>
+
+#include <rte_mbuf.h>
+#include <rte_mempool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * @file
@@ -55,4 +64,8 @@ double get_delay_tsc_ms(uint64_t tsc_cnt);
 void save_double_list_csv(char *path, double *list, size_t n);
 void save_u64_list_csv(char *path, uint64_t *list, size_t n);
 
-#endif /* !DPDK_HELPER_H */
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
+#endif /* !UTILS_H */

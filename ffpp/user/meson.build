@@ -6,7 +6,7 @@ project('ffpp', 'c', 'cpp',
     'c_std=gnu18',
     'cpp_std=c++2a',
     'buildtype=release',
-    'warning_level=3',
+    'warning_level=2',
     'default_library=both',
     'werror=true',
     'b_lundef=true',
@@ -128,6 +128,7 @@ dpdk_dep = dependency('libdpdk', required: true)
 json_dep = dependency('jansson', required: true)
 python_embed_dep = dependency('python3-embed', required: true)
 zmq_dep = dependency('libzmq', required: true)
+libtins_dep = dependency('libtins', required: true)
 
 # Header-only libraries.
 pybind11_inc = include_directories('/usr/include/pybind11')
@@ -141,6 +142,7 @@ ffpp_dep_list = [
   python_embed_dep,
   zmq_dep,
   pybind11_dep,
+  libtins_dep,
 ]
 
 ffpp_deps = declare_dependency(

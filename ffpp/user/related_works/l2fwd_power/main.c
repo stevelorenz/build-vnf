@@ -1595,14 +1595,14 @@ int main(int argc, char **argv)
 		// MARK: If the scaling is required to perform on all cores of a
 		// single socket, rte_eal_remote_launch can be used.
 		rte_eal_mp_remote_launch(l2fwd_launch_one_lcore, &app_mode,
-					 CALL_MAIN);
+					 CALL_MASTER);
 
 		if (app_mode == APP_MODE_EMPTY_POLL) {
 			launch_timer(rte_lcore_id());
 		}
 
 		// SLAVE will be removed in the new DPDK release.
-		RTE_LCORE_FOREACH_WORKER(lcore_id)
+		RTE_LCORE_FOREACH_SLAVE(lcore_id)
 		{
 			if (rte_eal_wait_lcore(lcore_id) < 0) {
 				ret = -1;

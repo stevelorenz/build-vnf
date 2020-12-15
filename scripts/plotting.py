@@ -11,7 +11,7 @@ plot_files = []
 def save(figdir, path):
     abspath = os.path.join(figdir, path)
     print(abspath)
-    plt.savefig(abspath)
+    plt.savefig(abspath, bbox_inches="tight")
     plot_files.append(abspath)
 
 
@@ -39,12 +39,12 @@ def setup(
         "backend": "ps",
         # "text.usetex": True,
         # "text.latex.preamble": ["\\usepackage{gensymb}"],
-        "axes.labelsize": 8,  # fontsize for x and y labels (was 10)
-        "axes.titlesize": 8,
-        "font.size": 8,  # was 10
-        "legend.fontsize": 7,  # was 10
-        "xtick.labelsize": 8,
-        "ytick.labelsize": 8,
+        "axes.labelsize": 10,
+        "axes.titlesize": 10,
+        "font.size": 10,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
         "figure.figsize": figsize,
         "font.family": "serif",
         "figure.subplot.left": l,

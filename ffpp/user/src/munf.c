@@ -97,6 +97,7 @@ int ffpp_munf_init_manager(struct ffpp_munf_manager *manager,
 			"Faild to init the memory pool for network function: %s\n",
 			nf_name);
 	}
+	manager->pool = pool;
 
 	// Init ingress and egress ports (eth devices).
 	uint16_t port_id = 0;
@@ -124,6 +125,8 @@ void ffpp_munf_cleanup_manager(struct ffpp_munf_manager *manager)
 	rte_eth_dev_close(manager->rx_port_id);
 	rte_eth_dev_stop(manager->tx_port_id);
 	rte_eth_dev_close(manager->tx_port_id);
+
+	rte_mempool_free(manager->pool);
 }
 
 static int munf_register_init_rings(struct munf_entry *entry,

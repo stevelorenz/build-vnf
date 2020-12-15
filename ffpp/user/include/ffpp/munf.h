@@ -35,6 +35,8 @@ struct ffpp_munf_manager {
 	char nf_name[FFPP_MUNF_NAME_MAX_LEN];
 	uint16_t rx_port_id;
 	uint16_t tx_port_id;
+	// Can be used to generate new packets.
+	struct rte_mempool *pool;
 };
 
 struct ffpp_munf_data {

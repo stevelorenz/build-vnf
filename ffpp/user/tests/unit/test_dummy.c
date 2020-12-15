@@ -1,4 +1,3 @@
-#include <rte_cycles.h>
 #include <rte_eal.h>
 
 int main(int argc, char *argv[])
