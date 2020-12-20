@@ -1,17 +1,11 @@
 test_dummy = executable(
-  'test_dummy', 'test_dummy.c',
-  include_directories : inc,
-  dependencies: ffpp_deps,
-  link_with : [ffpplib_shared])
-
-test_mvec = executable(
-  'test_mvec', 'test_mvec.c',
+  'test_dummy', 'test_dummy.cpp',
   include_directories : inc,
   dependencies: ffpp_deps,
   link_with : [ffpplib_shared])
 
 test_munf = executable(
-  'test_munf', 'test_munf.c',
+  'test_munf', 'test_munf.cpp',
   include_directories : inc,
   dependencies: ffpp_deps,
   link_with : [ffpplib_shared])

@@ -4,6 +4,7 @@ project('ffpp', 'c', 'cpp',
   meson_version: '>= 0.53.0',
   default_options: [
     'c_std=gnu18',
+    # C++20 is used for C-style designated initializers.
     'cpp_std=c++2a',
     'buildtype=release',
     'warning_level=2',
@@ -97,9 +98,13 @@ cpp_flags = [
     '-fstack-protector-strong',
     '--param=ssp-buffer-size=4',
 
+    # When including DPDK headers, the following warnings will be disabled to
+    # allow the code to compile...
+    '-Wno-implicit-fallthrough',
     # ABI stability of DPDK is not considered here.
     # Because the test container always uses a specific DPDK version.
     '-Wno-deprecated-declarations',
+
     # They will be used in 6G and beyond :)
     '-Wno-unused-value',
     '-Wno-unused-variable',

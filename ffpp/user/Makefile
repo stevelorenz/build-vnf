@@ -4,51 +4,54 @@
 
 all: release
 
+TARGET_DIR = build
+
 release:
-	meson build --buildtype=release 
-	cd ./build && ninja
+	meson $(TARGET_DIR) --buildtype=release 
+	cd $(TARGET_DIR) && ninja
 
 debug:
-	meson -Db_sanitize=address,undefined build --buildtype=debug
-	cd ./build && ninja
+	if [ ! -d $(TARGET_DIR) ]; then mkdir $(TARGET_DIR); fi
+	meson -Db_sanitize=address,undefined $(TARGET_DIR) --buildtype=debug
+	cd $(TARGET_DIR) && ninja
 
 examples:
-	meson configure -Dexamples=true build
-	cd ./build/ && ninja
+	meson configure -Dexamples=true $(TARGET_DIR)
+	cd $(TARGET_DIR) && ninja
 
 related_works:
-	meson configure -Drelated_works=true build
-	cd ./build/ && ninja
+	meson configure -Drelated_works=true $(TARGET_DIR)
+	cd $(TARGET_DIR) && ninja
 
 tests:
-	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=address,undefined build --buildtype=debug
-	cd ./build/ && ninja
+	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=address,undefined $(TARGET_DIR) --buildtype=debug
+	cd $(TARGET_DIR) && ninja
 
 # Run all auto unit tests
 # (Some tests can not be checked with ASAN and valgrind due to issues in the dependencies...)
 run-tests:
 	@echo "* Run unit tests:"
-	cd ./build && ASAN_OPTIONS=detect_leaks=0 meson test --suite no-leak --print-errorlogs
+	cd $(TARGET_DIR) && ASAN_OPTIONS=detect_leaks=0 meson test --suite no-leak --print-errorlogs
 
 run-tests-dev:
 	@echo "* Run unit tests (under development):"
-	cd ./build && meson test --suite dev  --print-errorlogs
+	cd $(TARGET_DIR) && meson test --suite dev  --print-errorlogs
 
 # Run tests that currently have memory leaks (Could because of used dependencies).
 run-tests-leak:
-	cd ./build/ && meson test --suite leak --print-errorlogs
+	cd $(TARGET_DIR) && meson test --suite leak --print-errorlogs
 
 run-coverage:
-	cd ./build && ninja test && ninja coverage-html
+	cd $(TARGET_DIR) && ninja test && ninja coverage-html
 
 install:
-	cd ./build && ninja install
+	cd $(TARGET_DIR) && ninja install
 
 uninstall:
-	cd ./build && ninja uninstall
+	cd $(TARGET_DIR) && ninja uninstall
 
 clean:
-	rm -rf ./build
+	rm -rf $(TARGET_DIR)
 
 .PHONY: release debug examples related_works tests run-tests run-coverage install uninstall clean
 
@@ -62,12 +65,12 @@ ALL_CPP_FILES := $(CPP_SRCS) $(CPP_HEADERS)
 
 cppcheck: $(ALL_C_FILES)
 	@echo "* Run cppcheck: "
-	cd ./build && ninja cppcheck
+	cd $(TARGET_DIR) && ninja cppcheck
 
 # WARN: this process takes time.
 scan-build: $(ALL_C_FILES)
 	@echo "* Run Clang static analyzer:" 
-	cd ./build && ninja scan-build
+	cd $(TARGET_DIR) && ninja scan-build
 
 flawfinder: $(ALL_C_FILES) $(ALL_CPP_FILES)
 	@echo "* Check torrential flaws and vulnerabilities with static checker:"

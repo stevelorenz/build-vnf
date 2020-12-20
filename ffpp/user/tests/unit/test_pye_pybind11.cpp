@@ -19,7 +19,7 @@ static const char *test_py_path = "/ffpp/user/tests/data";
 
 void print_in_embeded()
 {
-	printf("Print inside the embeded module.\n");
+	std::cout << "Print inside the embeded module." << std::endl;
 }
 
 // Add an embedded module

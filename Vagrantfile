@@ -123,12 +123,6 @@ Vagrant.configure("2") do |config|
         sudo bash ./setup_hugepage.sh
     SHELL
 
-    # Make the maketerm of Mininet works in VirtualBox.
-    vnf.vm.provision :shell, privileged: true, run: "always", inline: <<-SHELL
-      sed -i 's/X11UseLocalhost no/X11UseLocalhost yes/g' /etc/ssh/sshd_config
-      systemctl restart sshd.service
-    SHELL
-
     vnf.ssh.forward_agent = true
     vnf.ssh.forward_x11 = true
   end

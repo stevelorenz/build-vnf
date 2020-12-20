@@ -1,3 +1,3 @@
 sources = files(
-  'mono.c'
+  'mono.cpp'
 )

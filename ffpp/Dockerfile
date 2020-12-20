@@ -6,7 +6,7 @@
 
 FROM ubuntu:20.04
 
-# Install dependencies for DPDK and XDP
+# Install dependencies for DPDK and XDP-Tools.
 # - Clang LLVM are required to build XDP programs.
 RUN apt-get update && \
     DEBIAN_FRONTEND="noninteractive" apt-get install -y wget build-essential pkg-config python3 meson ninja-build \
@@ -15,7 +15,7 @@ RUN apt-get update && \
 
 WORKDIR /opt/
 
-# Build xdp-tools from source (no deb package available)
+# Build xdp-tools from source (no deb package available currently).
 # xdp-tools has libbpf included which is required to build AF_XDP PMD driver of DPDK.
 ENV XDP_TOOLS_VER="0.0.3"
 ENV XDP_TOOLS_DIR="/opt/xdp-tools"
@@ -27,7 +27,7 @@ RUN mkdir -p ${XDP_TOOLS_DIR} && \
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/lib64/pkgconfig
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
 
-# Install DPDK packages.
+# Install DPDK packages (currently uses the version available in latest Ubuntu LTS).
 ENV DPDK_VER="19.11"
 ENV RTE_SDK="/opt/dpdk"
 ENV RTE_TARGET="x86_64-native-linuxapp-gcc"
@@ -42,15 +42,15 @@ RUN rm -rf /opt/xdp-tools-${XDP_TOOLS_VER}.tar.gz /opt/dpdk-${DPDK_VER}.tar.xz
 
 # Install FFPP dependencies and dev tools.
 RUN debian_frontend="noninteractive" apt-get install -y \
-    libczmq-dev libjansson-dev golang \
+    libczmq-dev libjansson-dev \
     libcmocka-dev libcpufreq-dev gcovr libmsgsl-dev python3-pybind11 \
     python3-pip python3-zmq python3-dev python3-numpy \
     bash-completion cppcheck clang-tidy net-tools iproute2 iputils-ping tcpdump \
     libtins-dev
 
-RUN pip3 install -q docker cffi
+RUN pip3 install -q docker
 
-# Build FFPP library
+# Build and install the FFPP library.
 ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}

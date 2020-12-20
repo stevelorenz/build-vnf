@@ -2,5 +2,4 @@
 
 ## Reducing Latency in Virtual Machines Enabling Tactile Internet for Human Machine Co-working
 
-These sources are already archived and no-longer used and tested.
-Latest development could be found in [FFPP library](../ffpp/).
+These sources are already archived (depreciated) and no-longer used.
