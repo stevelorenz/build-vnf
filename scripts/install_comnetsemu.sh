@@ -19,8 +19,7 @@ if [[ "$#" -eq 0 ]]; then
     if [ -d ~/comnetsemu ]; then sudo rm -rf ~/comnetsemu; fi
     if [ -d ~/comnetsemu_dependencies ]; then sudo rm -rf ~/comnetsemu_dependencies; fi
 
-    # Use dev branch by default for testing.
-    git clone https://git.comnets.net/public-repo/comnetsemu.git ~/comnetsemu --branch dev
+    git clone https://github.com/stevelorenz/comnetsemu.git ~/comnetsemu --branch dev
     cd ~/comnetsemu/util || exit
     bash ./install.sh -d
     bash ./install.sh -ncy

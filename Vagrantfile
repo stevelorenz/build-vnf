@@ -8,7 +8,7 @@
 CPUS = 4
 RAM = 2048
 
-# Use Ubuntu LTS for development
+# Use Ubuntu LTS for dev. bento box is relative light weight.
 BOX = "bento/ubuntu-20.04"
 # Box for using libvirt as the provider, bento boxes do not support libvirt.
 BOX_LIBVIRT = "generic/ubuntu2004"
@@ -16,22 +16,32 @@ BOX_LIBVIRT = "generic/ubuntu2004"
 #######################
 #  Provision Scripts  #
 #######################
+# These scripts ONLY work for this VM managed by the Vagrant.
 
-# Common bootstrap
 $bootstrap= <<-SCRIPT
 # Install dependencies
 DEBIAN_FRONTEND=noninteractive apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config gdb bash-completion htop dfc iperf iperf3 tcpdump
-
-# Add termite terminal infos
-wget https://raw.githubusercontent.com/thestinger/termite/master/termite.terminfo -O /home/vagrant/termite.terminfo
-tic -x /home/vagrant/termite.terminfo
+DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config gdb bash-completion htop dfc tcpdump wget curl
 SCRIPT
 
+# For latest kernel features supporting eBPF and XDP (xdp-tools).
+# 5.10 is required for multi-attach feature provided by xdp-tool.
+$install_kernel= <<-SCRIPT
+cd /tmp || exit
+wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.10/amd64/linux-headers-5.10.0-051000_5.10.0-051000.202012132330_all.deb
+wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.10/amd64/linux-headers-5.10.0-051000-generic_5.10.0-051000.202012132330_amd64.deb
+wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.10/amd64/linux-image-unsigned-5.10.0-051000-generic_5.10.0-051000.202012132330_amd64.deb
+wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.10/amd64/linux-modules-5.10.0-051000-generic_5.10.0-051000.202012132330_amd64.deb
+dpkg -i *.deb
+update-initramfs -u -k 5.10.0-051000-generic
+update-grub
+SCRIPT
+
+# Firstly install/update kernel before install other kernel-related packages.
 $install_devtools=<<-SCRIPT
 DEBIAN_FRONTEND=noninteractive apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+DEBIAN_FRONTEND=noninteractive apt-get install -y linux-tools-common linux-tools-generic
 SCRIPT
 
 $setup_dev_net= <<-SCRIPT
@@ -73,58 +83,54 @@ provider = get_provider || "virtualbox"
 
 Vagrant.configure("2") do |config|
 
-  config.vm.define "vnf" do |vnf|
-  # --- VM for Network Function development/test/benchmarking ---
+  config.vm.define "dev" do |dev|
+  # --- VM for Network Function dev/test/benchmarking ---
 
-    vnf.vm.provider "virtualbox" do |vb|
-      vb.name = "vnf"
+    dev.vm.provider "virtualbox" do |vb|
+      vb.name = "build-vnf-dev"
       vb.memory = RAM
       vb.cpus = CPUS
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
     end
 
-    vnf.vm.provider "libvirt" do |libvirt|
+    dev.vm.provider "libvirt" do |libvirt|
       libvirt.driver = "kvm"
       libvirt.cpus = CPUS
       libvirt.memory = RAM
     end
 
     if provider == "virtualbox"
-      vnf.vm.box = BOX
-      vnf.vm.synced_folder ".", "/vagrant"
+      dev.vm.box = BOX
+      dev.vm.synced_folder ".", "/vagrant"
     elsif provider == "libvirt"
-      vnf.vm.box = BOX_LIBVIRT
+      dev.vm.box = BOX_LIBVIRT
       # This option does not invoke vagrant rsync automatically.
-      # Run `vagrant rsync-auto vnf` after the VM is booted.
-      vnf.vm.synced_folder ".", "/vagrant", disabled: true
-      vnf.vm.synced_folder ".", "/vagrant", type: 'nfs', disabled: true
-      vnf.vm.synced_folder ".", "/vagrant", type:'rsync'
+      # Run `vagrant rsync-auto dev` after the VM is booted.
+      dev.vm.synced_folder ".", "/vagrant", disabled: true
+      dev.vm.synced_folder ".", "/vagrant", type: 'nfs', disabled: true
+      dev.vm.synced_folder ".", "/vagrant", type:'rsync'
     end
 
-    vnf.vm.hostname="vnf"
-    vnf.vm.box_check_update= true
+    dev.vm.hostname="build-vnf-dev"
+    dev.vm.box_check_update= true
 
-    # vnf.vm.network "private_network", ip: "192.168.10.13", nic_type: "82540EM"
-    # vnf.vm.network "private_network", ip: "192.168.10.14", nic_type: "82540EM"
+    dev.vm.provision "shell", inline: $bootstrap, privileged: true
+    dev.vm.provision "shell", inline: $install_kernel, privileged: true, reboot: true
+    dev.vm.provision "shell", inline: $install_devtools, privileged: true
+    dev.vm.provision "shell", inline: $setup_x11_server_apt, privileged: true
 
-    # Web access to the controller
-    vnf.vm.network :forwarded_port, guest: 8181, host: 18181
-    vnf.vm.provision :shell, inline: $bootstrap, privileged: true
-    vnf.vm.provision :shell, inline: $install_devtools, privileged: true
-    vnf.vm.provision :shell, inline: $setup_x11_server_apt, privileged: true
-    vnf.vm.provision :shell, inline: $post_installation, privileged: true
+    # Install related projects: ComNetsEmu
+    dev.vm.provision "shell", privileged:false ,path: "./scripts/install_comnetsemu.sh", reboot: true
+
+    dev.vm.provision "shell", inline: $post_installation, privileged: true
 
     # Always run this when use `vagrant up`
     # - Drop the system caches to allocate hugepages
-    vnf.vm.provision :shell, privileged: false, run: "always", inline: <<-SHELL
-        echo 3 | sudo tee /proc/sys/vm/drop_caches
-        cd /vagrant/scripts || exit
-        sudo bash ./setup_hugepage.sh
-    SHELL
+    dev.vm.provision "shell", privileged:true, run: "always", path: "./scripts/setup_hugepage.sh"
 
-    vnf.ssh.forward_agent = true
-    vnf.ssh.forward_x11 = true
+    dev.ssh.forward_agent = true
+    dev.ssh.forward_x11 = true
   end
 
 end

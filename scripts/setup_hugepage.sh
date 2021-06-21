@@ -1,14 +1,12 @@
 #! /usr/bin/env bash
 #
-# About: Setup hugepages after booting
+# About: Setup hugepages after booting.
+#        Alternative (better) approach is to use kernel parameter.
 #
 
-if [[ -e ./config.sh ]]; then
-    source ./config.sh
-    echo "Number of hugepages-2048kB: $HUGEPAGE_NUM_2048"
-else
-    HUGEPAGE_NUM_2048=256
-fi
+HUGEPAGE_NUM_2048=256
+
+echo 3 | tee /proc/sys/vm/drop_caches
 
 mkdir -p /mnt/huge
 (mount | grep hugetlbfs) >/dev/null || mount -t hugetlbfs nodev /mnt/huge
