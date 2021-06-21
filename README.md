@@ -1,4 +1,3 @@
-[![Build Status](https://travis-ci.com/stevelorenz/build-vnf.svg?branch=master)](https://travis-ci.com/stevelorenz/build-vnf)
 [![MIT Licensed](https://img.shields.io/github/license/stevelorenz/build-vnf)](https://github.com/stevelorenz/build-vnf/blob/master/LICENSE)
 
 
