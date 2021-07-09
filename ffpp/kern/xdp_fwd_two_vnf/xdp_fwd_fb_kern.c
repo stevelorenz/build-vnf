@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0
 * XDP forwarder for two CNF's with traffic monitor X-MAN-FB (only packet count)
  */
+#include <linux/bpf.h>
+
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 
 #include <xdp/parsing_helpers.h>
 
-#include <linux/bpf.h>
 #include <linux/in.h>
 #include <linux/ip.h>
 #include <linux/udp.h>

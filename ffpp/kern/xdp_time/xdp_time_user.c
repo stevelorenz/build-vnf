@@ -131,7 +131,7 @@ static void get_cpu_utilization(struct measurement *measurement)
 	measurement->cpu_util[measurement->idx] =
 		c_packet / (measurement->inter_arrival_time * cpu_freq);
 	if (measurement->count >= measurement->min_counts) {
-		int i;
+		__u32 i;
 		double sum = 0.0;
 		for (i = 0; i < measurement->min_counts; i++) {
 			sum += measurement->cpu_util[i];
@@ -207,7 +207,7 @@ void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
 	struct datarec values[nr_cpus];
 	__u64 sum_pkts = 0;
 	__u64 latest_time = 0;
-	int i;
+	__u32 i;
 
 	if ((bpf_map_lookup_elem(fd, &key, values)) != 0) {
 		fprintf(stderr, "ERR:bpf_map_lookup_elem failed key:0x%X\n",

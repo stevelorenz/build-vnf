@@ -109,7 +109,7 @@ void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
 	struct datarec values[nr_cpus];
 	__u64 sum_bytes = 0;
 	__u64 sum_pkts = 0;
-	int i;
+	__u32 i;
 
 	if ((bpf_map_lookup_elem(fd, &key, values)) != 0) {
 		fprintf(stderr, "ERR: bpf_map_lookup_elem failed key:0x%X\n",

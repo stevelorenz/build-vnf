@@ -1,10 +1,13 @@
+*/*.ll
 */*.o
 */*.out
-*/*.ll
 
+.ccls-cache/
 backup
+build
+builddir
+docs
 modified_dpdk_samples
-
 user/build
 user/builddir
 user/docs

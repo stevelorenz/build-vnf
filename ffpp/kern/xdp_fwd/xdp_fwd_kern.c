@@ -2,12 +2,13 @@
 * XDP forwarder
 * This is the native forwarder that does not collect stats
 */
+#include <linux/bpf.h>
+
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 
 #include <xdp/parsing_helpers.h>
 
-#include <linux/bpf.h>
 #include <linux/in.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
