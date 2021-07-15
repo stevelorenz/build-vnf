@@ -52,7 +52,9 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 
 # Install FFPP dependencies that are currenly under test.
 RUN debian_frontend="noninteractive" apt-get install -y \
-    libtins-dev
+    libtins-dev libboost-dev libboost-program-options-dev libboost-coroutine-dev libboost-system-dev \
+	libmnl-dev libgoogle-glog-dev libmsgsl-dev libfmt-dev
+
 RUN pip3 install -q docker
 
 # Install FFPP dev tools. These packages are not needed in deployment.

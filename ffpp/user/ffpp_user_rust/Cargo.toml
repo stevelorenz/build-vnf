@@ -1,5 +1,0 @@
-[workspace]
-members = [
-    "ffi",
-    "ffpp_user_sys"
-]

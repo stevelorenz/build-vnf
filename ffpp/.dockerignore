@@ -1,8 +1,10 @@
 */*.ll
 */*.o
 */*.out
+*/*.blob
 
 .ccls-cache/
+*/.ccls-cache
 backup
 build
 builddir

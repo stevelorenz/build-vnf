@@ -1,3 +1,0 @@
-sources = files(
-  'client.c'
-)
