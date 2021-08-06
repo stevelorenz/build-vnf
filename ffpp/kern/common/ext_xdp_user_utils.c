@@ -35,8 +35,8 @@ int xdp_link_attach(int ifindex, __u32 xdp_flags, int prog_fd)
 
 		xdp_flags &= ~XDP_FLAGS_MODES;
 		xdp_flags |= (old_flags & XDP_FLAGS_SKB_MODE) ?
-					   XDP_FLAGS_DRV_MODE :
-					   XDP_FLAGS_SKB_MODE;
+				     XDP_FLAGS_DRV_MODE :
+				     XDP_FLAGS_SKB_MODE;
 		err = bpf_set_link_xdp_fd(ifindex, -1, xdp_flags);
 		if (!err)
 			err = bpf_set_link_xdp_fd(ifindex, prog_fd, old_flags);

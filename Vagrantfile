@@ -29,14 +29,8 @@ SCRIPT
 # 5.10 is required for multi-attach feature provided by xdp-tool.
 # 5.11 is required for busy-pooling with AF_XDP (DPDK AF_XDP PMD supports busy polling for performance).
 $install_kernel= <<-SCRIPT
-cd /tmp || exit
-wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.11/amd64/linux-headers-5.11.0-051100_5.11.0-051100.202102142330_all.deb
-wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.11/amd64/linux-headers-5.11.0-051100-generic_5.11.0-051100.202102142330_amd64.deb
-wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.11/amd64/linux-image-unsigned-5.11.0-051100-generic_5.11.0-051100.202102142330_amd64.deb
-wget -c https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.11/amd64/linux-modules-5.11.0-051100-generic_5.11.0-051100.202102142330_amd64.deb
-dpkg -i *.deb
-update-initramfs -u -k 5.11.0-051100-generic
-update-grub
+DEBIAN_FRONTEND=noninteractive apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-5.11.0-25-generic linux-headers-5.11.0-25-generic linux-tools-generic linux-tools-5.11.0-25-generic
 SCRIPT
 
 # Firstly install/update kernel before install other kernel-related packages.

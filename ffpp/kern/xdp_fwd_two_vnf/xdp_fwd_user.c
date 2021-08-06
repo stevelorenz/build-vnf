@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 		case 'w':
 			snprintf(eth_new_src_str, 18, "%s", optarg);
 			break;
-		case 'p': ;
+		case 'p':;
 			char *ptr; // dummy pointer for strtoul
 			payload_size = strtoul(optarg, &ptr, 10);
 			break;

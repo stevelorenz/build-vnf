@@ -1,6 +1,6 @@
--------
--  C  -
--------
+-----------
+-  C/CPP  -
+-----------
 
 # Prerequisites
 *.d
@@ -200,6 +200,8 @@ dataset/
 lib_src
 html/
 latex/
+.vscode
+.gdb_history
 
 ----------
 -  FFPP  -
@@ -225,6 +227,7 @@ calvin-fass/ffpp/MoonGen
 -----------
 -  Malte  -
 -----------
+
 calvin-faas/ffpp/kern/xdp-tutorial/
 calvin-faas/ffpp/user/examples/freq_scale/
 calvin-faas/ffpp/user/examples/frequency_manager/*.txt

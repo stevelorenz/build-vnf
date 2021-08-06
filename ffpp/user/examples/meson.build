@@ -4,13 +4,8 @@ all_examples = [
   'feedback_manager',
   'frequency_manager',
   'frequency_switcher',
-  'multi_process_munf/mp_munf_manager',
-  'multi_process_munf/mp_munf_mono',
-  'multi_process_munf/mp_munf_munf',
   'power_manager',
   'traffic_monitor',
-  'zmq/zmq_control',
-  'zmq/zmq_exchange_mbufs',
 ]
 
 foreach example: all_examples

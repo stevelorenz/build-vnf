@@ -22,11 +22,10 @@ clean:
 	cd ./user && make clean
 	cd ./kern && make clean
 
-docs:
-	cd ./user && doxygen ./docs/Doxyfile
+.PHONY: install uninstall clean
 
+# Static checkers and formatters for utility scripts, used to run them inside terminal
 
-# Static checkers and formatters for utility scripts
 BASH_SRCS := $(shell find ./ -name '*.sh')
 PY_SRCS := $(shell find ./ -name '*.py')
 ALL_SCRIPT_SRCS := $(BASH_SRCS) $(PY_SRCS)
@@ -43,9 +42,27 @@ format-scripts: $(ALL_SCRIPT_SRCS)
 	@echo "* Format all Bash sources with shfmt..."
 	shfmt -i 4 -w $(BASH_SRCS)
 
-.PHONY: clean docs codecheck-scripts format-scripts
+C_SRCS := $(shell find ./ -name "*.c")
+C_HEADERS := $(shell find ./ -name "*.h")
+ALL_C_FILES := $(C_SRCS) $(C_HEADERS)
+CPP_SRCS := $(shell find ./ -name "*.cpp")
+CPP_HEADERS := $(shell find ./ -name "*.hpp")
+ALL_CPP_FILES := $(CPP_SRCS) $(CPP_HEADERS)
 
-## Cleanup utilities
+codecheck-cxx: $(ALL_C_FILES) $(ALL_CPP_FILES)
+	@echo "* Run cppcheck: "
+
+flawfinder-cxx: $(ALL_C_FILES) $(ALL_CPP_FILES)
+	@echo "* Check torrential flaws and vulnerabilities with static checker:"
+	flawfinder --minlevel 2 $(ALL_C_FILES) $(ALL_CPP_FILES)
+
+format-cxx: $(ALL_C_FILES) $(ALL_CPP_FILES)
+	@echo "* Format all C sources with clang-format"
+	clang-format --style=file -i $(ALL_C_FILES) $(ALL_CPP_FILES)
+
+.PHONY: codecheck-scripts format-scripts codecheck-cxx flawfinder-cxx format-cxx
+
+# Cleanup utilities
 
 rm-all-containers:
 	@echo "Remove all docker containers"
