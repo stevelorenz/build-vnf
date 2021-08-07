@@ -15,9 +15,9 @@ This library is **NOT** designed to be used in production with dependencies of s
 
 - emulation: Emulation scripts using ComNetsEmu.
 
-- user: Userspace libraries and programs.
+- user: Userspace libraries, programs, small samples and network functions.
 
-- kern: eBPF/XDP programs running in Linux kernel space.
+- kern: eBPF/XDP programs running in Linux kernel space. Related sources should be mostly GPL licensed.
 
 - util: Utility scripts and code for internal development purposes.
 

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: (GPL-2.0-or-later OR BSD-2-clause) */
+
 #ifndef __COMMON_DEFINES_H
 #define __COMMON_DEFINES_H
 
@@ -7,8 +9,6 @@
 
 /**
  * @ Configuration for a XDP program.
- *
- * @ ifindex:
  */
 struct config {
 	__u32 xdp_flags;

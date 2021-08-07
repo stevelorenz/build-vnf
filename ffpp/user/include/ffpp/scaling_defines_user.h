@@ -10,6 +10,10 @@
 
 #include <ffpp/bpf_helpers_user.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RELEASE 1 // Uncomment to show debug information
 
 // Hyper-parameter for scaling decision
@@ -108,5 +112,9 @@ struct traffic_stats {
 	double period; // time since last reading
 	double pps; // ingress pps
 };
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !SCALING_DEFINES_USER_H */

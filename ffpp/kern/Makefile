@@ -17,7 +17,7 @@ debug:
 	cd ./xdp_time && make DEBUG=1
 
 # Some special object files (e.g. the dispatch.o from libxdp) is not removed via `make clean`
-OBJ_FILES := $(shell find ./ -name '*.o')
+DISPATCHER_OBJ_FILES := $(shell find ./ -name 'xdp-dispatcher.o')
 
 clean:
 	cd ./common/ && make clean
@@ -26,6 +26,6 @@ clean:
 	cd ./xdp_count/ && make clean
 	cd ./xdp_fwd/ && make clean
 	cd ./xdp_time && make clean
-	@rm $(OBJ_FILES)
+	@rm $(DISPATCHER_OBJ_FILES)
 
 .PHONY: release debug clean

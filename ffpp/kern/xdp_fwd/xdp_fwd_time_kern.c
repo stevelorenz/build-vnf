@@ -1,6 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 
-* XDP forwarder with traffic monitor X-MAN (packet count and TS)
-*/
+/* 
+ * SPDX-License-Identifier: GPL-2.0 
+ * XDP forwarder with traffic monitor X-MAN (packet count and TS)
+ */
+
 #include <linux/bpf.h>
 
 #include <bpf/bpf_endian.h>

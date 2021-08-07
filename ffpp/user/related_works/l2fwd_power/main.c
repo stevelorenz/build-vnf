@@ -61,7 +61,6 @@
 #include <rte_power_empty_poll.h>
 #include <rte_metrics.h>
 
-#include <ffpp/aes.h>
 #include <ffpp/utils.h>
 
 static volatile bool force_quit;
@@ -238,15 +237,6 @@ static uint8_t freq_tlb[] = { 14, 9, 1 };
 
 // -----------------------------------------------------------------------------
 
-uint8_t aes_key[] = { 0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe,
-		      0x2b, 0x73, 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81,
-		      0x1f, 0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7,
-		      0x2d, 0x98, 0x10, 0xa3, 0x09, 0x14, 0xdf, 0xf4 };
-uint8_t aes_iv[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-		     0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-
-struct AES_ctx aes_ctx;
-
 struct lcore_queue_conf {
 	unsigned n_rx_port;
 	unsigned rx_port_list[MAX_RX_QUEUE_PER_LCORE];
@@ -326,41 +316,6 @@ static inline void l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_port_id)
 	rte_ether_addr_copy(&l2fwd_ports_eth_addr[dest_port_id], &eth->s_addr);
 }
 
-/**
- * @ Encrypt and decrypt the whole IPv4 packet (IP header + IP payload) ONLY for
- * UDP packets.
- */
-static inline void l2fwd_aes256_cbc_encrypt_decrypt_ip_udp(struct rte_mbuf *m)
-{
-	uint16_t i = 0;
-	uint8_t *data;
-	struct rte_ether_hdr *eth;
-	struct rte_ipv4_hdr *iph;
-	uint16_t total_length = 0;
-
-	eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
-	if (eth->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4)) {
-		return;
-	}
-	iph = rte_pktmbuf_mtod_offset(m, struct rte_ipv4_hdr *,
-				      RTE_ETHER_HDR_LEN);
-	if (iph->next_proto_id != IPPROTO_UDP) {
-		return;
-	}
-
-	total_length = rte_be_to_cpu_16(iph->total_length);
-	for (i = 0; i < crypto_number; ++i) {
-		data = rte_pktmbuf_mtod_offset(m, uint8_t *, RTE_ETHER_HDR_LEN);
-
-		AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
-		AES_CBC_encrypt_buffer(&aes_ctx, data, total_length);
-		// MARK: The AES context MUST be re-initialized before running
-		// the decryption.
-		AES_init_ctx_iv(&aes_ctx, aes_key, aes_iv);
-		AES_CBC_decrypt_buffer(&aes_ctx, data, total_length);
-	}
-}
-
 static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned port_id)
 {
 	unsigned dst_port;
@@ -376,10 +331,6 @@ static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned port_id)
 		return;
 	}
 	dst_port = l2fwd_dst_ports[port_id];
-
-	if (unlikely(crypto_enabled == true)) {
-		l2fwd_aes256_cbc_encrypt_decrypt_ip_udp(m);
-	}
 
 	if (mac_updating)
 		l2fwd_mac_updating(m, dst_port);
@@ -1135,8 +1086,8 @@ static void check_all_ports_link_status(uint32_t port_mask)
 					       port_id, link.link_speed,
 					       (link.link_duplex ==
 						ETH_LINK_FULL_DUPLEX) ?
-						       ("full-duplex") :
-						       ("half-duplex\n"));
+							     ("full-duplex") :
+							     ("half-duplex\n"));
 				else
 					printf("Port %d Link Down\n", port_id);
 				continue;
@@ -1320,12 +1271,6 @@ int main(int argc, char **argv)
 	}
 
 	printf("MAC updating %s\n", mac_updating ? "enabled" : "disabled");
-
-	if (crypto_enabled == true) {
-		printf("Crypto operation is enabled. The operation number is %u\n",
-		       crypto_number);
-		printf("Crypto method: AES256 CBC\n");
-	}
 
 	check_lcores();
 	init_power_library();

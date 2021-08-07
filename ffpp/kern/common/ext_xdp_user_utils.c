@@ -1,8 +1,12 @@
+/* SPDX-License-Identifier: (GPL-2.0-or-later OR BSD-2-clause) */
+
 #include <errno.h>
 #include <net/if.h> /* IF_NAMESIZE */
 #include <stdlib.h> /* exit(3) */
 #include <string.h> /* strerror */
 #include <time.h>
+
+#include <linux/bpf.h>
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
@@ -35,8 +39,8 @@ int xdp_link_attach(int ifindex, __u32 xdp_flags, int prog_fd)
 
 		xdp_flags &= ~XDP_FLAGS_MODES;
 		xdp_flags |= (old_flags & XDP_FLAGS_SKB_MODE) ?
-				     XDP_FLAGS_DRV_MODE :
-				     XDP_FLAGS_SKB_MODE;
+					   XDP_FLAGS_DRV_MODE :
+					   XDP_FLAGS_SKB_MODE;
 		err = bpf_set_link_xdp_fd(ifindex, -1, xdp_flags);
 		if (!err)
 			err = bpf_set_link_xdp_fd(ifindex, prog_fd, old_flags);
@@ -281,7 +285,7 @@ struct bpf_object *load_bpf_and_xdp_attach(struct config *cfg)
 		exit(EXIT_FAIL_BPF);
 	}
 
-	strncpy(cfg->progsec, bpf_program__title(bpf_prog, false),
+	strncpy(cfg->progsec, bpf_program__section_name(bpf_prog),
 		sizeof(cfg->progsec));
 
 	prog_fd = bpf_program__fd(bpf_prog);

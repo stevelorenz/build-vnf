@@ -1,6 +1,6 @@
 /*
-*bpf_defines_user.h
-*/
+ * bpf_defines_user.h
+ */
 
 #ifndef BPF_DEFINES_USER_H
 #define BPF_DEFINES_USER_H

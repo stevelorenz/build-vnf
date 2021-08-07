@@ -32,6 +32,19 @@ if __name__ == "__main__":
             docker_args={
                 "hostname": "dev",
                 "volumes": {
+                    "/sys/bus/pci/drivers": {
+                        "bind": "/sys/bus/pci/drivers",
+                        "mode": "rw",
+                    },
+                    "/sys/kernel/mm/hugepages": {
+                        "bind": "/sys/kernel/mm/hugepages",
+                        "mode": "rw",
+                    },
+                    "/sys/devices/system/node": {
+                        "bind": "/sys/devices/system/node",
+                        "mode": "rw",
+                    },
+                    "/dev": {"bind": "/dev", "mode": "rw"},
                     CURRENT_DIR: {"bind": "/ffpp", "mode": "rw"},
                 },
                 "working_dir": "/ffpp",

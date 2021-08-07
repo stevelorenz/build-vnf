@@ -5,6 +5,10 @@
 #ifndef DEVICE_H
 #define DEVICE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @file
  *
@@ -50,5 +54,9 @@ struct tx_queue {
 	uint16_t id;
 	uint16_t len;
 };
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !DEVICE_H */

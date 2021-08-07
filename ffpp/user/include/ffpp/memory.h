@@ -7,6 +7,10 @@
 
 #include <rte_mempool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @brief ffpp_init_mempool
  *
@@ -19,5 +23,9 @@
  */
 struct rte_mempool *ffpp_init_mempool(const char *name, uint32_t nb_mbuf,
 				      uint32_t mbuf_size, uint32_t socket_id);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !MEMORY_H */

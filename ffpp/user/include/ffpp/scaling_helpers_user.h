@@ -15,6 +15,10 @@
 #include <ffpp/general_helpers_user.h>
 #include <ffpp/global_stats_user.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 double g_csv_pps[TOTAL_VALS];
 double g_csv_ts[TOTAL_VALS];
 double g_csv_cpu_util[TOTAL_VALS];
@@ -197,5 +201,9 @@ double calc_period(struct record *r, struct record *p);
  * @param f: struct with frequency information of the CPU
  */
 void get_cpu_utilization(struct measurement *m, struct freq_info *f);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !SCALING_HELPERS_USER_H */

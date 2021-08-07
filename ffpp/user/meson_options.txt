@@ -1,6 +1,8 @@
 option('examples', type: 'boolean', value: false,
-	description: 'Build all examples.')
+	description: 'Build built-in examples.')
+
 option('tests', type: 'boolean', value: false,
-	description: 'Build unit tests.')
+	description: 'Build tests.')
+
 option('related_works', type: 'boolean', value: false,
-	description: 'Related works for comparison.')
+	description: 'Build related works for comparison (used for paper publication).')

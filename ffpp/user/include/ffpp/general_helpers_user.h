@@ -5,6 +5,8 @@
 #ifndef GENERAL_HELPERS_USER_H
 #define GENERAL_HELPERS_USER_H
 
+#include <linux/bpf.h>
+
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
@@ -13,6 +15,10 @@
 #include <ffpp/bpf_defines_user.h>
 #include <ffpp/scaling_defines_user.h>
 #include <ffpp/global_stats_user.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // Global variables for measurements
 // Defined in global_stats_user.h
@@ -70,5 +76,9 @@ void write_csv_file_2vnf(int num_vnf);
  * @return double current time
  */
 double get_time_of_day();
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !GENERAL_HELPERS_USER_H */

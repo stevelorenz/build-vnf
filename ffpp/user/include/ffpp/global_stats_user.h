@@ -1,10 +1,16 @@
 /*
-gloabls_stats_user.h
-Global arrays for measurements
+ * gloabls_stats_user.h
+ * 
+ * Global arrays for measurements.
+ * WARN: Using these global arrays for measurements is generally a bad idea... Should be removed in the new cxx extension.
 */
 
 #ifndef GLOBAL_STATS_USER_H
 #define GLOBAL_STATS_USER_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define TOTAL_VALS 1000000 /* Array size */
 #define NUM_VNFS 2 /* Max deployed CNF's */
@@ -34,5 +40,9 @@ extern bool
 	g_csv_saved_stream; /* To not store multiple files during session gap */
 
 extern double cur_time; /* timestamp */
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !GLOBAL_STATS_USER_H */

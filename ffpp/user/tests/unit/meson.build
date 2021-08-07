@@ -1,23 +1,21 @@
-test_dummy = executable(
-  'test_dummy', 'test_dummy.cpp',
-  include_directories : inc,
-  dependencies: ffpp_deps,
-  link_with : [ffpplib_shared])
+# MARK: EAL primary process is used to run the tests, so parallel need to be disabled.
 
-test_munf = executable(
-  'test_munf', 'test_munf.cpp',
-  include_directories : inc,
-  dependencies: ffpp_deps,
-  link_with : [ffpplib_shared])
+# Tests managed by google-test
+unit_test_gtest_sources = files('''
+	test_gtest_dummy.cpp
+'''.split())
 
+unit_test_gtest_exe = executable('unit-gtest',
+	sources: unit_test_gtest_sources,
+	dependencies: [ffpp_deps, gtest_withmain_dep])
+
+test('unit-gtest', unit_test_gtest_exe, is_parallel: false, suite: ['no-leak', 'unit', 'dev'])
+
+# Other special tests
 test_pye_pybind11 = executable(
-  'test_pye_pybind11', 'test_pye_pybind11.cpp',
-  include_directories : inc,
-  dependencies: ffpp_deps,
-  link_with : [ffpplib_shared])
+  	'test_pye_pybind11', 'test_pye_pybind11.cpp',
+  	include_directories: inc,
+  	dependencies: ffpp_deps,
+  	link_with: [ffpplib_shared])
 
-test_mbuf_generation = executable(
-  'test_mbuf_generation', 'test_mbuf_generation.cpp',
-  include_directories : inc,
-  dependencies: ffpp_deps,
-  link_with : [ffpplib_shared])
+test('test_pye_pybind11', test_pye_pybind11, is_parallel : false, suite: ['no-leak', 'unit', 'dev'])

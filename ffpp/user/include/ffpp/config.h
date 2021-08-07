@@ -14,6 +14,10 @@
 
 #include <rte_log.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* U know, I love my Fanfan baby. */
 #define FFBB_MAGIC 117
 
@@ -26,5 +30,9 @@
 
 /* Number of mbuf pointers in one cache line. */
 #define MBUFS_IN_ONE_CACHE_LINE 8
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* !CONFIG_H */
