@@ -21,6 +21,13 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_graph.h>
+#include <iostream>
 
-#include "ffpp/graph.hpp"
+#include "ffpp/controller.hpp"
+
+int main()
+{
+	std::cout << "---> Init the controller." << std::endl;
+	auto controller = ffpp::Controller();
+	return 0;
+}

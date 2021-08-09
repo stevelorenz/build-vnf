@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <math.h>
 
 #include <locale.h>
 #include <cpufreq.h>
@@ -23,13 +24,12 @@
 #include <rte_per_lcore.h>
 #include <rte_timer.h>
 
-#include <ffpp/bpf_helpers_user.h>
-#include <ffpp/scaling_helpers_user.h>
-#include <ffpp/bpf_defines_user.h>
-#include <ffpp/scaling_defines_user.h>
-#include <ffpp/general_helpers_user.h>
-#include <ffpp/global_stats_user.h>
-#include <math.h>
+#include "ffpp/bpf_helpers_user.h"
+#include "ffpp/scaling_helpers_user.h"
+#include "ffpp/bpf_defines_user.h"
+#include "ffpp/scaling_defines_user.h"
+#include "ffpp/general_helpers_user.h"
+#include "ffpp/global_stats_user.h"
 
 // supress prints
 #ifdef RELEASE

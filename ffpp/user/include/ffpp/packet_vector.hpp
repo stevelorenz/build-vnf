@@ -21,6 +21,25 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_graph.h>
+#ifndef FFPP_PACKET_VECTOR_HPP
+#define FFPP_PACKET_VECTOR_HPP
 
-#include "ffpp/graph.hpp"
+#include <vector>
+
+#include <rte_mbuf.h>
+
+namespace ffpp
+{
+class PacketVector {
+    public:
+	PacketVector(uint32_t size);
+	~PacketVector();
+
+    private:
+	uint32_t size_;
+	std::vector<rte_mbuf *> pvec_;
+};
+
+} // namespace ffpp
+
+#endif /* FFPP_PACKET_VECTOR_HPP */

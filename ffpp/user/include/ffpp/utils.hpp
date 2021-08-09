@@ -21,6 +21,7 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_eal.h>
+#ifndef FFPP_UTILS_HPP
+#define FFPP_UTILS_HPP
 
-#include <ffpp/main_thread.hpp>
+#endif /* FFPP_UTILS_HPP */

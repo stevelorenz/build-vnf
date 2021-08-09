@@ -21,6 +21,24 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_graph.h>
+#ifndef FFPP_CONTROLLER_HPP
+#define FFPP_CONTROLLER_HPP
 
-#include "ffpp/graph.hpp"
+namespace ffpp
+{
+/**
+ * The controller component in a network function. Mapping to main thread/process of an DPDK application.
+ * Controller handle low-level resources via e.g. DPDK's EAL.
+ */
+class Controller {
+    public:
+	Controller();
+	~Controller();
+
+    private:
+	/* data */
+};
+
+} // namespace ffpp
+
+#endif /* FFPP_CONTROLLER_HPP */

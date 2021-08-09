@@ -21,24 +21,4 @@
  *  IN THE SOFTWARE.
  */
 
-#ifndef FFPP_MAIN_THREAD_HPP
-#define FFPP_MAIN_THREAD_HPP
-
-namespace ffpp
-{
-/**
- * DPDK main thread
- * 
- */
-class DPDKMainThread {
-    public:
-	DPDKMainThread();
-	virtual ~DPDKMainThread();
-
-    private:
-	/* data */
-};
-
-} // namespace ffpp
-
-#endif /* FFPP_MAIN_THREAD_HPP */
+#include "ffpp/utils.hpp"

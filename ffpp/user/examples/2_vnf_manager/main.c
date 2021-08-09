@@ -24,12 +24,12 @@
 #include <rte_per_lcore.h>
 #include <rte_timer.h>
 
-#include <ffpp/bpf_helpers_user.h>
-#include <ffpp/scaling_helpers_user.h>
-#include <ffpp/bpf_defines_user.h>
-#include <ffpp/scaling_defines_user.h>
-#include <ffpp/general_helpers_user.h>
-#include <ffpp/global_stats_user.h>
+#include "ffpp/bpf_helpers_user.h"
+#include "ffpp/scaling_helpers_user.h"
+#include "ffpp/bpf_defines_user.h"
+#include "ffpp/scaling_defines_user.h"
+#include "ffpp/general_helpers_user.h"
+#include "ffpp/global_stats_user.h"
 
 // Supress prints
 // #define RELEASE 1

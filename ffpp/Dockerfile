@@ -44,7 +44,7 @@ RUN mkdir -p ${RTE_SDK} && \
     ninja && ninja install && ldconfig && \
 	rm -rf /opt/dpdk-${DPDK_VER}.tar.xz
 
-# Install FFPP dependencies. 
+# Install FFPP dependencies.
 RUN debian_frontend="noninteractive" apt-get install -y \
     libczmq-dev libjansson-dev \
     libcpufreq-dev \
@@ -52,15 +52,15 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 
 # Install FFPP dependencies that are currenly under test.
 RUN debian_frontend="noninteractive" apt-get install -y \
-    libtins-dev libboost-dev libboost-program-options-dev libboost-coroutine-dev libboost-system-dev \
-	libmnl-dev libgoogle-glog-dev libmsgsl-dev libfmt-dev
+	libtins-dev libboost-dev libboost-program-options-dev libboost-coroutine-dev libboost-system-dev \
+	libmnl-dev libgoogle-glog-dev libmsgsl-dev libfmt-dev libyaml-cpp-dev
 
 RUN pip3 install -q docker
 
 # Install FFPP dev tools. These packages are not needed in deployment.
 RUN debian_frontend="noninteractive" apt-get install -y \
 	gcovr googletest google-mock \
-    bash-completion cppcheck clang-tidy net-tools iproute2 iputils-ping tcpdump
+	bash-completion cppcheck clang-tidy net-tools iproute2 iputils-ping tcpdump
 
 # Build and install the FFPP library.
 ENV FFPP_PATH /ffpp
@@ -70,6 +70,7 @@ WORKDIR ${FFPP_PATH}
 RUN make release && make install
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/lib/x86_64-linux-gnu/pkgconfig
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/x86_64-linux-gnu
+ENV PYTHONPATH="${PYTHONPATH}:/usr/local/lib/python3.8/site-packages"
 
 # APT cleanup.
 RUN rm -rf /var/lib/apt/lists /var/cache/apt/archives

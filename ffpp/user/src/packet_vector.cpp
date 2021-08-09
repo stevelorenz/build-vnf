@@ -21,6 +21,12 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_graph.h>
+#include "ffpp/packet_vector.hpp"
 
-#include "ffpp/graph.hpp"
+namespace ffpp
+{
+PacketVector::PacketVector(uint32_t size) : size_(size)
+{
+	pvec_.reserve(size);
+}
+} // namespace ffpp

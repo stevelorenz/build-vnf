@@ -131,6 +131,7 @@ inc = include_directories('include')
 
 math_dep = cc.find_library('m', required: true)
 
+thread_dep = dependency('threads')
 bpf_dep = dependency('libbpf', required: true)
 dpdk_dep = dependency('libdpdk', required: true)
 json_dep = dependency('jansson', required: true)
@@ -139,6 +140,7 @@ zmq_dep = dependency('libzmq', required: true)
 libtins_dep = dependency('libtins', required: true)
 glog_dep = dependency('libglog', required: true)
 fmt_dep = dependency('fmt', required: true)
+yaml_dep = dependency('yaml-cpp', required: true)
 
 boost_dep = dependency('boost', required: true)
 boost_dep_modules = dependency('boost', modules : ['program_options'], required: true)
@@ -154,6 +156,7 @@ ffpp_dep_list = [
   	dpdk_dep,
   	json_dep,
   	math_dep,
+    thread_dep,
   	python_embed_dep,
   	zmq_dep,
   	pybind11_dep,
@@ -162,6 +165,7 @@ ffpp_dep_list = [
   	boost_dep_modules,
     glog_dep,
     fmt_dep,
+    yaml_dep,
 ]
 
 ffpp_deps = declare_dependency(

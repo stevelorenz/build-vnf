@@ -16,8 +16,8 @@
 #include <rte_power.h>
 #include <rte_lcore.h>
 
-#include <ffpp/scaling_defines_user.h>
-#include <ffpp/scaling_helpers_user.h>
+#include "ffpp/scaling_defines_user.h"
+#include "ffpp/scaling_helpers_user.h"
 
 static int init_power_library(void)
 {

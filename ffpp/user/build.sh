@@ -13,9 +13,9 @@ fi
 
 make clean
 make all
-make examples
 
 if [[ $1 == "-a" || $1 == "-all" ]]; then
+    make examples
     make tests
     make related_works
 fi

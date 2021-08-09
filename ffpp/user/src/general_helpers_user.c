@@ -7,9 +7,9 @@
 
 #include <sys/time.h>
 
-#include <ffpp/bpf_helpers_user.h> // NANOSEC_PER_SEC
-#include <ffpp/general_helpers_user.h>
-#include <ffpp/scaling_helpers_user.h>
+#include "ffpp/bpf_helpers_user.h"  // NANOSEC_PER_SEC
+#include "ffpp/general_helpers_user.h"
+#include "ffpp/scaling_helpers_user.h"
 
 void write_csv_file()
 {

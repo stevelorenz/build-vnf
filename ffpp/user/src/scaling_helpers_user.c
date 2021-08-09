@@ -9,9 +9,9 @@
 #include <zmq.h>
 #include <jansson.h>
 
-#include <ffpp/scaling_helpers_user.h>
-#include <ffpp/bpf_helpers_user.h> // NANOSEC_PER_SEC
-#include <ffpp/general_helpers_user.h>
+#include "ffpp/scaling_helpers_user.h"
+#include "ffpp/bpf_helpers_user.h" // NANOSEC_PER_SEC
+#include "ffpp/general_helpers_user.h"
 
 #ifdef RELEASE
 #define printf(fmt, ...) (0)

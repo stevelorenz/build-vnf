@@ -6,3 +6,7 @@ option('tests', type: 'boolean', value: false,
 
 option('related_works', type: 'boolean', value: false,
 	description: 'Build related works for comparison (used for paper publication).')
+
+# TODO
+option('pyffpp', type: 'boolean', value: true,
+	description: 'Build Python bindings (WIP).')

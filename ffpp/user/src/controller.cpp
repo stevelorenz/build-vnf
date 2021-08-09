@@ -21,6 +21,39 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_graph.h>
+#include <vector>
+#include <stdexcept>
 
-#include "ffpp/graph.hpp"
+#include <rte_eal.h>
+#include <fmt/core.h>
+#include <glog/logging.h>
+
+#include "ffpp/controller.hpp"
+
+namespace ffpp
+{
+Controller::Controller()
+{
+	FLAGS_logtostderr = true;
+	FLAGS_colorlogtostderr = true;
+	FLAGS_minloglevel = 0;
+	FLAGS_stderrthreshold = 0;
+	FLAGS_v = 3;
+	google::InitGoogleLogging("FFPP-Controller");
+
+	LOG(INFO) << "Initialize DPDK EAL environment.";
+	std::vector<char *> dpdk_arg;
+	dpdk_arg.push_back((char *)(new std::string("-l 0"))->c_str());
+	dpdk_arg.push_back((char *)(new std::string("--no-pci"))->c_str());
+
+	auto ret = rte_eal_init(dpdk_arg.size(), dpdk_arg.data());
+	if (ret < 0) {
+		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
+	}
+}
+
+Controller::~Controller()
+{
+}
+
+} // namespace ffpp
