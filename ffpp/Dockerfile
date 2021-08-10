@@ -53,7 +53,7 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 # Install FFPP dependencies that are currenly under test.
 RUN debian_frontend="noninteractive" apt-get install -y \
 	libtins-dev libboost-dev libboost-program-options-dev libboost-coroutine-dev libboost-system-dev \
-	libmnl-dev libgoogle-glog-dev libmsgsl-dev libfmt-dev libyaml-cpp-dev
+	libmnl-dev libgoogle-glog-dev libmsgsl-dev libfmt-dev libyaml-cpp-dev libfccp-dev
 
 RUN pip3 install -q docker
 
@@ -67,7 +67,7 @@ ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
-RUN make release && make install
+RUN make release
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/lib/x86_64-linux-gnu/pkgconfig
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/x86_64-linux-gnu
 ENV PYTHONPATH="${PYTHONPATH}:/usr/local/lib/python3.8/site-packages"

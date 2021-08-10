@@ -24,11 +24,32 @@
 #ifndef FFPP_CNF_HPP
 #define FFPP_CNF_HPP
 
+#include <vector>
+#include <string>
+
+#include <pybind11/embed.h>
+#include <pybind11/stl.h>
+
+namespace py = pybind11;
+
 namespace ffpp
 {
 struct CNFConfig {
 	// Important EAL parameters
-	uint32_t memory;
+	uint32_t main_lcore_id;
+	std::vector<uint32_t> lcore_ids;
+	uint32_t memory_mb;
+
+	std::string proce_type;
+
+	// Assume each CNF only handles two virtual interfaces.
+	std::string in_vdev_cfg;
+	std::string out_vdev_cfg;
+
+	std::string eal_log_level;
+	std::string file_prefix;
+
+	bool start_python_interpreter;
 };
 
 /**
@@ -36,13 +57,20 @@ struct CNFConfig {
  */
 class CNF {
     public:
-	CNF();
+	/**
+	 * Initialize a CNF with the given configuration file.
+	 * The initilization process contains the initlization of EAL, memory pools, network ports.
+	 * 
+	 * @param config_file_path 
+	 */
+	CNF(std::string config_file_path);
 	~CNF();
 
-	void init();
-
     private:
-	/* data */
+	std::string config_file_path_;
+	struct CNFConfig cnf_config_;
+
+	void load_config_file(const std::string &config_file_path);
 };
 
 } // namespace ffpp

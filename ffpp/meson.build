@@ -40,6 +40,7 @@ cpp_flags = [
     # They will be used in 6G and beyond :)
     '-Wno-unused-value',
     '-Wno-unused-variable',
+	'-Wno-unused-parameter',
 ]
 
 add_project_arguments(
@@ -82,6 +83,9 @@ gtest_withmain_dep = dependency('gtest', main: true)
 pybind11_inc = include_directories('/usr/include/pybind11')
 pybind11_dep = declare_dependency(include_directories : pybind11_inc)
 
+libfccp_inc = include_directories('/usr/include/libfccp')
+libfccp_dep = declare_dependency(include_directories : libfccp_inc)
+
 ffpp_dep_list = [
   	bpf_dep,
   	dpdk_dep,
@@ -97,6 +101,7 @@ ffpp_dep_list = [
     glog_dep,
     fmt_dep,
     yaml_dep,
+	libfccp_dep,
 ]
 
 ffpp_deps = declare_dependency(
@@ -105,7 +110,7 @@ ffpp_deps = declare_dependency(
 
 subdir('include')
 subdir('src')
-
+subdir('bindings')
 # TODO <Zuo>: Manage ./kern sources with Meson's custom target or native method. 
 
 if get_option('examples')

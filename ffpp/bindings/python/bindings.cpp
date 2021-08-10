@@ -9,7 +9,7 @@ int add(int i, int j)
 	return i + j;
 }
 
-PYBIND11_MODULE(pyffpp, m)
+PYBIND11_MODULE(ffpppy, m)
 {
 	m.doc() = "pybind11 FFPP plugin";
 

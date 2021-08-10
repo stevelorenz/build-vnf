@@ -6,17 +6,39 @@
 #            So the leak information is manually checked and make sure there's no-leak in FFPP's code.
 # - dev: Tests currently under development and debugging. So a subset of all tests.
 
+configure_file(input : 'test_cnf.yaml',
+  	output : 'test_cnf.yaml',
+	copy: true
+)
+
 # Tests managed by google-test
-unit_test_gtest_sources = files('''
-	test_gtest_dummy.cpp
-	test_packet_vector.cpp
+dummy_test_sources = files('''
+	test_dummy.cpp
 '''.split())
 
-unit_test_gtest_exe = executable('unit-gtest',
-	sources: unit_test_gtest_sources,
-	dependencies: [ffpp_deps, gtest_withmain_dep])
+dummy_test_exe = executable('dummy_test',
+	sources: dummy_test_sources,
+	include_directories: inc,
+	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 
-test('unit-gtest-all', unit_test_gtest_exe, is_parallel: false, suite: ['unit', 'no-leak'])
+test('dummy_test', dummy_test_exe, is_parallel: false, suite: ['unit', 'no-leak'],
+	workdir : meson.source_root()
+)
+
+# Tests are defined separately mainly because of some environment have to be initialized only ONCE... e.g. DPDK's EAL,
+# So they need to run in different/isolated processes.
+test_cnf_sources = files('''
+	test_cnf.cpp
+'''.split())
+
+test_cnf_exe = executable('test_cnf',
+	sources: test_cnf_sources,
+	include_directories: inc,
+	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+
+test('test_cnf', test_cnf_exe, is_parallel: false, suite: ['unit', 'no-leak', 'dev'],
+	workdir : meson.source_root()
+)
 
 # Other special tests
 test_pye_pybind11 = executable(

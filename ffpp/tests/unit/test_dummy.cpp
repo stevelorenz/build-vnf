@@ -33,7 +33,8 @@ TEST(UnitTest, TestDummy)
 TEST(UnitTest, TestEALInit)
 {
 	std::vector<char *> dpdk_arg;
-	dpdk_arg.push_back((char *)(new std::string("-l 0"))->c_str());
+	dpdk_arg.push_back(
+		(char *)(new std::string("-l 0 --main-lcore 0"))->c_str());
 	dpdk_arg.push_back((char *)(new std::string("--no-pci"))->c_str());
 
 	auto ret = rte_eal_init(dpdk_arg.size(), dpdk_arg.data());

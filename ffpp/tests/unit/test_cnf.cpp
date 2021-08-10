@@ -21,16 +21,11 @@
  *  IN THE SOFTWARE.
  */
 
-#include <iostream>
+#include <gtest/gtest.h>
 
 #include "ffpp/cnf.hpp"
-#include "ffpp/graph.hpp"
 
-int main()
+TEST(UnitTest, TestCNF)
 {
-	std::cout << "---> Init the CNF." << std::endl;
-	// This is the absolute path in the dev Docker container.
-	auto cnf = ffpp::CNF("/ffpp/examples/embedding_python/cnf.yaml");
-
-	return 0;
+	auto cnf = ffpp::CNF("./build/tests/unit/test_cnf.yaml");
 }

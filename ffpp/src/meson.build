@@ -25,18 +25,3 @@ ffpplib_shared = shared_library('ffpp',
 	dependencies: ffpp_deps,
 	install: true
 )
-
-if get_option('pyffpp')
-	pyffpplib_shared = shared_library('pyffpp',
-		link_with : ffpplib_static,
-		# This is required to install ffpp.so instead of libffpp.so,
-		# so it can be `import ffpp`
-		name_prefix : '',
-		sources : [
-			'python/bindings.cpp',
-		],
-		dependencies : [
-			ffpp_deps,
-		],
-		install : true, install_dir : import('python3').sysconfig_path('platlib'))
-endif
