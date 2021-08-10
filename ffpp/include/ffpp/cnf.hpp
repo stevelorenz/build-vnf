@@ -21,13 +21,30 @@
  *  IN THE SOFTWARE.
  */
 
-#include <iostream>
+#ifndef FFPP_CNF_HPP
+#define FFPP_CNF_HPP
 
-#include "ffpp/controller.hpp"
-
-int main()
+namespace ffpp
 {
-	std::cout << "---> Init the controller." << std::endl;
-	auto controller = ffpp::Controller();
-	return 0;
-}
+struct CNFConfig {
+	// Important EAL parameters
+	uint32_t memory;
+};
+
+/**
+ * Containerized (or Cloud-native) Network Function (CNF)
+ */
+class CNF {
+    public:
+	CNF();
+	~CNF();
+
+	void init();
+
+    private:
+	/* data */
+};
+
+} // namespace ffpp
+
+#endif /* FFPP_CNF_HPP */

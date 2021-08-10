@@ -10,7 +10,7 @@ ffpp_headers = files(
   	'ffpp/utils.h',
 
   	# CPP sources
-	'ffpp/controller.hpp',
+	'ffpp/cnf.hpp',
 	'ffpp/graph.hpp',
 	'ffpp/packet_vector.hpp',
 	'ffpp/utils.hpp',

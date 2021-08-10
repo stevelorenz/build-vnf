@@ -4,7 +4,7 @@
 
 if [[ ! -f "../../build/examples/ffpp_power_manager" ]]; then
     echo "ERR: Can not find the built ffpp_power_manager executable."
-    echo "Please run 'make examples' in the ffpp/user folder."
+    echo "Please run 'make examples' in the ffpp folder."
     exit 1
 fi
 

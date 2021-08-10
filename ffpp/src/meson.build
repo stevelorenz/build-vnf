@@ -6,7 +6,7 @@ ffpp_sources = [
   	'utils.c',
 	
 	# CPP sources
-	'controller.cpp',
+	'cnf.cpp',
 	'graph.cpp',
 	'packet_vector.cpp',
 	'utils.cpp',

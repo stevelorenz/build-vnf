@@ -1,28 +1,65 @@
 #
-# Makefile to automate build processes of both user and kernel space sources.
+# Makefile
 #
+
+# TODO<Zuo>: Use meson to manage sources in ./kern with e.g. custom_target or native methods.
 
 all: release
 
+TARGET_DIR = build
+
 release:
-	cd ./user && make release
+	if [ ! -d $(TARGET_DIR) ]; then mkdir $(TARGET_DIR); fi
+	meson $(TARGET_DIR) --buildtype=release 
+	cd $(TARGET_DIR) && ninja
 	cd ./kern && make
 
 debug:
-	cd ./user && make debug
+	if [ ! -d $(TARGET_DIR) ]; then mkdir $(TARGET_DIR); fi
+	meson -Db_sanitize=address,undefined $(TARGET_DIR) --buildtype=debug
+	cd $(TARGET_DIR) && ninja
 	cd ./kern && make DEBUG=1
 
-install:
-	cd ./user/ && make install
+examples: release
+	meson configure -Dexamples=true $(TARGET_DIR)
+	cd $(TARGET_DIR) && ninja
+
+related_works: release
+	meson configure -Drelated_works=true $(TARGET_DIR)
+	cd $(TARGET_DIR) && ninja
+
+tests: debug
+	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=address,undefined $(TARGET_DIR) --buildtype=debug
+	cd $(TARGET_DIR) && ninja
+
+# Run all auto unit tests
+# (Some tests can not be checked with ASAN and valgrind due to issues in the dependencies...)
+run-tests: tests
+	@echo "* Run unit tests:"
+	cd $(TARGET_DIR) && ASAN_OPTIONS=detect_leaks=0 meson test --suite no-leak --print-errorlogs
+
+run-tests-dev: tests
+	@echo "* Run unit tests (under development):"
+	cd $(TARGET_DIR) && meson test --suite dev  --print-errorlogs
+
+# Run tests that currently have memory leaks (Could because of used dependencies).
+run-tests-leak: tests
+	cd $(TARGET_DIR) && meson test --suite leak --print-errorlogs
+
+run-coverage: tests
+	cd $(TARGET_DIR) && ninja test && ninja coverage-html
+
+install: release
+	cd $(TARGET_DIR) && ninja install
 
 uninstall:
-	cd ./user/ && make uninstall
+	cd $(TARGET_DIR) && ninja uninstall
 
 clean:
-	cd ./user && make clean
+	rm -rf $(TARGET_DIR)
 	cd ./kern && make clean
 
-.PHONY: install uninstall clean
+.PHONY: release debug examples related_works tests run-tests run-coverage install uninstall clean
 
 # Static checkers and formatters for utility scripts, used to run them inside terminal
 

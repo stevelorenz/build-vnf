@@ -1,5 +1,5 @@
 project('ffpp', 'c', 'cpp',
-  	version: run_command(find_program('cat', 'more'),files('../VERSION')).stdout().strip(),
+  	version: run_command(find_program('cat', 'more'),files('./VERSION')).stdout().strip(),
   	license: 'MIT',
   	meson_version: '>= 0.53.0',
   	default_options: [
@@ -20,42 +20,6 @@ cc = meson.get_compiler('c')
 cppc = meson.get_compiler('cpp')
 
 c_flags = [
-    '-Wlogical-op',
-    '-Werror=missing-include-dirs',
-    '-Werror=pointer-arith',
-    '-Werror=init-self',
-    '-Wfloat-equal',
-    '-Wsuggest-attribute=noreturn',
-    # '-Werror=missing-prototypes',
-    '-Werror=implicit-function-declaration',
-    '-Werror=return-type',
-    '-Werror=incompatible-pointer-types',
-    '-Werror=format=2',
-    # '-Wstrict-prototypes',
-    # '-Wredundant-decls',
-    # '-Wimplicit-fallthrough=5',
-    '-Wendif-labels',
-    '-Wstrict-aliasing=3',
-    '-Wwrite-strings',
-    '-Werror=overflow',
-    '-Werror=shift-count-overflow',
-    '-Werror=shift-overflow=2',
-    '-Wdate-time',
-    '-Wnested-externs',
-    '-Wunused',
-    '-Wduplicated-branches',
-    '-Wmisleading-indentation',
-
-    '-Wno-sign-compare',
-    '-Wno-unused-parameter',
-
-    ## '-fvisibility=hidden',
-    '-ffast-math',
-    '-fdiagnostics-show-option',
-    '-fstack-protector',
-    '-fstack-protector-strong',
-    '--param=ssp-buffer-size=4',
-
     # ABI stability of DPDK is not considered here.
     # Because the test container always uses a specific DPDK version.
     '-Wno-deprecated-declarations',
@@ -66,38 +30,6 @@ c_flags = [
 ]
 
 cpp_flags = [
-    '-Wlogical-op',
-    '-Werror=missing-include-dirs',
-    '-Werror=pointer-arith',
-    '-Werror=init-self',
-    '-Wfloat-equal',
-    # '-Wsuggest-attribute=noreturn',
-    # '-Werror=missing-declarations',
-    '-Werror=return-type',
-    '-Werror=format=2',
-    '-Wredundant-decls',
-    '-Wimplicit-fallthrough=5',
-    '-Wendif-labels',
-    '-Wstrict-aliasing=3',
-    '-Wwrite-strings',
-    '-Werror=overflow',
-    '-Werror=shift-count-overflow',
-    '-Werror=shift-overflow=2',
-    '-Wdate-time',
-    '-Wunused',
-    '-Wduplicated-branches',
-    '-Wmisleading-indentation',
-
-    '-Wno-sign-compare',
-    '-Wno-unused-parameter',
-
-    ## '-fvisibility=hidden',
-    '-ffast-math',
-    '-fdiagnostics-show-option',
-    '-fstack-protector',
-    '-fstack-protector-strong',
-    '--param=ssp-buffer-size=4',
-
     # When including DPDK headers, the following warnings will be disabled to
     # allow the code to compile...
     '-Wno-implicit-fallthrough',
@@ -108,7 +40,6 @@ cpp_flags = [
     # They will be used in 6G and beyond :)
     '-Wno-unused-value',
     '-Wno-unused-variable',
-	  '-Wno-missing-field-initializers',
 ]
 
 add_project_arguments(
@@ -174,6 +105,8 @@ ffpp_deps = declare_dependency(
 
 subdir('include')
 subdir('src')
+
+# TODO <Zuo>: Manage ./kern sources with Meson's custom target or native method. 
 
 if get_option('examples')
   	subdir('examples')

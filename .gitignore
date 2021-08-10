@@ -63,6 +63,9 @@ dkms.conf
 
 # Meson build system
 builddir
+build
+
+.ccls-cache/
 
 ------------
 -  Python  -
@@ -207,7 +210,7 @@ latex/
 -  FFPP  -
 ----------
 
-# XDP-related userspace programs
+# XDP-related userspace programs, remove them when xdp-loader works nicely.
 xdp_count_user
 xdp_count_loader
 af_xdp_dpdk_user
@@ -222,17 +225,16 @@ calvin-fass/ffpp/docs/build
 calvin-fass/ffpp/docs/.build
 calvin-fass/ffpp/MoonGen
 !ffpp/ffpp-go/go.mod
-.ccls-cache/
 
 -----------
 -  Malte  -
 -----------
 
 calvin-faas/ffpp/kern/xdp-tutorial/
-calvin-faas/ffpp/user/examples/freq_scale/
-calvin-faas/ffpp/user/examples/frequency_manager/*.txt
-calvin-faas/ffpp/user/include/ffpp/csvwriter.h
-calvin-faas/ffpp/user/run.sh
-calvin-faas/ffpp/user/src/csvwriter.c
+calvin-faas/ffpp/examples/freq_scale/
+calvin-faas/ffpp/examples/frequency_manager/*.txt
+calvin-faas/ffpp/include/ffpp/csvwriter.h
+calvin-faas/ffpp/run.sh
+calvin-faas/ffpp/src/csvwriter.c
 calvin-faas/ffpp/util/config.sh
 calvin-faas/ffpp/util/set_irq_affinity.sh

@@ -42,7 +42,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
         "/dev": {"bind": "/dev", "mode": "rw"},
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
-    "working_dir": "/ffpp/user/related_works/l2fwd_power/",
+    "working_dir": "/ffpp/related_works/l2fwd_power/",
     "image": "ffpp-dev:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-vnf"},

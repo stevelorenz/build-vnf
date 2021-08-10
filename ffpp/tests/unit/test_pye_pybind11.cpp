@@ -32,7 +32,7 @@
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-static const char *test_py_path = "/ffpp/user/tests/data";
+static const char *test_py_path = "/ffpp/tests/data";
 
 void print_in_embeded()
 {

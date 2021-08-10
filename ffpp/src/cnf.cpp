@@ -28,18 +28,18 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 
-#include "ffpp/controller.hpp"
+#include "ffpp/cnf.hpp"
 
 namespace ffpp
 {
-Controller::Controller()
+CNF::CNF()
 {
 	FLAGS_logtostderr = true;
 	FLAGS_colorlogtostderr = true;
 	FLAGS_minloglevel = 0;
 	FLAGS_stderrthreshold = 0;
 	FLAGS_v = 3;
-	google::InitGoogleLogging("FFPP-Controller");
+	google::InitGoogleLogging("FFPP-CNF");
 
 	LOG(INFO) << "Initialize DPDK EAL environment.";
 	std::vector<char *> dpdk_arg;
@@ -52,7 +52,13 @@ Controller::Controller()
 	}
 }
 
-Controller::~Controller()
+CNF::~CNF()
+{
+	LOG(INFO) << "Cleanup DPDK EAL environment.";
+	rte_eal_cleanup();
+}
+
+void CNF::init()
 {
 }
 
