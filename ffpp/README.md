@@ -4,6 +4,10 @@ It's packet processing library designed for exploring [Computing in the Network 
 
 The project is currently under **heavy revision**. More docs will be added later when the source code is stable.
 
+Common facts about FFPP:
+
+- Cloud-native Network Function (CNF), data plane.
+
 Currently, many emulation/test related code is directly included here.
 The plan is to remove them and extend the [ComNetsEmu](https://github.com/stevelorenz/comnetsemu) project to support required functionalities.
 

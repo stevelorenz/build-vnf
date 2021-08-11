@@ -27,5 +27,6 @@
 
 TEST(UnitTest, TestCNF)
 {
-	auto cnf = ffpp::CNF("./build/tests/unit/test_cnf.yaml");
+	auto cnf = ffpp::CNF("/ffpp/tests/unit/test_cnf.yaml");
+	cnf.init_graph();
 }

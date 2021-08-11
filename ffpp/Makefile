@@ -7,16 +7,20 @@
 all: release
 
 TARGET_DIR = build
+# INFO: Can not be compiled using clang currently since some dependencies (e.g. pybind11) can not be compiled.
+CC = gcc
+CXX = g++
 
-release:
+mk_build_dir:
 	if [ ! -d $(TARGET_DIR) ]; then mkdir $(TARGET_DIR); fi
-	meson $(TARGET_DIR) --buildtype=release 
+
+release: mk_build_dir
+	CC=$(CC) CXX=$(CXX) meson $(TARGET_DIR) --buildtype=release 
 	cd $(TARGET_DIR) && ninja
 	cd ./kern && make
 
-debug:
-	if [ ! -d $(TARGET_DIR) ]; then mkdir $(TARGET_DIR); fi
-	meson -Db_sanitize=address,undefined $(TARGET_DIR) --buildtype=debug
+debug: mk_build_dir
+	CC=$(CC) CXX=$(CXX) meson -Db_sanitize=address,undefined $(TARGET_DIR) --buildtype=debug
 	cd $(TARGET_DIR) && ninja
 	cd ./kern && make DEBUG=1
 
@@ -39,23 +43,23 @@ tests-debug: debug
 # Run all auto unit tests
 # (Some tests can not be checked with ASAN and valgrind due to issues in the dependencies...)
 # cd $(TARGET_DIR) && ASAN_OPTIONS=detect_leaks=0 meson test --suite no-leak --print-errorlogs
-run-tests: tests
+run-tests:
 	@echo "* Run tests:"
 	cd $(TARGET_DIR) && meson test --suite no-leak --print-errorlogs
 
-run-tests-v: tests
+run-tests-v:
 	@echo "* Run tests:"
 	cd $(TARGET_DIR) && meson test --suite no-leak --print-errorlogs --verbose
 
-run-tests-dev: tests
+run-tests-dev: 
 	@echo "* Run tests (under development):"
 	cd $(TARGET_DIR) && meson test --suite dev  --print-errorlogs --verbose
 
 # Run tests that currently have memory leaks (Could because of used dependencies).
-run-tests-leak: tests-debug
+run-tests-leak:
 	cd $(TARGET_DIR) && meson test --suite leak --print-errorlogs --verbose
 
-run-coverage: tests
+run-coverage:
 	cd $(TARGET_DIR) && ninja test && ninja coverage-html
 
 install: release
@@ -67,8 +71,6 @@ uninstall:
 clean:
 	rm -rf $(TARGET_DIR)
 	cd ./kern && make clean
-
-.PHONY: release debug examples related_works tests run-tests run-coverage install uninstall clean
 
 # Static checkers and formatters for utility scripts, used to run them inside terminal
 

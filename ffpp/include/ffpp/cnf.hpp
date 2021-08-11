@@ -24,17 +24,17 @@
 #ifndef FFPP_CNF_HPP
 #define FFPP_CNF_HPP
 
-#include <vector>
+#include <memory>
 #include <string>
-
-#include <pybind11/embed.h>
-#include <pybind11/stl.h>
-
-namespace py = pybind11;
+#include <vector>
 
 namespace ffpp
 {
+/**
+ * CNF configuration
+ */
 struct CNFConfig {
+	std::string id;
 	// Important EAL parameters
 	uint32_t main_lcore_id;
 	std::vector<uint32_t> lcore_ids;
@@ -47,11 +47,13 @@ struct CNFConfig {
 	std::string out_vdev_cfg;
 
 	std::string eal_log_level;
-	std::string file_prefix;
 
 	bool start_python_interpreter;
-};
+	bool use_null_pmd;
+	uint32_t null_pmd_packet_size;
 
+	std::string loglevel;
+};
 /**
  * Containerized (or Cloud-native) Network Function (CNF)
  */
@@ -66,11 +68,13 @@ class CNF {
 	CNF(std::string config_file_path);
 	~CNF();
 
-    private:
-	std::string config_file_path_;
-	struct CNFConfig cnf_config_;
+	/**
+	 * Try/learn how to use rte_graph correctly. Then corresponded functionalities should be moved to ffpp/graph.
+	 */
+	void init_graph(void);
 
-	void load_config_file(const std::string &config_file_path);
+    private:
+	struct CNFConfig cnf_config_;
 };
 
 } // namespace ffpp

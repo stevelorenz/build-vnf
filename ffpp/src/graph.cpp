@@ -21,6 +21,4 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_graph.h>
-
 #include "ffpp/graph.hpp"

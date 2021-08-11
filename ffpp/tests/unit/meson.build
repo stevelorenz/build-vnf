@@ -6,12 +6,6 @@
 #            So the leak information is manually checked and make sure there's no-leak in FFPP's code.
 # - dev: Tests currently under development and debugging. So a subset of all tests.
 
-configure_file(input : 'test_cnf.yaml',
-  	output : 'test_cnf.yaml',
-	copy: true
-)
-
-# Tests managed by google-test
 dummy_test_sources = files('''
 	test_dummy.cpp
 '''.split())

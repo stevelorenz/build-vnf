@@ -9,7 +9,6 @@ ffpp_sources = [
 	'cnf.cpp',
 	'graph.cpp',
 	'packet_vector.cpp',
-	'utils.cpp',
 ]
 
 ffpplib_static = static_library('ffpp',

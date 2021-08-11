@@ -3,14 +3,14 @@ project('ffpp', 'c', 'cpp',
   	license: 'MIT',
   	meson_version: '>= 0.53.0',
   	default_options: [
-    	'c_std=gnu18',
-    	# C++20 is used for C-style designated initializers.
-    	'cpp_std=c++2a',
-    	'buildtype=release',
-    	'warning_level=2',
-    	'default_library=both',
-    	'werror=true',
-    	'b_lundef=true',
+		'c_std=gnu18',
+		# C++20 is used for C-style designated initializers.
+		'cpp_std=c++2a',
+		'buildtype=release',
+		'warning_level=2',
+		'default_library=both',
+		'werror=true',
+		'b_lundef=true',
   	],
 )
 
@@ -20,37 +20,39 @@ cc = meson.get_compiler('c')
 cppc = meson.get_compiler('cpp')
 
 c_flags = [
-    # ABI stability of DPDK is not considered here.
-    # Because the test container always uses a specific DPDK version.
-    '-Wno-deprecated-declarations',
-    # They will be used in 6G and beyond :)
-    '-Wno-unused-value',
-    '-Wno-unused-variable',
-    '-Wno-unused-but-set-variable',
+	# ABI stability of DPDK is not considered here.
+	# Because the test container always uses a specific DPDK version.
+	'-Wno-deprecated-declarations',
+	# They will be used in 6G and beyond :)
+	'-Wno-unused-value',
+	'-Wno-unused-variable',
+	'-Wno-unused-but-set-variable',
 ]
 
 cpp_flags = [
-    # When including DPDK headers, the following warnings will be disabled to
-    # allow the code to compile...
-    '-Wno-implicit-fallthrough',
-    # ABI stability of DPDK is not considered here.
-    # Because the test container always uses a specific DPDK version.
-    '-Wno-deprecated-declarations',
-
-    # They will be used in 6G and beyond :)
-    '-Wno-unused-value',
-    '-Wno-unused-variable',
+	# When including DPDK headers, the following warnings will be disabled to
+	# allow the code to compile...
+	'-Wno-implicit-fallthrough',
+	# ABI stability of DPDK is not considered here.
+	# Because the test container always uses a specific DPDK version.
+	'-Wno-deprecated-declarations',
+	# They will be used in 6G and beyond :)
+	'-Wno-unused-value',
+	'-Wno-unused-variable',
 	'-Wno-unused-parameter',
+	'-Wno-unused-but-set-variable',
+	'-Wno-missing-field-initializers',
 ]
 
+
 add_project_arguments(
-    c_flags,
-    language: 'c',
+	c_flags,
+	language: 'c',
 )
 
 add_project_arguments(
-    cpp_flags,
-    language: 'cpp',
+	cpp_flags,
+	language: 'cpp',
 )
 
 if get_option('buildtype').startswith('debug')
@@ -91,16 +93,16 @@ ffpp_dep_list = [
   	dpdk_dep,
   	json_dep,
   	math_dep,
-    thread_dep,
+	thread_dep,
   	python_embed_dep,
   	zmq_dep,
   	pybind11_dep,
   	libtins_dep,
   	boost_dep,
   	boost_dep_modules,
-    glog_dep,
-    fmt_dep,
-    yaml_dep,
+	glog_dep,
+	fmt_dep,
+	yaml_dep,
 	libfccp_dep,
 ]
 

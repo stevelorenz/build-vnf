@@ -24,8 +24,18 @@
 #ifndef FFPP_GRAPH_HPP
 #define FFPP_GRAPH_HPP
 
+#include <rte_graph.h>
+
 namespace cgcc
 {
+class PacketProcessingGraph {
+    private:
+	/* data */
+    public:
+	PacketProcessingGraph();
+	~PacketProcessingGraph();
+};
+
 } // namespace cgcc
 
 #endif /* FFPP_GRAPH_HPP */

@@ -13,7 +13,6 @@ ffpp_headers = files(
 	'ffpp/cnf.hpp',
 	'ffpp/graph.hpp',
 	'ffpp/packet_vector.hpp',
-	'ffpp/utils.hpp',
 )
 
 install_headers(ffpp_headers, subdir: 'ffpp')

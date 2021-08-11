@@ -14,9 +14,9 @@ foreach example: all_examples
   	sources=[]
   	subdir(example)
   	executable('ffpp_' + name, sources,
-    	include_directories: [inc, include_directories(example)],
-    	dependencies: ffpp_deps,
-    	link_with : [ffpplib_shared])
+		include_directories: [inc, include_directories(example)],
+		dependencies: ffpp_deps,
+		link_with : [ffpplib_shared])
 	endforeach
 
 # link_args : '-lcpufreq'

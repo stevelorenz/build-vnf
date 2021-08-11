@@ -8,7 +8,7 @@ foreach work: all_related_works
   	sources=[]
   	subdir(work)
   	executable('ffpp_' + name, sources,
-  	  include_directories: [inc, include_directories(work)],
-  	  dependencies: ffpp_deps,
-  	  link_with: [ffpplib_shared])
+  		include_directories: [inc, include_directories(work)],
+  		dependencies: ffpp_deps,
+  		link_with: [ffpplib_shared])
 endforeach
