@@ -35,12 +35,9 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>
-#include <pybind11/embed.h>
 
 #include "ffpp/graph.hpp"
 #include "ffpp/cnf.hpp"
-
-namespace py = pybind11;
 
 namespace ffpp
 {
@@ -78,8 +75,6 @@ void load_config_file(const std::string &config_file_path,
 	cnf_config.memory_mb = config["memory_mb"].as<uint32_t>();
 	cnf_config.in_vdev_cfg = config["in_vdev_cfg"].as<std::string>();
 	cnf_config.out_vdev_cfg = config["out_vdev_cfg"].as<std::string>();
-	cnf_config.start_python_interpreter =
-		config["start_python_interpreter"].as<bool>();
 	cnf_config.use_null_pmd = config["use_null_pmd"].as<bool>();
 	cnf_config.null_pmd_packet_size =
 		config["null_pmd_packet_size"].as<uint32_t>();
@@ -272,17 +267,7 @@ void init_vdevs(void)
 	LOG(INFO) << "All vdevs are successfully configured and started.";
 }
 
-void init_embed_python(void)
-{
-	LOG(INFO) << "Initialize the embed Python interpreter";
-	// The lifetime of the interpreter is the same of the CNF object.
-	py::initialize_interpreter();
-	{
-		py::print("PY] The Python interpreter is started");
-	}
-}
-
-CNF::CNF(std::string config_file_path)
+CNF::CNF(const std::string &config_file_path)
 {
 	load_config_file(config_file_path, cnf_config_);
 	pid_t cur_pid = getpid();
@@ -295,10 +280,6 @@ CNF::CNF(std::string config_file_path)
 	init_eal(cnf_config_);
 	init_mempools(cnf_config_.id);
 	init_vdevs();
-
-	if (cnf_config_.start_python_interpreter) {
-		init_embed_python();
-	}
 }
 
 CNF::~CNF()
@@ -309,10 +290,6 @@ CNF::~CNF()
 	}
 	LOG(INFO) << "Cleanup DPDK EAL environment";
 	rte_eal_cleanup();
-	if (cnf_config_.start_python_interpreter) {
-		LOG(INFO) << "Finalize the embeded Python interpreter";
-		py::finalize_interpreter();
-	}
 }
 
 void CNF::init_graph(void)

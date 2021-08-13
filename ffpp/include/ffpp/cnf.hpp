@@ -48,7 +48,6 @@ struct CNFConfig {
 
 	std::string eal_log_level;
 
-	bool start_python_interpreter;
 	bool use_null_pmd;
 	uint32_t null_pmd_packet_size;
 
@@ -65,7 +64,7 @@ class CNF {
 	 * 
 	 * @param config_file_path 
 	 */
-	CNF(std::string config_file_path);
+	CNF(const std::string &config_file_path);
 	~CNF();
 
 	/**

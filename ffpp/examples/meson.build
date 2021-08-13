@@ -6,7 +6,6 @@ all_examples = [
   	'frequency_switcher',
   	'power_manager',
   	'traffic_monitor',
-  	'embedding_python',
 ]
 
 foreach example: all_examples

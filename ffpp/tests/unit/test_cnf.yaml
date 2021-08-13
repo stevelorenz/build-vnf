@@ -5,7 +5,6 @@ memory_mb: 256
 in_vdev_cfg: eth_af_packet0,iface=eth0
 out_vdev_cfg: eth_af_packet0,iface=eth0
 
-start_python_interpreter: true
 use_null_pmd: true
 null_pmd_packet_size: 64
 

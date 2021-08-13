@@ -1,4 +1,4 @@
-/**
+"""
  *  Copyright (C) 2020 Zuo Xiang
  *  All rights reserved.
  *
@@ -19,18 +19,16 @@
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
- */
+"""
 
-#include <iostream>
+# TODO: Add pytest or python's built-in testing for tests.
 
-#include "ffpp/cnf.hpp"
-#include "ffpp/graph.hpp"
+import time
 
-int main()
-{
-	std::cout << "---> Init the CNF." << std::endl;
-	// This is the absolute path in the dev Docker container.
-	auto cnf = ffpp::CNF("/ffpp/examples/embedding_python/cnf.yaml");
+import ffpppy
 
-	return 0;
-}
+start = time.perf_counter()
+cnf = ffpppy.CNF("/ffpp/tests/unit/test_cnf.yaml")
+cnf.init_graph()
+duration = time.perf_counter() - start
+print(f"[PY] Time: {duration}")

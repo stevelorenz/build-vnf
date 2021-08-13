@@ -7,6 +7,7 @@ if get_option('ffpppy')
         sources : [
             'bindings.cpp',
         ],
+        include_directories: inc,
         dependencies : [
             ffpp_deps,
         ],
