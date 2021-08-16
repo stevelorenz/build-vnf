@@ -21,25 +21,9 @@
  *  IN THE SOFTWARE.
  */
 
-#include <rte_eal.h>
 #include <gtest/gtest.h>
-#include <vector>
 
 TEST(UnitTest, TestDummy)
 {
 	ASSERT_TRUE(1 + 1 == 2);
-}
-
-TEST(UnitTest, TestEALInit)
-{
-	std::vector<char *> dpdk_arg;
-	dpdk_arg.push_back(
-		(char *)(new std::string("-l 0 --main-lcore 0"))->c_str());
-	dpdk_arg.push_back((char *)(new std::string("--no-pci"))->c_str());
-
-	auto ret = rte_eal_init(dpdk_arg.size(), dpdk_arg.data());
-	if (ret < 0) {
-		rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
-	}
-	rte_eal_cleanup();
 }

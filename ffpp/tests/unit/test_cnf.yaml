@@ -2,9 +2,9 @@ main_lcore_id: 0
 lcore_ids: [0]
 memory_mb: 256
 
-in_vdev_cfg: eth_af_packet0,iface=eth0
-out_vdev_cfg: eth_af_packet0,iface=eth0
+data_vdev_cfg: eth_af_packet0,iface=eth0
 
+run_python_interpreter: true
 use_null_pmd: true
 null_pmd_packet_size: 64
 

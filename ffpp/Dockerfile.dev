@@ -1,5 +1,5 @@
 #
-# This image is used for the release purpose.
+# This image is ONLY used for the development purpose.
 #
 
 FROM ubuntu:20.04
@@ -57,18 +57,21 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 
 RUN pip3 install -q docker
 
+# Install FFPP dev tools. These packages are not needed in deployment.
+RUN debian_frontend="noninteractive" apt-get install -y \
+	gcovr googletest google-mock \
+	bash-completion cppcheck clang-tidy net-tools iproute2 iputils-ping tcpdump
+
 # Build and install the FFPP library.
 ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
-RUN make release && make install && rm -rf ${FFPP_PATH}/build
+# Do not run install, otherwise the binaries may prefer system-wide libraries instead of the local ones.
+RUN make release
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/lib/x86_64-linux-gnu/pkgconfig
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/x86_64-linux-gnu
 ENV PYTHONPATH="${PYTHONPATH}:/usr/local/lib/python3.8/site-packages"
-
-# APT cleanup.
-RUN rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 WORKDIR ${FFPP_PATH}
 

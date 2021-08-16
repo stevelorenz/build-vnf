@@ -27,9 +27,14 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <chrono>
+
+#include <rte_mbuf.h>
 
 namespace ffpp
 {
+constexpr uint32_t kMaxBurstSize = 32;
+
 /**
  * CNF configuration
  */
@@ -42,17 +47,17 @@ struct CNFConfig {
 
 	std::string proce_type;
 
-	// Assume each CNF only handles two virtual interfaces.
-	std::string in_vdev_cfg;
-	std::string out_vdev_cfg;
+	std::string data_vdev_cfg;
 
 	std::string eal_log_level;
 
 	bool use_null_pmd;
 	uint32_t null_pmd_packet_size;
+	bool run_python_interpreter;
 
 	std::string loglevel;
 };
+
 /**
  * Containerized (or Cloud-native) Network Function (CNF)
  */
@@ -67,12 +72,22 @@ class CNF {
 	CNF(const std::string &config_file_path);
 	~CNF();
 
+	uint32_t rx_pkts(std::vector<struct rte_mbuf *> &vec,
+			 uint32_t max_num_burst = 3);
+
+	void tx_pkts(std::vector<struct rte_mbuf *> &vec,
+		     std::chrono::microseconds burst_gap);
+
 	/**
 	 * Try/learn how to use rte_graph correctly. Then corresponded functionalities should be moved to ffpp/graph.
+	 * MARK: I tried to learn rte_graph through documentation and l3fwd-graph example. I feel that more time is needed
+	 * for me to adopt it into the codebase... So currently for quick prototyping, I'll "hard-code" the processing methods...
+	 * Later I'll learn try to refactor them using rte_graph 
 	 */
-	void init_graph(void);
+	// void init_graph(void);
 
     private:
+	CNF();
 	struct CNFConfig cnf_config_;
 };
 

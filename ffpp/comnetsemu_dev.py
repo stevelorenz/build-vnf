@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
         dev = net.addDockerHost(
             "dev",
-            dimage="ffpp",
+            dimage="ffpp-dev",
             ip="10.0.1.11/16",
             docker_args={
                 "hostname": "dev",

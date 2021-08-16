@@ -1,5 +1,5 @@
 #!/bin/bash
 
-echo "* Build FFPP development Docker image."
-docker build -t ffpp .
+echo "* Build FFPP release Docker image."
+docker build -f ./Dockerfile -t ffpp .
 docker image prune --force

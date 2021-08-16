@@ -1,4 +1,4 @@
-"""
+/**
  *  Copyright (C) 2020 Zuo Xiang
  *  All rights reserved.
  *
@@ -19,16 +19,13 @@
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
-"""
+ */
 
-# TODO: Add pytest or python's built-in testing for tests.
+#ifndef FFPP_MBUF_HELPERS_HPP
+#define FFPP_MBUF_HELPERS_HPP
 
-import time
+namespace ffpp
+{
+} // namespace ffpp
 
-import ffpppy
-
-start = time.perf_counter()
-cnf = ffpppy.CNF("/ffpp/tests/unit/test_cnf.yaml")
-cnf.init_graph()
-duration = time.perf_counter() - start
-print(f"[PY] Time: {duration}")
+#endif /* FFPP_MBUF_HELPERS_HPP */

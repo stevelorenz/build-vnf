@@ -21,12 +21,27 @@
  *  IN THE SOFTWARE.
  */
 
+#include <chrono>
+
 #include <gtest/gtest.h>
 
 #include "ffpp/cnf.hpp"
 
-TEST(UnitTest, TestCNF)
+using namespace ffpp;
+
+// ISSUE: The EAL can be only initialized once...
+static auto gCNF = CNF("/ffpp/tests/unit/test_cnf.yaml");
+
+TEST(UnitTest, TestCNFRxTx)
 {
-	auto cnf = ffpp::CNF("/ffpp/tests/unit/test_cnf.yaml");
-	cnf.init_graph();
+	std::vector<struct rte_mbuf *> vec;
+	uint32_t max_num_burst = 3;
+	vec.reserve(kMaxBurstSize * max_num_burst);
+
+	auto num_rx = gCNF.rx_pkts(vec, max_num_burst);
+	ASSERT_EQ(num_rx, uint32_t(kMaxBurstSize * max_num_burst));
+	ASSERT_EQ(num_rx, vec.size());
+	gCNF.tx_pkts(vec, std::chrono::microseconds(3));
+	ASSERT_EQ(uint32_t(0), vec.size());
+	ASSERT_EQ(uint32_t(kMaxBurstSize * max_num_burst), vec.capacity());
 }

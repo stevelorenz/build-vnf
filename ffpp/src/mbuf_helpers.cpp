@@ -21,17 +21,8 @@
  *  IN THE SOFTWARE.
  */
 
-#include <pybind11/pybind11.h>
+#include "ffpp/mbuf_helpers.hpp"
 
-#include <ffpp/cnf.hpp>
-
-namespace py = pybind11;
-
-PYBIND11_MODULE(ffpppy, m)
+namespace ffpp
 {
-	m.doc() = "FFPP";
-
-	py::class_<ffpp::CNF>(m, "CNF")
-		.def(py::init<const std::string &>())
-		.def("init_graph", &ffpp::CNF::init_graph);
 }

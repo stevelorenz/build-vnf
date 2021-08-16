@@ -21,25 +21,29 @@
  *  IN THE SOFTWARE.
  */
 
-#ifndef FFPP_PACKET_VECTOR_HPP
-#define FFPP_PACKET_VECTOR_HPP
+#include <chrono>
 
-#include <vector>
+#include <gtest/gtest.h>
+#include <tins/tins.h>
 
-#include <rte_mbuf.h>
+#include <ffpp/cnf.hpp>
 
-namespace ffpp
+using namespace Tins;
+using namespace ffpp;
+
+// ISSUE: The EAL can be only initialized once...
+static auto gCNF = CNF("/ffpp/tests/unit/test_cnf.yaml");
+
+TEST(UnitTest, TestPacketParsing)
 {
-class PacketVector {
-    public:
-	PacketVector(uint32_t size);
-	~PacketVector();
+	std::vector<struct rte_mbuf *> vec;
+	uint32_t max_num_burst = 3;
+	vec.reserve(kMaxBurstSize * max_num_burst);
 
-    private:
-	uint32_t size_;
-	std::vector<rte_mbuf *> pvec_;
-};
+	auto num_rx = gCNF.rx_pkts(vec, max_num_burst);
 
-} // namespace ffpp
+	/* EthernetII eth = EthernetII() / IP() / UDP(); */
+	/* auto udp = eth.rfind_pdu<IP>(); */
 
-#endif /* FFPP_PACKET_VECTOR_HPP */
+	gCNF.tx_pkts(vec, std::chrono::microseconds(1));
+}

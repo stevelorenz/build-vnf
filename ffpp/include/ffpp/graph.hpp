@@ -26,7 +26,7 @@
 
 #include <rte_graph.h>
 
-namespace cgcc
+namespace ffpp
 {
 class PacketProcessingGraph {
     private:
@@ -36,6 +36,6 @@ class PacketProcessingGraph {
 	~PacketProcessingGraph();
 };
 
-} // namespace cgcc
+} // namespace ffpp
 
 #endif /* FFPP_GRAPH_HPP */

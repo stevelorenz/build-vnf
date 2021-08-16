@@ -25,29 +25,34 @@
 #include <stdexcept>
 #include <string>
 #include <algorithm>
-
+#include <chrono>
+#include <tuple>
 #include <unistd.h>
-
-#include <rte_ethdev.h>
-#include <rte_mempool.h>
-
+#include <gsl/gsl>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>
+#include <pybind11/embed.h>
+#include <rte_eal.h>
+#include <rte_ethdev.h>
+#include <rte_mempool.h>
+#include <rte_cycles.h>
 
 #include "ffpp/graph.hpp"
 #include "ffpp/cnf.hpp"
+
+namespace py = pybind11;
 
 namespace ffpp
 {
 uint16_t kRXDescDefault = 1024;
 uint16_t kTXDescDefault = 1024;
 
-constexpr uint32_t kMaxPktBurst = 32;
-// MARK
 constexpr uint32_t kComputePktNum = 32;
 constexpr uint32_t kMempoolCacheSize = 256;
+
+constexpr uint32_t kRxTxPortID = 0;
 
 constexpr uint8_t kDefaultVlogNum = 1;
 
@@ -73,11 +78,12 @@ void load_config_file(const std::string &config_file_path,
 	cnf_config.main_lcore_id = config["main_lcore_id"].as<uint32_t>();
 	cnf_config.lcore_ids = config["lcore_ids"].as<std::vector<uint32_t> >();
 	cnf_config.memory_mb = config["memory_mb"].as<uint32_t>();
-	cnf_config.in_vdev_cfg = config["in_vdev_cfg"].as<std::string>();
-	cnf_config.out_vdev_cfg = config["out_vdev_cfg"].as<std::string>();
+	cnf_config.data_vdev_cfg = config["data_vdev_cfg"].as<std::string>();
 	cnf_config.use_null_pmd = config["use_null_pmd"].as<bool>();
 	cnf_config.null_pmd_packet_size =
 		config["null_pmd_packet_size"].as<uint32_t>();
+	cnf_config.run_python_interpreter =
+		config["run_python_interpreter"].as<bool>();
 
 	if (cnf_config.lcore_ids.size() != 1) {
 		throw std::runtime_error(
@@ -121,9 +127,8 @@ void log_cnf_config(const struct CNFConfig &cnf_config)
 	LOG(INFO) << fmt::format("The pre-allocated memory: {} MB",
 				 cnf_config.memory_mb);
 	if (not cnf_config.use_null_pmd) {
-		LOG(INFO) << fmt::format(
-			"The ingress vdev: {}, the egress vdev: {}",
-			cnf_config.in_vdev_cfg, cnf_config.out_vdev_cfg);
+		LOG(INFO) << fmt::format("The data plane vdev: {}",
+					 cnf_config.data_vdev_cfg);
 	} else {
 		LOG(INFO) << fmt::format(
 			"The null PMD (with packet size {}B) is used for local testing. in_dev_cfg and out_dev_cfg are ignored",
@@ -131,17 +136,15 @@ void log_cnf_config(const struct CNFConfig &cnf_config)
 	}
 }
 
-void init_eal(struct CNFConfig &cnf_config)
+__attribute__((no_sanitize_address)) void init_eal(struct CNFConfig &cnf_config)
 {
 	LOG(INFO) << "Initialize DPDK EAL environment";
 	std::vector<char *> dpdk_arg;
 	auto file_prefix = cnf_config.id;
 
 	if (cnf_config.use_null_pmd) {
-		cnf_config.in_vdev_cfg.assign(fmt::format(
+		cnf_config.data_vdev_cfg.assign(fmt::format(
 			"net_null0,size={}", cnf_config.null_pmd_packet_size));
-		cnf_config.out_vdev_cfg.assign(fmt::format(
-			"net_null1,size={}", cnf_config.null_pmd_packet_size));
 	}
 
 	// Boilerplate code... Maybe there's better way of doing it...
@@ -155,9 +158,7 @@ void init_eal(struct CNFConfig &cnf_config)
 		// clang-format off
 		fmt::format("--file-prefix={}", cnf_config.id).c_str(),
 		"--vdev",
-		cnf_config.in_vdev_cfg.c_str(),
-		"--vdev",
-		cnf_config.out_vdev_cfg.c_str(),
+		cnf_config.data_vdev_cfg.c_str(),
 		"--no-pci",
 		"--no-huge",
 		nullptr,
@@ -178,7 +179,7 @@ void init_mempools(const std::string &id)
 	auto nb_vdev_num = rte_eth_dev_count_avail();
 
 	uint32_t nb_mbufs = RTE_MAX(
-		nb_vdev_num * (kRXDescDefault + kTXDescDefault + kMaxPktBurst +
+		nb_vdev_num * (kRXDescDefault + kTXDescDefault + kMaxBurstSize +
 			       kComputePktNum + kMempoolCacheSize),
 		8192U);
 	LOG(INFO) << fmt::format(
@@ -201,11 +202,12 @@ void init_vdevs(void)
 {
 	LOG(INFO) << "Initialize (virtualized) network devices";
 	auto avail_vdev_num = rte_eth_dev_count_avail();
-	LOG(INFO) << fmt::format("Number of available vdev devices: {}",
-				 avail_vdev_num);
-	if (avail_vdev_num == 0 || avail_vdev_num > 2) {
+	LOG(INFO) << fmt::format(
+		"Number of available data plane vdev devices: {}",
+		avail_vdev_num);
+	if (avail_vdev_num != 1) {
 		throw std::runtime_error(
-			"The number of network devices must be 1 of 2!");
+			"The number of data plane network devices must be 1 !");
 	}
 
 	uint32_t vdev_id = 0;
@@ -280,8 +282,16 @@ CNF::CNF(const std::string &config_file_path)
 	init_eal(cnf_config_);
 	init_mempools(cnf_config_.id);
 	init_vdevs();
-}
 
+	if (cnf_config_.run_python_interpreter) {
+		LOG(INFO) << "Run embeded Python interpreter.";
+		py::initialize_interpreter();
+		{
+			auto sys = py::module::import("sys");
+			py::print("[PY] interpreter is already initialized");
+		}
+	}
+}
 CNF::~CNF()
 {
 	if (pool_ != nullptr) {
@@ -290,11 +300,94 @@ CNF::~CNF()
 	}
 	LOG(INFO) << "Cleanup DPDK EAL environment";
 	rte_eal_cleanup();
+	if (cnf_config_.run_python_interpreter) {
+		LOG(INFO) << "Stop embeded Python interpreter.";
+		py::finalize_interpreter();
+	}
+	google::ShutdownGoogleLogging();
 }
 
-void CNF::init_graph(void)
+uint32_t CNF::rx_pkts(std::vector<struct rte_mbuf *> &vec,
+		      uint32_t max_num_burst)
 {
-	LOG(INFO) << "Initialize the packet processing graph.";
+	uint32_t num_pkts_rx = 0;
+	uint32_t num_pkts_burst = 0;
+	uint32_t i = 0;
+	uint32_t j = 0;
+
+	struct rte_mbuf *mbuf_burst[kMaxBurstSize];
+
+	// MARK: Use rte_cycles.h when there's performance issue of using chrono.
+	for (i = 0; i < max_num_burst; i++) {
+		num_pkts_burst = rte_eth_rx_burst(kRxTxPortID, 0, mbuf_burst,
+						  kMaxBurstSize);
+		if (num_pkts_burst == 0) {
+			continue;
+		}
+		for (j = 0; j < num_pkts_burst; j++) {
+			vec.push_back(mbuf_burst[j]);
+		}
+		num_pkts_rx += num_pkts_burst;
+
+		if (num_pkts_burst < kMaxBurstSize) {
+			break;
+		}
+	}
+	VLOG_IF(kDefaultVlogNum, (i == max_num_burst))
+		<< "[RX] Hit maximal number of bursts.";
+
+	return num_pkts_rx;
+}
+
+void CNF::tx_pkts(std::vector<struct rte_mbuf *> &vec,
+		  std::chrono::microseconds burst_gap)
+{
+	struct rte_mbuf *mbuf_burst[kMaxBurstSize]; // on stack
+	uint32_t num_full_burst = uint32_t(vec.size()) / kMaxBurstSize;
+	uint32_t rest_burst = uint32_t(vec.size()) % kMaxBurstSize;
+	uint32_t i = 0;
+	uint32_t j = 0;
+
+	LOG(INFO) << "Full burst:" << num_full_burst
+		  << ", Rest burst:" << rest_burst;
+
+	uint32_t num_pkts_tx = 0;
+	// Send all full bursts
+	for (i = 0; i < num_full_burst; i++) {
+		num_pkts_tx = 0;
+		for (j = 0; j < kMaxBurstSize; j++) {
+			// Prepare the burst to send
+			mbuf_burst[j] = vec[j + i * kMaxBurstSize];
+		}
+		while (num_pkts_tx < kMaxBurstSize) {
+			num_pkts_tx +=
+				rte_eth_tx_burst(kRxTxPortID, 0,
+						 mbuf_burst + num_pkts_tx,
+						 kMaxBurstSize - num_pkts_tx);
+		}
+		rte_delay_us_block(burst_gap.count());
+	}
+
+	// Send the last burst
+	if (unlikely(rest_burst > 0)) {
+		num_pkts_tx = 0;
+
+		for (j = 0; j < rest_burst; ++j) {
+			mbuf_burst[j] = vec[j + num_full_burst * kMaxBurstSize];
+		}
+
+		while (num_pkts_tx < rest_burst) {
+			num_pkts_tx +=
+				rte_eth_tx_burst(kRxTxPortID, 0,
+						 mbuf_burst + num_pkts_tx,
+						 rest_burst - num_pkts_tx);
+		}
+		rte_delay_us_block(burst_gap.count());
+		VLOG(kDefaultVlogNum) << fmt::format(
+			"[RestBurst] Number of tx packets: {}", num_pkts_tx);
+	}
+
+	vec.clear();
 }
 
 } // namespace ffpp
