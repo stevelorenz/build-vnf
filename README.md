@@ -10,7 +10,7 @@
 
 Build-VNF is a collection of source code I developed and used for my PhD topic related to the placement of intelligent and energy-efficient virtualized network functions
 in the network.
-So it is ONLY a **experimental** and **research-oriented** project to explore new ideas.
+So it is ONLY a **experimental** and **research-and-learning-oriented** project to explore new ideas for my PhD.
 
 The project is currently under **heavy revision**. More docs will be added later when the source code is stable.
 
@@ -32,9 +32,18 @@ TODO
 
 ## Citing Our Works
 
-If you like tools inside this repository, please cite our papers.
+If you like tools inside this repository, please consider citing our papers.
 
 ```
+@inproceedings{xiang2018latency,
+  title={Latency measurement of service function chaining on OpenStack platform},
+  author={Xiang, Zuo and Gabriel, Frank and Nguyen, Giang T and Fitzek, Frank HP},
+  booktitle={2018 IEEE 43rd Conference on Local Computer Networks (LCN)},
+  pages={473--476},
+  year={2018},
+  organization={IEEE}
+}
+
 @article{xiang2019reducing,
   title={Reducing latency in virtual machines: Enabling tactile internet for human-machine co-working},
   author={Xiang, Zuo and Gabriel, Frank and Urbano, Elena and Nguyen, Giang T and Reisslein, Martin and Fitzek, Frank HP},

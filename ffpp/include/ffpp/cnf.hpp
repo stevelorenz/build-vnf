@@ -72,6 +72,8 @@ class CNF {
 	CNF(const std::string &config_file_path);
 	~CNF();
 
+	// WARNING: The std::vector is used here for prototyping... Maybe a io_ring based on rte_ring would be added for
+	// better performance.
 	uint32_t rx_pkts(std::vector<struct rte_mbuf *> &vec,
 			 uint32_t max_num_burst = 3);
 

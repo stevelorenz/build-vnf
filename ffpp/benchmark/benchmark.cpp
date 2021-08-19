@@ -21,24 +21,28 @@
  *  IN THE SOFTWARE.
  */
 
-#ifndef FFPP_MBUF_HELPERS_HPP
-#define FFPP_MBUF_HELPERS_HPP
+#include <chrono>
+#include <string>
+#include <vector>
 
-#include <rte_mbuf.h>
-#include <tins/tins.h>
+#include <benchmark/benchmark.h>
 
-namespace ffpp
+#include "ffpp/cnf.hpp"
+
+using namespace ffpp;
+
+static auto gCNF = CNF("/ffpp/benchmark/benchmark_cnf.yaml");
+
+static void BM_CNFRxTx(benchmark::State &state)
 {
-/*************************
-*  Slow-Path Functions  *
-*************************/
+	std::vector<struct rte_mbuf *> vec;
+	uint32_t max_num_burst = 3;
+	vec.reserve(kMaxBurstSize * max_num_burst);
+	for (auto _ : state) {
+		auto num_rx = gCNF.rx_pkts(vec, max_num_burst);
+		gCNF.tx_pkts(vec, std::chrono::microseconds(0));
+	}
+}
+BENCHMARK(BM_CNFRxTx);
 
-// RELATIVE slow path functions use libtins for packet processing.
-
-int serialize_ethernet_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
-
-Tins::EthernetII parse_mbuf_to_ethernet(const struct rte_mbuf *m);
-
-} // namespace ffpp
-
-#endif /* FFPP_MBUF_HELPERS_HPP */
+BENCHMARK_MAIN();

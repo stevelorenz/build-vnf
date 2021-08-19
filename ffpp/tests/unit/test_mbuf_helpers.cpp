@@ -21,18 +21,32 @@
  *  IN THE SOFTWARE.
  */
 
+#include <iostream>
 #include <chrono>
 
 #include <gtest/gtest.h>
 #include <tins/tins.h>
+#include <rte_mbuf.h>
 
-#include <ffpp/cnf.hpp>
+#include "ffpp/cnf.hpp"
+#include "ffpp/mbuf_helpers.hpp"
 
-using namespace Tins;
 using namespace ffpp;
+using namespace Tins;
 
 // ISSUE: The EAL can be only initialized once...
 static auto gCNF = CNF("/ffpp/tests/unit/test_cnf.yaml");
+
+EthernetII create_sample_ethernet_frame()
+{
+	NetworkInterface iface = NetworkInterface::default_interface();
+	NetworkInterface::Info info = iface.addresses();
+	EthernetII eth = EthernetII("17:17:17:17:17:17", info.hw_addr) /
+			 IP("192.168.17.17", info.ip_addr) / UDP(8888, 8888) /
+			 RawPDU("Detective Conan: One truth prevails !");
+
+	return eth;
+}
 
 TEST(UnitTest, TestPacketParsing)
 {
@@ -42,8 +56,18 @@ TEST(UnitTest, TestPacketParsing)
 
 	auto num_rx = gCNF.rx_pkts(vec, max_num_burst);
 
-	/* EthernetII eth = EthernetII() / IP() / UDP(); */
-	/* auto udp = eth.rfind_pdu<IP>(); */
+	EthernetII eth = create_sample_ethernet_frame();
+	IP &ip = eth.rfind_pdu<IP>();
+	UDP &udp = eth.rfind_pdu<UDP>();
+	ASSERT_EQ(eth.trailer_size(), uint32_t(0));
+	serialize_ethernet_to_mbuf(eth, vec[0]);
 
-	gCNF.tx_pkts(vec, std::chrono::microseconds(1));
+	auto new_eth = parse_mbuf_to_ethernet(vec[0]);
+	IP &new_ip = new_eth.rfind_pdu<IP>();
+	UDP &new_udp = new_eth.rfind_pdu<UDP>();
+
+	ASSERT_EQ(ip.tot_len(), new_ip.tot_len());
+	ASSERT_EQ(udp.dport(), new_udp.dport());
+
+	gCNF.tx_pkts(vec, std::chrono::microseconds(0));
 }

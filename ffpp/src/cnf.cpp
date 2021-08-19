@@ -317,7 +317,6 @@ uint32_t CNF::rx_pkts(std::vector<struct rte_mbuf *> &vec,
 
 	struct rte_mbuf *mbuf_burst[kMaxBurstSize];
 
-	// MARK: Use rte_cycles.h when there's performance issue of using chrono.
 	for (i = 0; i < max_num_burst; i++) {
 		num_pkts_burst = rte_eth_rx_burst(kRxTxPortID, 0, mbuf_burst,
 						  kMaxBurstSize);

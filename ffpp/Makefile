@@ -62,6 +62,10 @@ tests-debug: debug
 	meson configure -Dtests=true -Db_coverage=true -Db_sanitize=address $(TARGET_DIR) --buildtype=debug
 	cd $(TARGET_DIR) && ninja
 
+run-benchmark:
+	@echo "* Run benchmark using google/benchmark"
+	cd $(TARGET_DIR)/benchmark && ./gbenchmark
+
 # Disable detecting memory leaks: ASAN_OPTIONS=detect_leaks=0 meson test --print-errorlogs
 run-tests:
 	@echo "* Run all tests"

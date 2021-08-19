@@ -65,6 +65,7 @@ inc = include_directories('include')
 
 math_dep = cc.find_library('m', required: true)
 
+# TODO: Separate testing and development deps from the runtime deps.
 thread_dep = dependency('threads')
 bpf_dep = dependency('libbpf', required: true)
 dpdk_dep = dependency('libdpdk', required: true)
@@ -77,8 +78,7 @@ fmt_dep = dependency('fmt', required: true)
 yaml_dep = dependency('yaml-cpp', required: true)
 boost_dep = dependency('boost', required: true)
 boost_dep_modules = dependency('boost', modules : ['program_options'], required: true)
-gtest_nomain_dep = dependency('gtest', main: false)
-gtest_withmain_dep = dependency('gtest', main: true)
+gbenchmark_dep = dependency('benchmark', required:true)
 
 pybind11_inc = include_directories('/usr/include/pybind11')
 pybind11_dep = declare_dependency(include_directories : pybind11_inc)
@@ -104,15 +104,21 @@ ffpp_dep_list = [
 	yaml_dep,
 	libfccp_dep,
 	ms_gsl_dep,
+	gbenchmark_dep,
 ]
 
+# FFPP's runtime dependencies
 ffpp_deps = declare_dependency(
 	dependencies: ffpp_dep_list,
 )
 
+gtest_nomain_dep = dependency('gtest', main: false, required: false)
+gtest_withmain_dep = dependency('gtest', main: true, required: false)
+
 subdir('include')
 subdir('src')
-# TODO <Zuo>: Manage ./kern sources with Meson's custom target or native method.
+subdir('benchmark')
+# TODO <Zuo>: Manage ./kern sources (mainly eBPF related code) with Meson's custom target or native method.
 
 if get_option('examples')
 	subdir('examples')
