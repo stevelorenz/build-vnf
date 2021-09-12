@@ -7,7 +7,7 @@ Contributors include:
 - Zuo Xiang <zuo.xiang@tu-dresden.de>
 
 - Funing Xia
-- Malte Höweler
+- Malte Hoeweler
 - Renbing Zhang
 - Xuefan Wang
 

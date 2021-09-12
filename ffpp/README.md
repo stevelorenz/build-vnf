@@ -31,4 +31,4 @@ This library is **NOT** designed to be used in production with dependencies of s
 
 - Makefile: Makefile for some common tasks including e.g. building the project and run code checkers.
 
-- util: Utility scripts and code for internal development purposes.
+- utils: Utility scripts and tools for internal development purposes.
