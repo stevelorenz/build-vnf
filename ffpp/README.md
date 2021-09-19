@@ -1,34 +1,21 @@
 # FFPP - Fast Functional Packet Processing
 
-It's packet processing library designed for exploring [Computing in the Network (COIN)](https://datatracker.ietf.org/rg/coinrg/about/) use cases.
+It's a packet processing library (`libffpp`) designed for exploring the research topic: [Computing in the Network (COIN)](https://datatracker.ietf.org/rg/coinrg/about/).
+Currently, it only focuses on the **data plane** for packet processing.
 
-The project is currently under **heavy revision**. More docs will be added later when the source code is stable.
+The project is currently under **heavy development and revision**.
+More docs will be added later when the source code is stable.
 
-Common facts about FFPP:
+## TODO: Build and Run
 
-- Cloud-native Network Function (CNF), data plane.
+## Catalog
 
-Currently, many emulation/test related code is directly included here.
-The plan is to remove them and extend the [ComNetsEmu](https://github.com/stevelorenz/comnetsemu) project to support required functionalities.
-
-One main purpose of this library is to explore and benchmark the latest good features of the used network IO libraries (e.g. DPDK and XDP-Tools).
-Therefore, the latest versions are used and some of these libraries have to be **built from source** due to lacking of the deb packages.
-This library is **NOT** designed to be used in production with dependencies of stable versions.
-
-## Get Started (WIP)
-
-## Development (WIP)
-
-## Project Structure (WIP)
-
-- benchmark: Programs to benchmark some functions implemented in FFPP.
-
-- Dockerfile: The default Dockerfile to build the development Docker image.
-
-- emulation: Emulation scripts using ComNetsEmu.
-
-- kern: eBPF/XDP programs running in Linux kernel space. Related sources should be mostly GPL licensed.
-
-- Makefile: Makefile for some common tasks including e.g. building the project and run code checkers.
-
-- utils: Utility scripts and tools for internal development purposes.
+- Dockerfile, Dockerfile.dev: The Dockerfiles to build release and development Docker images
+- Makefile: Makefile to build the project (executables and eBPF object files)
+- emulation: Emulation scripts using ComNetsEmu
+- examples: Basic examples using libffpp
+- include, src: C/C++ source files for libffpp
+- kern: eBPF/XDP programs running in Linux kernel space (kern)
+- related_works: Programs to reproduce results of related papers (for comparison)
+- tests: Test programs for libffpp
+- utils: Utility scripts and tools for internal development purposes

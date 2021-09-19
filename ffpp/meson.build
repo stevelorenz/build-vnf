@@ -33,6 +33,8 @@ cpp_flags = [
 	# When including DPDK headers, the following warnings will be disabled to
 	# allow the code to compile...
 	'-Wno-implicit-fallthrough',
+	# Some DPDK C sources perform implicit pointer casting from (void*) to another pointer.
+	'-fpermissive',
 	# ABI stability of DPDK is not considered here.
 	# Because the test container always uses a specific DPDK version.
 	'-Wno-deprecated-declarations',
@@ -42,6 +44,7 @@ cpp_flags = [
 	'-Wno-unused-parameter',
 	'-Wno-unused-but-set-variable',
 	'-Wno-missing-field-initializers',
+	
 ]
 
 

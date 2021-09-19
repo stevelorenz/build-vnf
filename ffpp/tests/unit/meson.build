@@ -39,3 +39,12 @@ test_mbuf_helpers_exe = executable('test_mbuf_helpers',
 test('test_mbuf_helpers', test_mbuf_helpers_exe, is_parallel: false, suite: ['unit', 'dev'],
 	workdir : meson.source_root()
 )
+
+test_cnf_exe = executable('test_rte_graph',
+	sources: ['test_rte_graph.cpp'],
+	include_directories: inc,
+	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+
+test('test_rte_graph', test_cnf_exe, is_parallel: false, suite: ['unit', 'dev'],
+	workdir : meson.source_root()
+)

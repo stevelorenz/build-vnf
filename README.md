@@ -8,27 +8,23 @@
 
 ## Overview
 
-Build-VNF is a collection of source code I developed and used for my PhD topic related to the placement of intelligent and energy-efficient virtualized network functions
-in the network.
+**Build-VNF** is a collection of sources and utilities I developed and used for my PhD topic:
+Intelligent and energy-efficient **dataplane** for Virtualized Network Functions (VNFs).
 So it is ONLY a **experimental** and **research-and-learning-oriented** project to explore new ideas for my PhD.
 
-The project is currently under **heavy revision**. More docs will be added later when the source code is stable.
+The project is currently under **heavy development and revision**.
+More docs will be added later when the source code is stable.
 
-## Table of Contents
-
-TODO
-
-## Introduction and Objectives
-
-TODO
 
 ## Catalog
 
 TODO
 
+
 ## Quick Start
 
 TODO
+
 
 ## Citing Our Works
 
@@ -78,7 +74,7 @@ The [list](./CONTRIBUTORS) of all contributors.
 
 ## Contact
 
-* **Zuo Xiang** - *Project Maintainer* - xianglinks@gmail.com
+* **Zuo Xiang** - *Project Maintainer* - zuo.xiang@tu-dresden.de
 
 
 ## License
