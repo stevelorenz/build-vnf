@@ -28,14 +28,14 @@
 #include <tins/tins.h>
 #include <rte_mbuf.h>
 
-#include "ffpp/cnf.hpp"
-#include "ffpp/mbuf_helpers.hpp"
+#include "ffpp/mbuf_pdu.hpp"
+#include "ffpp/packet_engine.hpp"
 
 using namespace ffpp;
 using namespace Tins;
 
 // ISSUE: The EAL can be only initialized once...
-static auto gCNF = CNF("/ffpp/tests/unit/test_cnf.yaml");
+static auto gPE = PacketEngine("/ffpp/tests/unit/test_config.yaml");
 
 EthernetII create_sample_ethernet_frame()
 {
@@ -54,20 +54,20 @@ TEST(UnitTest, TestPacketParsing)
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 
-	auto num_rx = gCNF.rx_pkts(vec, max_num_burst);
+	auto num_rx = gPE.rx_pkts(vec, max_num_burst);
 
 	EthernetII eth = create_sample_ethernet_frame();
 	IP &ip = eth.rfind_pdu<IP>();
 	UDP &udp = eth.rfind_pdu<UDP>();
 	ASSERT_EQ(eth.trailer_size(), uint32_t(0));
-	serialize_ethernet_to_mbuf(eth, vec[0]);
+	write_eth_to_mbuf(eth, vec[0]);
 
-	auto new_eth = parse_mbuf_to_ethernet(vec[0]);
+	auto new_eth = read_mbuf_to_eth(vec[0]);
 	IP &new_ip = new_eth.rfind_pdu<IP>();
 	UDP &new_udp = new_eth.rfind_pdu<UDP>();
 
 	ASSERT_EQ(ip.tot_len(), new_ip.tot_len());
 	ASSERT_EQ(udp.dport(), new_udp.dport());
 
-	gCNF.tx_pkts(vec, std::chrono::microseconds(0));
+	gPE.tx_pkts(vec, std::chrono::microseconds(0));
 }

@@ -25,24 +25,24 @@
 
 #include <gtest/gtest.h>
 
-#include "ffpp/cnf.hpp"
-#include "ffpp/graph.hpp"
+#include "ffpp/packet_engine.hpp"
 
 using namespace ffpp;
 
 // ISSUE: The EAL can be only initialized once...
-static auto gCNF = CNF("/ffpp/tests/unit/test_cnf.yaml");
+// I need to look deeper into gtest if there's a way to put EAL inside its fixtures.
+static auto gPE = PacketEngine("/ffpp/tests/unit/test_config.yaml");
 
-TEST(UnitTest, TestCNFRxTx)
+TEST(UnitTest, TestPERxTx)
 {
 	std::vector<struct rte_mbuf *> vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 
-	auto num_rx = gCNF.rx_pkts(vec, max_num_burst);
+	auto num_rx = gPE.rx_pkts(vec, max_num_burst);
 	ASSERT_EQ(num_rx, uint32_t(kMaxBurstSize * max_num_burst));
 	ASSERT_EQ(num_rx, vec.size());
-	gCNF.tx_pkts(vec, std::chrono::microseconds(3));
+	gPE.tx_pkts(vec, std::chrono::microseconds(3));
 	ASSERT_EQ(uint32_t(0), vec.size());
 	ASSERT_EQ(uint32_t(kMaxBurstSize * max_num_burst), vec.capacity());
 }

@@ -44,9 +44,7 @@ cpp_flags = [
 	'-Wno-unused-parameter',
 	'-Wno-unused-but-set-variable',
 	'-Wno-missing-field-initializers',
-	
 ]
-
 
 add_project_arguments(
 	c_flags,
@@ -67,7 +65,7 @@ inc = include_directories('include')
 # Dependencies
 
 math_dep = cc.find_library('m', required: true)
-
+# TODO: Remove unused dependencies, especially C dependencies.
 # TODO: Separate testing and development deps from the runtime deps.
 thread_dep = dependency('threads')
 bpf_dep = dependency('libbpf', required: true)

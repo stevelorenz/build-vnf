@@ -22,29 +22,20 @@ test('test_common', [test_common_executable], is_parallel: true, suite: ['unit']
 # Following tests are defined separately mainly because of some environment have to be initialized only ONCE... e.g. DPDK's EAL,
 # So they need to run in different/isolated processes.
 
-test_cnf_exe = executable('test_cnf',
-	sources: ['test_cnf.cpp'],
+test_packet_engine_exe = executable('test_packet_engine',
+	sources: ['test_packet_engine.cpp'],
 	include_directories: inc,
 	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 
-test('test_cnf', test_cnf_exe, is_parallel: false, suite: ['unit'],
+test('test_packet_engine', test_packet_engine_exe, is_parallel: false, suite: ['unit'],
 	workdir : meson.source_root()
 )
 
-test_mbuf_helpers_exe = executable('test_mbuf_helpers',
-	sources: ['test_mbuf_helpers.cpp'],
+test_mbuf_pdu_exe = executable('test_mbuf_pdu',
+	sources: ['test_mbuf_pdu.cpp'],
 	include_directories: inc,
 	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 
-test('test_mbuf_helpers', test_mbuf_helpers_exe, is_parallel: false, suite: ['unit', 'dev'],
-	workdir : meson.source_root()
-)
-
-test_cnf_exe = executable('test_rte_graph',
-	sources: ['test_rte_graph.cpp'],
-	include_directories: inc,
-	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
-
-test('test_rte_graph', test_cnf_exe, is_parallel: false, suite: ['unit', 'dev'],
+test('test_mbuf_pdu', test_mbuf_pdu_exe, is_parallel: false, suite: ['unit', 'dev'],
 	workdir : meson.source_root()
 )

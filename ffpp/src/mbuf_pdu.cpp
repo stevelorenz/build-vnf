@@ -21,24 +21,47 @@
  *  IN THE SOFTWARE.
  */
 
-#ifndef FFPP_MBUF_HELPERS_HPP
-#define FFPP_MBUF_HELPERS_HPP
+#include <cassert>
 
+#include <gsl/gsl>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <glog/logging.h>
 #include <rte_mbuf.h>
+#include <rte_memcpy.h>
 #include <tins/tins.h>
+
+#include "ffpp/mbuf_pdu.hpp"
 
 namespace ffpp
 {
-/*************************
-*  Slow-Path Functions  *
-*************************/
+int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf)
+{
+	// Remove current payload in the given mbuf
+	int ret;
+	ret = rte_pktmbuf_trim(mbuf, rte_pktmbuf_pkt_len(mbuf));
+	assert(ret == 0);
 
-// RELATIVE slow path functions use libtins for packet processing.
+	char *p = nullptr;
+	// The checksums should be already calculated here
+	auto payload = eth.serialize(); // MARK: potential bottleneck.
+	p = rte_pktmbuf_append(mbuf, payload.size());
+	if (unlikely(p == nullptr)) {
+		LOG(ERROR)
+			<< "There is not enough tailroom space in the given mbuf!";
+		return -1;
+	}
+	rte_memcpy(p, payload.data(), payload.size());
+	return 0;
+}
 
-int serialize_ethernet_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
+Tins::EthernetII read_mbuf_to_eth(const struct rte_mbuf *m)
+{
+	uint8_t *p = nullptr;
+	p = rte_pktmbuf_mtod(m, uint8_t *);
 
-Tins::EthernetII parse_mbuf_to_ethernet(const struct rte_mbuf *m);
+	Tins::EthernetII eth = Tins::EthernetII(p, rte_pktmbuf_pkt_len(m));
 
+	return eth;
+}
 } // namespace ffpp
-
-#endif /* FFPP_MBUF_HELPERS_HPP */

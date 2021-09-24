@@ -21,13 +21,13 @@
  *  IN THE SOFTWARE.
  */
 
-#ifndef FFPP_CNF_HPP
-#define FFPP_CNF_HPP
+#pragma once
 
 #include <memory>
 #include <string>
 #include <vector>
 #include <chrono>
+#include <functional>
 
 #include <rte_mbuf.h>
 
@@ -35,10 +35,7 @@ namespace ffpp
 {
 constexpr uint32_t kMaxBurstSize = 32;
 
-/**
- * CNF configuration
- */
-struct CNFConfig {
+struct PEConfig {
 	std::string id;
 	// Important EAL parameters
 	uint32_t main_lcore_id;
@@ -53,24 +50,14 @@ struct CNFConfig {
 
 	bool use_null_pmd;
 	uint32_t null_pmd_packet_size;
-	bool run_python_interpreter;
 
 	std::string loglevel;
 };
 
-/**
- * Containerized (or Cloud-native) Network Function (CNF)
- */
-class CNF {
+class PacketEngine {
     public:
-	/**
-	 * Initialize a CNF with the given configuration file.
-	 * The initilization process contains the initlization of EAL, memory pools, network ports.
-	 * 
-	 * @param config_file_path 
-	 */
-	CNF(const std::string &config_file_path);
-	~CNF();
+	PacketEngine(const std::string &config_file_path);
+	~PacketEngine();
 
 	// WARNING: The std::vector is used here for prototyping... Maybe a io_ring based on rte_ring would be added for
 	// better performance.
@@ -88,11 +75,16 @@ class CNF {
 	 */
 	// void init_graph(void);
 
+	void
+	register_read_apu_cb(std::function<std::string(struct rte_mbuf *)> cb)
+	{
+		cb_read_apu_ = cb;
+	}
+
     private:
-	CNF();
-	struct CNFConfig cnf_config_;
+	PacketEngine();
+	struct PEConfig pe_config_;
+	std::function<std::string(struct rte_mbuf *)> cb_read_apu_;
 };
 
 } // namespace ffpp
-
-#endif /* FFPP_CNF_HPP */

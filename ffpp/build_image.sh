@@ -1,5 +1,5 @@
 #!/bin/bash
 
-echo "* Build FFPP release Docker image."
-docker build -f ./Dockerfile -t ffpp .
+version=$(<./VERSION)
+docker build -f ./Dockerfile -t "ffpp:$version" .
 docker image prune --force

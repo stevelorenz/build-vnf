@@ -27,22 +27,24 @@
 
 #include <benchmark/benchmark.h>
 
-#include "ffpp/cnf.hpp"
+#include "ffpp/packet_engine.hpp"
 
 using namespace ffpp;
 
-static auto gCNF = CNF("/ffpp/benchmark/benchmark_cnf.yaml");
+static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
 
-static void BM_CNFRxTx(benchmark::State &state)
+// MARK: Can be extended to benchmark different PMDs ?
+static void bm_pe_rxtx(benchmark::State &state)
 {
 	std::vector<struct rte_mbuf *> vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 	for (auto _ : state) {
-		auto num_rx = gCNF.rx_pkts(vec, max_num_burst);
-		gCNF.tx_pkts(vec, std::chrono::microseconds(0));
+		auto num_rx = gPE.rx_pkts(vec, max_num_burst);
+		gPE.tx_pkts(vec, std::chrono::microseconds(0));
 	}
 }
-BENCHMARK(BM_CNFRxTx);
+
+BENCHMARK(bm_pe_rxtx);
 
 BENCHMARK_MAIN();

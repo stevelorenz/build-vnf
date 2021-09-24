@@ -15,6 +15,9 @@ from mininet.log import setLogLevel
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
 
+with open("./VERSION", "r", encoding="utf-8") as vfile:
+    FFPP_VER = vfile.read().strip()
+
 if __name__ == "__main__":
     if os.geteuid() != 0:
         print("Run this script with sudo.", file=sys.stderr)
@@ -27,7 +30,7 @@ if __name__ == "__main__":
 
         dev = net.addDockerHost(
             "dev",
-            dimage="ffpp-dev",
+            dimage=f"ffpp:{FFPP_VER}",
             ip="10.0.1.11/16",
             docker_args={
                 "hostname": "dev",

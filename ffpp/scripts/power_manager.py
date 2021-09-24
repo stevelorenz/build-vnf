@@ -41,7 +41,7 @@ POWER_MANAGER_OPTS_DEFAULT = {
         BPF_MAP_BASEDIR: {"bind": BPF_MAP_BASEDIR, "mode": "rw"},
     },
     "working_dir": "/ffpp",
-    "image": "ffpp-dev:%s" % (FFPP_VER),
+    "image": "ffpp:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-power-manager"},
     # Ulimits, memlock should be enough to load eBPF maps.

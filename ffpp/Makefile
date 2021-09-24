@@ -1,7 +1,3 @@
-#
-# Makefile: Some
-#
-
 # TODO<Zuo>: Use meson to manage sources in ./kern with e.g. custom_target or native methods.
 
 all: release
@@ -16,7 +12,7 @@ mk_build_dir:
 
 release: mk_build_dir
 	@echo "* Build the libraries with release mode"
-	CC=$(CC) CXX=$(CXX) meson $(TARGET_DIR) --buildtype=release 
+	CC=$(CC) CXX=$(CXX) meson $(TARGET_DIR) --buildtype=release
 	cd $(TARGET_DIR) && ninja
 	cd ./kern && make
 
@@ -48,7 +44,7 @@ clean:
 	rm -rf $(TARGET_DIR)
 	cd ./kern && make clean
 
-# Following rules are used for development and debugging purposes 
+# Following rules are used for development and debugging purposes
 
 debug: mk_build_dir
 	@echo "* Build the libraries with debug mode (sanitizers are enabled)"
@@ -75,7 +71,7 @@ run-tests-v:
 	@echo "* Run all tests with verbose mode"
 	cd $(TARGET_DIR) && meson test --print-errorlogs --verbose
 
-run-tests-dev: 
+run-tests-dev:
 	@echo "* Only run tests of suite dev with verbose mode"
 	cd $(TARGET_DIR) && meson test --suite dev  --print-errorlogs --verbose
 
@@ -132,8 +128,4 @@ rm-dangling-images:
 	@echo "Remove all dangling docker images"
 	docker rmi $$(docker images -f "dangling=true" -q)
 
-pp-empty-dirs:
-	@echo "Print empty directories"
-	@find -maxdepth 3 -type d -empty
-
-.PHONY: rm-all-containers rm-dangling-images pp-empty-dirs
+.PHONY: rm-all-containers rm-dangling-images

@@ -80,7 +80,7 @@ def testMuNF(nano_cpus):
 
     dut = net.addDockerHost(
         "dut",
-        dimage=f"ffpp-dev:{FFPP_VER}",
+        dimage=f"ffpp:{FFPP_VER}",
         ip="10.0.0.2/24",
         docker_args={
             "cpuset_cpus": "1,2",
@@ -138,7 +138,7 @@ def testMuNF(nano_cpus):
         cnf = mgr.addContainer(
             f"cnf{n}",
             "dut",
-            f"ffpp-dev:{FFPP_VER}",
+            f"ffpp:{FFPP_VER}",
             "/bin/bash",
             docker_args={
                 "volumes": {

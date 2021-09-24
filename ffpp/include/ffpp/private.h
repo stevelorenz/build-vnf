@@ -9,7 +9,6 @@
 extern "C" {
 #endif
 
-
 #define EXPORT __attribute__((visibility("default")))
 
 #if defined(__clang__) || defined(__GNUC__)

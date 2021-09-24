@@ -10,10 +10,16 @@
 
 **Build-VNF** is a collection of sources and utilities I developed and used for my PhD topic:
 Intelligent and energy-efficient **dataplane** for Virtualized Network Functions (VNFs).
-So it is ONLY a **experimental** and **research-and-learning-oriented** project to explore new ideas for my PhD.
+So it is **ONLY** a **experimental** and **research-and-learning-oriented** project to explore new ideas for my PhD.
+SDN/NFV was a completely new topic for me when I started my PhD in 2018, so this monolithic repository was created to
+store my prototype code.
+So the structure and code here is totally unstable because I am not expert yet and still in try-error-retry loop ;).
+Also I'm keep exploring new ideas and refine the topic of my PhD thesis, so I just use snippets in this repo to perform
+measurements and get plots quickly...
+I plan to create separate repositories when there's some stable outcome from this repository.
 
 The project is currently under **heavy development and revision**.
-More docs will be added later when the source code is stable.
+More documentation will be added later when the structure is stable.
 
 
 ## Catalog

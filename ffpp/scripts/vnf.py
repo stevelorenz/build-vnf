@@ -43,7 +43,7 @@ FFPP_DEV_CONTAINER_OPTS_DEFAULT = {
         PARENT_DIR: {"bind": "/ffpp", "mode": "rw"},
     },
     "working_dir": "/ffpp/related_works/l2fwd_power/",
-    "image": "ffpp-dev:%s" % (FFPP_VER),
+    "image": "ffpp:%s" % (FFPP_VER),
     "command": "bash",
     "labels": {"group": "ffpp-vnf"},
     "cpuset_cpus": "1,3,5,7",

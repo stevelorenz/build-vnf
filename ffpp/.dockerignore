@@ -2,14 +2,15 @@
 */*.o
 */*.out
 */*.blob
+*/*.a
+*/*.so
 
-.ccls-cache/
 */.ccls-cache
+*/bin
+.ccls-cache/
 backup
+bin
 build
 builddir
 docs
 modified_dpdk_samples
-user/build
-user/builddir
-user/docs

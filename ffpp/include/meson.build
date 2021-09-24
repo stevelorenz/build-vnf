@@ -1,5 +1,4 @@
 ffpp_headers = files(
-	# C sources, most are related to eBPF/XDP
 	'ffpp/bpf_defines_user.h',
 	'ffpp/bpf_helpers_user.h',
 	'ffpp/config.h',
@@ -9,10 +8,9 @@ ffpp_headers = files(
 	'ffpp/scaling_helpers_user.h',
 	'ffpp/utils.h',
 
-	# CPP sources
-	'ffpp/cnf.hpp',
 	'ffpp/graph.hpp',
-	'ffpp/mbuf_helpers.hpp',
+	'ffpp/mbuf_pdu.hpp',
+    'ffpp/packet_engine.hpp',
 )
 
 install_headers(ffpp_headers, subdir: 'ffpp')

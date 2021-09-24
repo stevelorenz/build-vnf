@@ -21,8 +21,7 @@
  *  IN THE SOFTWARE.
  */
 
-#ifndef FFPP_GRAPH_HPP
-#define FFPP_GRAPH_HPP
+#pragma once
 
 #include <rte_graph.h>
 
@@ -39,5 +38,3 @@ class PacketProcessingGraph {
 };
 
 } // namespace ffpp
-
-#endif /* FFPP_GRAPH_HPP */

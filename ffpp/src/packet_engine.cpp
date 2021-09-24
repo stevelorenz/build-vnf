@@ -40,7 +40,7 @@
 #include <rte_cycles.h>
 
 #include "ffpp/graph.hpp"
-#include "ffpp/cnf.hpp"
+#include "ffpp/packet_engine.hpp"
 
 namespace py = pybind11;
 
@@ -68,30 +68,28 @@ static struct rte_eth_conf sVdevConf = {
 };
 
 void load_config_file(const std::string &config_file_path,
-		      struct CNFConfig &cnf_config)
+		      struct PEConfig &pe_config)
 {
 	LOG(INFO)
 		<< fmt::format("Load configuration from {}", config_file_path);
 	YAML::Node config = YAML::LoadFile(config_file_path);
 	// Boilerplate code... Maybe there's better way of doing it...
-	cnf_config.loglevel = config["loglevel"].as<std::string>();
-	cnf_config.main_lcore_id = config["main_lcore_id"].as<uint32_t>();
-	cnf_config.lcore_ids = config["lcore_ids"].as<std::vector<uint32_t> >();
-	cnf_config.memory_mb = config["memory_mb"].as<uint32_t>();
-	cnf_config.data_vdev_cfg = config["data_vdev_cfg"].as<std::string>();
-	cnf_config.use_null_pmd = config["use_null_pmd"].as<bool>();
-	cnf_config.null_pmd_packet_size =
+	pe_config.loglevel = config["loglevel"].as<std::string>();
+	pe_config.main_lcore_id = config["main_lcore_id"].as<uint32_t>();
+	pe_config.lcore_ids = config["lcore_ids"].as<std::vector<uint32_t> >();
+	pe_config.memory_mb = config["memory_mb"].as<uint32_t>();
+	pe_config.data_vdev_cfg = config["data_vdev_cfg"].as<std::string>();
+	pe_config.use_null_pmd = config["use_null_pmd"].as<bool>();
+	pe_config.null_pmd_packet_size =
 		config["null_pmd_packet_size"].as<uint32_t>();
-	cnf_config.run_python_interpreter =
-		config["run_python_interpreter"].as<bool>();
 
-	if (cnf_config.lcore_ids.size() != 1) {
+	if (pe_config.lcore_ids.size() != 1) {
 		throw std::runtime_error(
 			"The support for multiple worker lcores is not implemented yet!");
 	}
 
-	if (std::find(cnf_config.lcore_ids.begin(), cnf_config.lcore_ids.end(),
-		      cnf_config.main_lcore_id) == cnf_config.lcore_ids.end()) {
+	if (std::find(pe_config.lcore_ids.begin(), pe_config.lcore_ids.end(),
+		      pe_config.main_lcore_id) == pe_config.lcore_ids.end()) {
 		throw std::runtime_error(
 			"Lcore IDs must contain the main lcore ID!");
 	}
@@ -99,7 +97,7 @@ void load_config_file(const std::string &config_file_path,
 
 void config_glog(const std::string &loglevel)
 {
-	google::InitGoogleLogging("FFPP-CNF");
+	google::InitGoogleLogging("PacketEngine");
 	FLAGS_logtostderr = true;
 	FLAGS_colorlogtostderr = true;
 	FLAGS_stderrthreshold = 0;
@@ -118,47 +116,47 @@ void config_glog(const std::string &loglevel)
 	}
 }
 
-void log_cnf_config(const struct CNFConfig &cnf_config)
+void log_config(const struct PEConfig &pe_config)
 {
 	LOG(INFO) << fmt::format("The main lcore id: {}",
-				 cnf_config.main_lcore_id);
+				 pe_config.main_lcore_id);
 	LOG(INFO) << fmt::format("The lcore ids: {}",
-				 fmt::join(cnf_config.lcore_ids, ","));
+				 fmt::join(pe_config.lcore_ids, ","));
 	LOG(INFO) << fmt::format("The pre-allocated memory: {} MB",
-				 cnf_config.memory_mb);
-	if (not cnf_config.use_null_pmd) {
+				 pe_config.memory_mb);
+	if (not pe_config.use_null_pmd) {
 		LOG(INFO) << fmt::format("The data plane vdev: {}",
-					 cnf_config.data_vdev_cfg);
+					 pe_config.data_vdev_cfg);
 	} else {
 		LOG(INFO) << fmt::format(
 			"The null PMD (with packet size {}B) is used for local testing. in_dev_cfg and out_dev_cfg are ignored",
-			cnf_config.null_pmd_packet_size);
+			pe_config.null_pmd_packet_size);
 	}
 }
 
-__attribute__((no_sanitize_address)) void init_eal(struct CNFConfig &cnf_config)
+__attribute__((no_sanitize_address)) void init_eal(struct PEConfig &pe_config)
 {
 	LOG(INFO) << "Initialize DPDK EAL environment";
 	std::vector<char *> dpdk_arg;
-	auto file_prefix = cnf_config.id;
+	auto file_prefix = pe_config.id;
 
-	if (cnf_config.use_null_pmd) {
-		cnf_config.data_vdev_cfg.assign(fmt::format(
-			"net_null0,size={}", cnf_config.null_pmd_packet_size));
+	if (pe_config.use_null_pmd) {
+		pe_config.data_vdev_cfg.assign(fmt::format(
+			"net_null0,size={}", pe_config.null_pmd_packet_size));
 	}
 
 	// Boilerplate code... Maybe there's better way of doing it...
 	const char *rte_argv[] = {
-		"-l",
-		fmt::format("{}", fmt::join(cnf_config.lcore_ids, ",")).c_str(),
+		fmt::format("-l {}", fmt::join(pe_config.lcore_ids, ","))
+			.c_str(),
 		"--main-lcore",
-		fmt::format("{}", cnf_config.main_lcore_id).c_str(), "-m",
-		fmt::format("{}", cnf_config.memory_mb).c_str(),
+		fmt::format("{}", pe_config.main_lcore_id).c_str(), "-m",
+		fmt::format("{}", pe_config.memory_mb).c_str(),
 		// Following options are enabled to make the application "cloud-native" as much as possible.
 		// clang-format off
-		fmt::format("--file-prefix={}", cnf_config.id).c_str(),
+		fmt::format("--file-prefix={}", pe_config.id).c_str(),
 		"--vdev",
-		cnf_config.data_vdev_cfg.c_str(),
+		pe_config.data_vdev_cfg.c_str(),
 		"--no-pci",
 		"--no-huge",
 		nullptr,
@@ -233,8 +231,7 @@ void init_vdevs(void)
 		if (ret < 0) {
 			throw std::runtime_error(
 				"Failed to adjust the RX/TX descriptor");
-		}
-
+		};
 		// MARK: ONLY one RX and TX queue is inited for each vdev
 		auto rxq_conf = dev_info.default_rxconf;
 		auto txq_conf = dev_info.default_txconf;
@@ -269,30 +266,28 @@ void init_vdevs(void)
 	LOG(INFO) << "All vdevs are successfully configured and started.";
 }
 
-CNF::CNF(const std::string &config_file_path)
+PacketEngine::PacketEngine(const std::string &config_file_path)
 {
-	load_config_file(config_file_path, cnf_config_);
+	cb_read_apu_ = nullptr;
+	load_config_file(config_file_path, pe_config_);
 	pid_t cur_pid = getpid();
-	cnf_config_.id = fmt::format("FFPP_CNF_{}", cur_pid);
+	pe_config_.id = fmt::format("pe_{}", cur_pid);
 
-	log_cnf_config(cnf_config_);
-	config_glog(cnf_config_.loglevel);
-	// MARK: Maybe the initilization of the EAL and others should be performed by an external global CNF manager, like OpenNetVM
-	// For just fast prototyping currently, the EAL is initialized inside each container...
-	init_eal(cnf_config_);
-	init_mempools(cnf_config_.id);
+	log_config(pe_config_);
+	config_glog(pe_config_.loglevel);
+	init_eal(pe_config_);
+	init_mempools(pe_config_.id);
 	init_vdevs();
 
-	if (cnf_config_.run_python_interpreter) {
-		LOG(INFO) << "Run embeded Python interpreter.";
-		py::initialize_interpreter();
-		{
-			auto sys = py::module::import("sys");
-			py::print("[PY] interpreter is already initialized");
-		}
+	LOG(INFO) << "Run embeded Python interpreter.";
+	py::initialize_interpreter();
+	{
+		auto sys = py::module::import("sys");
+		py::print("[PY] interpreter is already initialized");
 	}
 }
-CNF::~CNF()
+
+PacketEngine::~PacketEngine()
 {
 	if (pool_ != nullptr) {
 		LOG(INFO) << "Free the memory pool";
@@ -300,15 +295,15 @@ CNF::~CNF()
 	}
 	LOG(INFO) << "Cleanup DPDK EAL environment";
 	rte_eal_cleanup();
-	if (cnf_config_.run_python_interpreter) {
-		LOG(INFO) << "Stop embeded Python interpreter.";
-		py::finalize_interpreter();
-	}
+
+	LOG(INFO) << "Stop embeded Python interpreter.";
+	py::finalize_interpreter();
+
 	google::ShutdownGoogleLogging();
 }
 
-uint32_t CNF::rx_pkts(std::vector<struct rte_mbuf *> &vec,
-		      uint32_t max_num_burst)
+uint32_t PacketEngine::rx_pkts(std::vector<struct rte_mbuf *> &vec,
+			       uint32_t max_num_burst)
 {
 	uint32_t num_pkts_rx = 0;
 	uint32_t num_pkts_burst = 0;
@@ -338,8 +333,8 @@ uint32_t CNF::rx_pkts(std::vector<struct rte_mbuf *> &vec,
 	return num_pkts_rx;
 }
 
-void CNF::tx_pkts(std::vector<struct rte_mbuf *> &vec,
-		  std::chrono::microseconds burst_gap)
+void PacketEngine::tx_pkts(std::vector<struct rte_mbuf *> &vec,
+			   std::chrono::microseconds burst_gap)
 {
 	struct rte_mbuf *mbuf_burst[kMaxBurstSize]; // on stack
 	uint32_t num_full_burst = uint32_t(vec.size()) / kMaxBurstSize;

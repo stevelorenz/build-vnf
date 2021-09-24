@@ -1,14 +1,12 @@
 ffpp_sources = [
-	# C sources
 	'bpf_helpers_user.c',
 	'general_helpers_user.c',
 	'scaling_helpers_user.c',
 	'utils.c',
-	
-	# CPP sources
-	'cnf.cpp',
+
 	'graph.cpp',
-	'mbuf_helpers.cpp',
+	'mbuf_pdu.cpp',
+	'packet_engine.cpp',
 ]
 
 ffpplib_static = static_library('ffpp',

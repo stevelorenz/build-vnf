@@ -4,8 +4,7 @@ memory_mb: 256
 
 data_vdev_cfg: eth_af_packet0,iface=eth0
 
-run_python_interpreter: true
 use_null_pmd: true
 null_pmd_packet_size: 64
 
-loglevel: DEBUG
+loglevel: ERROR

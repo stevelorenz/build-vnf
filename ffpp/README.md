@@ -1,21 +1,21 @@
 # FFPP - Fast Functional Packet Processing
 
-It's a packet processing library (`libffpp`) designed for exploring the research topic: [Computing in the Network (COIN)](https://datatracker.ietf.org/rg/coinrg/about/).
-Currently, it only focuses on the **data plane** for packet processing.
-
+FFPP is a Packet Processing (PP) library developed to explore the use cases of the research topic COIN.
 The project is currently under **heavy development and revision**.
-More docs will be added later when the source code is stable.
+More docs will be added later when the structure and source code are stable.
+
+I'm currently exploring rewriting FFPP in Go or Rust.
 
 ## TODO: Build and Run
 
 ## Catalog
 
-- Dockerfile, Dockerfile.dev: The Dockerfiles to build release and development Docker images
-- Makefile: Makefile to build the project (executables and eBPF object files)
-- emulation: Emulation scripts using ComNetsEmu
-- examples: Basic examples using libffpp
+- Dockerfile: The Dockerfile to build the Docker image for FFPP
+- Makefile: Makefile to build the project
+- emulation: Emulation scripts using [ComNetsEmu](https://github.com/stevelorenz/comnetsemu)
+- examples: Examples using libffpp (under **revision**)
 - include, src: C/C++ source files for libffpp
-- kern: eBPF/XDP programs running in Linux kernel space (kern)
-- related_works: Programs to reproduce results of related papers (for comparison)
+- kern: eBPF/XDP programs running in Linux kernel (kern) space
+- related\_works: Programs to reproduce results of related papers (for comparison)
 - tests: Test programs for libffpp
-- utils: Utility scripts and tools for internal development purposes
+- scripts: Utility scripts and tools
