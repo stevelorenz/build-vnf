@@ -56,6 +56,7 @@ struct PEConfig {
 
 class PacketEngine {
     public:
+	PacketEngine(const struct PEConfig pe_config);
 	PacketEngine(const std::string &config_file_path);
 	~PacketEngine();
 
@@ -75,16 +76,9 @@ class PacketEngine {
 	 */
 	// void init_graph(void);
 
-	void
-	register_read_apu_cb(std::function<std::string(struct rte_mbuf *)> cb)
-	{
-		cb_read_apu_ = cb;
-	}
-
     private:
 	PacketEngine();
 	struct PEConfig pe_config_;
-	std::function<std::string(struct rte_mbuf *)> cb_read_apu_;
 };
 
 } // namespace ffpp

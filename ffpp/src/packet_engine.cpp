@@ -266,9 +266,28 @@ void init_vdevs(void)
 	LOG(INFO) << "All vdevs are successfully configured and started.";
 }
 
+PacketEngine::PacketEngine(const struct PEConfig pe_config)
+{
+	pe_config_ = pe_config;
+	pid_t cur_pid = getpid();
+	pe_config_.id = fmt::format("pe_{}", cur_pid);
+
+	log_config(pe_config_);
+	config_glog(pe_config_.loglevel);
+	init_eal(pe_config_);
+	init_mempools(pe_config_.id);
+	init_vdevs();
+
+	LOG(INFO) << "Run embeded Python interpreter.";
+	py::initialize_interpreter();
+	{
+		auto sys = py::module::import("sys");
+		py::print("[PY] interpreter is already initialized");
+	}
+}
+
 PacketEngine::PacketEngine(const std::string &config_file_path)
 {
-	cb_read_apu_ = nullptr;
 	load_config_file(config_file_path, pe_config_);
 	pid_t cur_pid = getpid();
 	pe_config_.id = fmt::format("pe_{}", cur_pid);

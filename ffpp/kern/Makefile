@@ -1,5 +1,9 @@
+# TODO:  <26-09-21, Zuo> Refactor kern sources with a better structure
+# Avoid duplicated code for similar functionalities
+
 all: release
 
+.PHONY: release
 release:
 	cd ./common/ && make
 	cd ./xdp_drop/ && make
@@ -8,6 +12,7 @@ release:
 	cd ./xdp_fwd/ && make
 	cd ./xdp_time && make
 
+.PHONY: debug
 debug:
 	cd ./common/ && make DEBUG=1
 	cd ./xdp_drop/ && make DEBUG=1
@@ -19,6 +24,7 @@ debug:
 # Some special object files (e.g. the dispatch.o from libxdp) is not removed via `make clean`
 DISPATCHER_OBJ_FILES := $(shell find ./ -name 'xdp-dispatcher.o')
 
+.PHONY: clean
 clean:
 	cd ./common/ && make clean
 	cd ./xdp_drop/ && make clean
@@ -27,5 +33,3 @@ clean:
 	cd ./xdp_fwd/ && make clean
 	cd ./xdp_time && make clean
 	@rm $(DISPATCHER_OBJ_FILES)
-
-.PHONY: release debug clean

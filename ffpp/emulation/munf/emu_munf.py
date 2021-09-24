@@ -70,10 +70,7 @@ def testMuNF(nano_cpus):
                     "bind": "/etc/trex_cfg.yaml",
                     "mode": "rw",
                 },
-                TREX_CONF_DIR: {
-                    "bind": f"/trex/{TREX_VER}/local",
-                    "mode": "rw",
-                },
+                TREX_CONF_DIR: {"bind": f"/trex/{TREX_VER}/local", "mode": "rw"},
             },
         },
     )
@@ -87,10 +84,7 @@ def testMuNF(nano_cpus):
             "nano_cpus": int(nano_cpus),
             "hostname": "dut",
             "volumes": {
-                "/sys/bus/pci/drivers": {
-                    "bind": "/sys/bus/pci/drivers",
-                    "mode": "rw",
-                },
+                "/sys/bus/pci/drivers": {"bind": "/sys/bus/pci/drivers", "mode": "rw"},
                 "/sys/kernel/mm/hugepages": {
                     "bind": "/sys/kernel/mm/hugepages",
                     "mode": "rw",
@@ -112,20 +106,10 @@ def testMuNF(nano_cpus):
 
     # Data plane links.
     net.addLink(
-        dut,
-        pktgen,
-        bw=1000,
-        delay="1ms",
-        intfName1="vnf-in",
-        intfName2="pktgen-out",
+        dut, pktgen, bw=1000, delay="1ms", intfName1="vnf-in", intfName2="pktgen-out"
     )
     net.addLink(
-        dut,
-        pktgen,
-        bw=1000,
-        delay="1ms",
-        intfName1="vnf-out",
-        intfName2="pktgen-in",
+        dut, pktgen, bw=1000, delay="1ms", intfName1="vnf-out", intfName2="pktgen-in"
     )
     pktgen.cmd("ip addr add 192.168.17.1/24 dev pktgen-out")
     pktgen.cmd("ip addr add 192.168.18.1/24 dev pktgen-in")
@@ -156,7 +140,7 @@ def testMuNF(nano_cpus):
                     },
                     "/dev": {"bind": "/dev", "mode": "rw"},
                     FFPP_DIR: {"bind": "/ffpp", "mode": "rw"},
-                },
+                }
             },
         )
         cnfs.append(cnf)
@@ -197,11 +181,7 @@ if __name__ == "__main__":
             shell=True,
         )
     # ISSUE: IPv6 support is currently not implemented in MuNF.
-    subprocess.run(
-        "sysctl -w net.ipv6.conf.all.disable_ipv6=1",
-        check=True,
-        shell=True,
-    )
+    subprocess.run("sysctl -w net.ipv6.conf.all.disable_ipv6=1", check=True, shell=True)
 
     parser = argparse.ArgumentParser(description="Emulation topology for MuNF system.")
     parser.add_argument(
@@ -212,8 +192,4 @@ if __name__ == "__main__":
     setLogLevel("info")
     testMuNF(nano_cpus=args.nano_cpus)
 
-    subprocess.run(
-        "sysctl -w net.ipv6.conf.all.disable_ipv6=0",
-        check=True,
-        shell=True,
-    )
+    subprocess.run("sysctl -w net.ipv6.conf.all.disable_ipv6=0", check=True, shell=True)

@@ -45,6 +45,9 @@ static void bm_pe_rxtx(benchmark::State &state)
 	}
 }
 
+// TODO: Check if this can be used for performance benchmark with different
+// traffic, without using a separate pktgen ?
+
 BENCHMARK(bm_pe_rxtx);
 
 BENCHMARK_MAIN();

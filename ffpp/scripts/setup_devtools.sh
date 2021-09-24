@@ -8,15 +8,14 @@ if [ "$EUID" -ne 0 ]; then
     exit
 fi
 
-echo "* Setup development tools for FFPP."
-apt-get install -y python3-pip
-
-echo "- Install Docker SDK for Python."
-pip3 install docker==4.2.0
-
-echo "- Install doxygen for API documentatin."
-apt-get install -y doxygen
-
-echo "- Install static code checker."
-apt-get install -y cppcheck clang-format shellcheck
-pip3 install flawfinder flake8 black
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    black \
+    clang-format \
+    clang-tidy \
+    cppcheck \
+    doxygen \
+    flawfinder \
+    gcovr \
+    python3-flake8 \
+    shellcheck \
+    valgrind

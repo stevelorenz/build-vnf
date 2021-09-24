@@ -194,13 +194,7 @@ def create_stream_params_pareto(pps, burst_num, src_num, tot_pkts_burst):
 
 
 def get_streams(
-    pps: float,
-    burst_num: int,
-    model: str,
-    src_num,
-    tot_pkts_burst,
-    l3_data,
-    test: bool,
+    pps: float, burst_num: int, model: str, src_num, tot_pkts_burst, l3_data, test: bool
 ) -> list:
     """
     Utilize the single burst stream profile in STL to build the model-based traffic.
@@ -258,7 +252,7 @@ def get_streams(
                 ),
                 next=next_name,
                 self_start=self_start,
-            ),
+            )
         )
 
     return (streams, flow_duration)
@@ -317,10 +311,7 @@ def main():
     parser.add_argument("--test", action="store_true", help="Just used for debug.")
 
     parser.add_argument(
-        "--out",
-        type=str,
-        default="",
-        help="Stores file with given name",
+        "--out", type=str, default="", help="Stores file with given name"
     )
 
     args = parser.parse_args()
