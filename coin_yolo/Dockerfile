@@ -32,7 +32,12 @@ ENV CONDA_DEFAULT_ENV tf_mkl
 RUN mv ./yolov2-master/model/ ./ && mv ./yolov2-master/utils ./ && \
 	wget https://www.dropbox.com/s/xe8dyebmebomw42/yolo.pb?dl=0 -O ./model/yolo.pb
 
-COPY Makefile *.jpg *.cpp *.build *.py \
+RUN apt-get update && apt-get install -y \
+	sockperf
+
+COPY Makefile *.jpg *.cpp *.build *.py *.sh \
 	/coin_yolo/
+
+RUN make release
 
 CMD ["bash"]

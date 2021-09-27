@@ -26,8 +26,22 @@ CURRENT_DIR = os.path.abspath(os.path.curdir)
 DIMAGE = "coin_yolo:0.0.1"
 
 
-class Test(object):
-    def __init__(self):
+def check_env():
+    if os.cpu_count() < 3:
+        raise RuntimeError("Requires at least 3 CPUs")
+
+
+class Test:
+    """Test"""
+
+    def __init__(self, topo: str, node_num: int, vnf_mode: str, dev: bool):
+        self.topo = topo
+        if self.topo == "multi_hop" and node_num < 1:
+            raise RuntimeError("Require at least ONE network node!")
+        self.node_num = node_num
+        self.vnf_mode = vnf_mode
+        self.dev = dev
+
         self.net = Containernet(
             controller=Controller,
             link=TCLink,
@@ -37,13 +51,20 @@ class Test(object):
         self._vnfs = []
         self._switches = []
 
+        self.setup()
+
     def setup(self):
         info("*** Adding controller\n")
         self.net.addController(
             "c0", controller=RemoteController, port=6653, protocols="OpenFlow13"
         )
-        # MARK: Host addresses below 11 could be used for network services.
+
+        if self.topo == "multi_hop":
+            self.setup_multi_hop()
+
+    def setup_multi_hop(self):
         info("*** Adding end hosts\n")
+        # TODO: extend this to multiple end hosts ?
         self.client = self.net.addDockerHost(
             "client",
             dimage=f"{DIMAGE}",
@@ -63,7 +84,7 @@ class Test(object):
             dimage=f"{DIMAGE}",
             ip="10.0.3.11/16",
             docker_args={
-                "cpuset_cpus": "0",
+                "cpuset_cpus": "1",
                 "hostname": "server",
                 "working_dir": "/coin_yolo",
                 "volumes": {
@@ -72,19 +93,20 @@ class Test(object):
             },
         )
 
-    def run_multi_htop(self, node_num, vnf_type, vnf_mode):
-        info("* Running multi_hop test.\n")
-
-        info("*** Adding network nodes.\n")
+        nano_cpus_vnf = int(math.floor(1e9 / self.node_num))
+        if self.dev:
+            nano_cpus_vnf = int(5e8)  # 50%
+        info("*** Adding network node(s).\n")
+        info(f"VNF nano_cpus: {nano_cpus_vnf}\n")
         host_addr_base = 10
-        for n in range(1, node_num + 1):
+        for n in range(1, self.node_num + 1):
             vnf = self.net.addDockerHost(
                 f"vnf{n}",
                 dimage=f"{DIMAGE}",
                 ip=f"10.0.2.{host_addr_base+n}/16",
                 docker_args={
-                    "cpuset_cpus": "1",
-                    # "nano_cpus": int(math.floor(1e9 / node_num)),
+                    "cpuset_cpus": "2",
+                    "nano_cpus": nano_cpus_vnf,
                     "hostname": f"vnf{n}",
                     # For DPDK-related resources.
                     "volumes": {
@@ -109,33 +131,79 @@ class Test(object):
             self._vnfs.append(vnf)
             self._switches.append(self.net.addSwitch(f"s{n}", protocols="OpenFlow13"))
 
+        # TODO: Check if different link parameters should be tested ?
+        link_params = {
+            "host-sw": {"bw": 1000, "delay": "1ms"},
+            "sw-sw": {"bw": 1000, "delay": "1ms"},
+            "sw-vnf": {"bw": 1000, "delay": "0ms"},
+        }
+
         info("*** Creating links.\n")
-        # TODO: Discuss about the link parameters
-        self.net.addLinkNamedIfce(self._switches[0], self.client, bw=1000, delay="10ms")
         self.net.addLinkNamedIfce(
-            self._switches[-1], self.server, bw=1000, delay="10ms"
+            self._switches[0],
+            self.client,
+            bw=link_params["host-sw"]["bw"],
+            delay=link_params["host-sw"]["delay"],
+        )
+        self.net.addLinkNamedIfce(
+            self._switches[-1],
+            self.server,
+            bw=link_params["host-sw"]["bw"],
+            delay=link_params["host-sw"]["delay"],
         )
         # For network nodes
-        for n in range(0, node_num - 1):
+        for n in range(0, self.node_num - 1):
             self.net.addLink(
-                self._switches[n], self._switches[n + 1], bw=1000, delay="10ms"
+                self._switches[n],
+                self._switches[n + 1],
+                bw=link_params["sw-sw"]["bw"],
+                delay=link_params["sw-sw"]["delay"],
             )
+
         for i, s in enumerate(self._switches):
-            self.net.addLinkNamedIfce(s, self._vnfs[i], bw=1000, delay="1ms")
+            self.net.addLinkNamedIfce(
+                s,
+                self._vnfs[i],
+                bw=link_params["sw-vnf"]["bw"],
+                delay=link_params["sw-vnf"]["delay"],
+            )
 
         self.net.start()
 
         c0 = self.net.get("c0")
+        # MARK: this does not work with tty
         makeTerm(c0, cmd="ryu-manager ./multi_hop_controller.py ; read")
 
-        # Avoid ARP storm (ARP is not implemented in FFPP...)
+        # Avoid ARP storm (ARP is not implemented in VNF/FFPP...)
         # Let all VNF nodes work on layer 2.
         info("*** Flush the IP address of VNF's data plane interface.\n")
         for idx, v in enumerate(self._vnfs):
             v.cmd(f"ip addr flush vnf{idx+1}-s{idx+1}")
 
-        self.warm_up()
+    def warm_up(self):
+        self.client.cmd(f"ping -c 1 {self.server.IP()}")
+        self.server.cmd(f"ping -c 1 {self.client.IP()}")
 
+    def run_multi_hop(self):
+        info(
+            f"* Run measurements for multi-hop topology with VNF mode: {self.vnf_mode}\n"
+        )
+        sfc_port = 9999
+        default_port = 11111
+        self.server.cmd(f"sockperf server -p {default_port} --daemonize")
+        self.server.cmd(f"sockperf server -p {sfc_port} --daemonize")
+
+        if self.vnf_mode == "null":
+            return
+
+        if self.vnf_mode == "store_forward":
+            for vnf in self._vnfs:
+                vnf.cmd("./build/coin_yolo &")
+
+        # TODO: Add measurement steps here.
+
+    def run(self):
+        self.warm_up()
         info("*** Ping server from client.\n")
         ret = self.client.cmd(f"ping -c 3 {self.server.IP()}")
         print(ret)
@@ -143,46 +211,17 @@ class Test(object):
         ret = self.server.cmd(f"ping -c 3 {self.client.IP()}")
         print(ret)
 
-        # TODO: Run VNFs with proper parameters
-        # print(f"*** Deploy VNFs, VNF type:{vnf_type}, VNF mode: {vnf_mode}")
-
-        # vnf_type_map = {"meica": "./build/meica_vnf", "cnn": "./build/cnn_vnf"}
-        # vnf_bin = vnf_type_map[vnf_type]
-
-        # if vnf_mode == "null":
-        #     return
-        # elif vnf_mode == "store_forward":
-        #     for v in self._vnfs:
-        #         v.cmd(
-        #             f"cd /coin_yolo/emulation && {vnf_bin} --mode store_forward & 2>&1"
-        #         )
-        #         time.sleep(1)  # Avoid memory corruption among VNFs.
-        # elif vnf_mode == "compute_forward":
-        #     v = self._vnfs[0]
-        #     # Max rounds are not used in cnn.
-        #     v.cmd(
-        #         f"cd /coin_yolo/emulation && {vnf_bin} --mode compute_forward --leader --max_rounds {max_rounds} & 2>&1"
-        #     )
-        #     for v in self._vnfs[1:]:
-        #         v.cmd(
-        #             f"cd /coin_yolo/emulation && {vnf_bin} --mode compute_forward --max_rounds {max_rounds} & 2>&1"
-        #         )
-
-    def warm_up(self):
-        self.client.cmd(f"ping -c 1 {self.server.IP()}")
-        self.server.cmd(f"ping -c 1 {self.client.IP()}")
-
-    def run(self, topo, node_num, vnf_type, vnf_mode):
-        if topo == "multi_hop":
-            self.run_multi_htop(node_num, vnf_type, vnf_mode)
+        if self.topo == "multi_hop":
+            self.run_multi_hop()
 
 
-if __name__ == "__main__":
+def main():
     if os.geteuid() != 0:
         print("Run this script with sudo.", file=sys.stderr)
         sys.exit(1)
-    parser = argparse.ArgumentParser(description="Process some integers.")
+    parser = argparse.ArgumentParser(description="Network topology to test COIN YOLO")
     parser.add_argument(
+        "-t",
         "--topo",
         type=str,
         default="multi_hop",
@@ -190,49 +229,45 @@ if __name__ == "__main__":
         help="Name of the test topology",
     )
     parser.add_argument(
+        "-n",
         "--node_num",
         type=int,
-        default=3,
-        help="Number of network nodes in the topology",
+        default=1,
+        help="Number of NETWORK node(s) in the topology",
     )
     parser.add_argument(
-        "--vnf_type",
-        type=str,
-        default="yolo",
-        choices=["yolo"],
-        help="Type of the VNF for deployment",
-    )
-    parser.add_argument(
+        "-m",
         "--vnf_mode",
         type=str,
         default="store_forward",
+        # null is just for debug
         choices=["null", "store_forward", "compute_forward"],
-        help="Mode to run all VNFs.",
+        help="Working mode of all VNF(s)",
+    )
+    parser.add_argument(
+        "--dev", action="store_true", help="Run the setup for dev purpose on laptop"
     )
     args = parser.parse_args()
 
+    check_env()
+    setLogLevel("info")
+
+    # Make xterm looks better
     home_dir = os.path.expanduser("~")
     xresources_path = os.path.join(home_dir, ".Xresources")
     if os.path.exists(xresources_path):
         subprocess.run(shlex.split(f"xrdb -merge {xresources_path}"), check=True)
 
-    # IPv6 is currently not used.
+    # IPv6 is currently not used, disable it.
     subprocess.run(
         shlex.split("sysctl -w net.ipv6.conf.all.disable_ipv6=1"),
         check=True,
     )
 
-    setLogLevel("info")
-    test = Test()
-    test.setup()
-
+    # ISSUE: The code here is not exception safe! Fix it later!
     try:
-        test.run(
-            topo=args.topo,
-            node_num=args.node_num,
-            vnf_type=args.vnf_type,
-            vnf_mode=args.vnf_mode,
-        )
+        test = Test(args.topo, args.node_num, args.vnf_mode, args.dev)
+        test.run()
         info("*** Enter CLI\n")
         CLI(test.net)
     finally:
@@ -243,3 +278,7 @@ if __name__ == "__main__":
             shlex.split("sysctl -w net.ipv6.conf.all.disable_ipv6=0"),
             check=True,
         )
+
+
+if __name__ == "__main__":
+    main()

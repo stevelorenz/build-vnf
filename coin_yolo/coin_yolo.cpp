@@ -37,14 +37,28 @@ void run_store_forward(PEConfig pe_config)
 	LOG(INFO) << "Run store-and-forward loop";
 	PacketEngine pe = PacketEngine(pe_config);
 
-	vector<struct rte_mbuf *> rx_vec;
+	vector<struct rte_mbuf *> vec;
 	uint32_t max_num_burst = 3;
-	rx_vec.reserve(kMaxBurstSize * max_num_burst);
+	vec.reserve(kMaxBurstSize * max_num_burst);
 
+	uint32_t num_rx = 0;
+	uint32_t i = 0;
 	while (not gExit) {
-		auto num_rx = pe.rx_pkts(rx_vec, max_num_burst);
-		LOG(INFO) << fmt::format("num_rx: {}", num_rx);
-		pe.tx_pkts(rx_vec, chrono::microseconds(3));
+		num_rx = pe.rx_pkts(vec, max_num_burst);
+		// ONLY for debug
+		//if (num_rx > 0) {
+		//	cout << num_rx << endl;
+		//}
+		for (i = 0; i < num_rx; ++i) {
+			// Touch the packet and update the checksums using libtins.
+			auto eth = read_mbuf_to_eth(vec[i]);
+			UDP &udp = eth.rfind_pdu<UDP>();
+			if (udp.dport() != uint16_t(9999)) {
+				LOG(ERROR) << "LOL!";
+			}
+			write_eth_to_mbuf(eth, vec[i]);
+		}
+		pe.tx_pkts(vec, chrono::microseconds(3));
 	}
 
 } // MARK: pe is out of scope, RAII
@@ -88,13 +102,13 @@ int main(int argc, char *argv[])
 	signal(SIGINT, exit_handler);
 
 	// ISSUE: lcores are hard coded here.
-	vector<uint32_t> lcore_ids = {1};
+	vector<uint32_t> lcore_ids = {2};
 	struct PEConfig pe_config = {
-		.main_lcore_id = 1,
+		.main_lcore_id = lcore_ids[0],
 		.lcore_ids = lcore_ids,
 		.memory_mb = 256,
 		.data_vdev_cfg= fmt::format("eth_af_packet0,iface={}", iface),
-		.loglevel = "INFO",
+		.loglevel = "ERROR",
 	};
 
 	if (mode == "store_forward") {

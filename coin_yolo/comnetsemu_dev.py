@@ -29,7 +29,7 @@ if __name__ == "__main__":
                 "hostname": "dev",
                 "volumes": {
                     "/dev": {"bind": "/dev", "mode": "rw"},
-                    CURRENT_DIR: {"bind": "/coin_yolo/host", "mode": "rw"},
+                    CURRENT_DIR: {"bind": "/coin_yolo/share", "mode": "rw"},
                 },
                 "working_dir": "/coin_yolo",
             },
