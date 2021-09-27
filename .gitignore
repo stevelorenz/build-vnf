@@ -180,61 +180,45 @@ venv.bak/
 -  MISC  -
 ----------
 
+!logo/*.png
+!coin_yolo/pedestrain.jpg
+
 *.bin
 *.csv
-!./calvin-faas/ffpp/tests/pikachu.jpg
-*.jpg
-*.jpeg
+*.data
 *.mbuf
-!logo/*.png
-*.png
 *.pdf
+*.png
 *.weights
 massif.*
-*.data
 
+.gdb_history
 .vagrant/
+.vscode
 build/
 builddir/
-doc/build/
-doc/.build
-vm_share/
 dataset/
-lib_src
+doc/.build
+doc/build/
 html/
 latex/
-.vscode
-.gdb_history
+lib_src
+vm_share/
 
 ----------
 -  FFPP  -
 ----------
 
 # XDP-related userspace programs, remove them when xdp-loader works nicely.
-xdp_count_user
-xdp_count_loader
+# Remove this when eBPF programs are managed by Meson and binaries are moved to build directory
 af_xdp_dpdk_user
+xdp_count_loader
+xdp_count_user
 xdp_fwd_loader
 xdp_fwd_user
 xdp_time_loader
 xdp_time_user
 
-calvin-faas/ffpp/docs/html
-calvin-fass/ffpp/docs/latex
-calvin-fass/ffpp/docs/build
-calvin-fass/ffpp/docs/.build
-calvin-fass/ffpp/MoonGen
-!ffpp/ffpp-go/go.mod
-
 -----------
 -  Malte  -
 -----------
-
-calvin-faas/ffpp/kern/xdp-tutorial/
-calvin-faas/ffpp/examples/freq_scale/
-calvin-faas/ffpp/examples/frequency_manager/*.txt
-calvin-faas/ffpp/include/ffpp/csvwriter.h
-calvin-faas/ffpp/run.sh
-calvin-faas/ffpp/src/csvwriter.c
-calvin-faas/ffpp/util/config.sh
-calvin-faas/ffpp/util/set_irq_affinity.sh

@@ -1,3 +1,4 @@
+# TODO:  <27-09-21, Zuo> Use Meson to manage sources in ./kern!
 all: release
 
 TARGET_DIR = build
