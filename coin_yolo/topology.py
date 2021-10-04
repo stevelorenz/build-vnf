@@ -203,6 +203,11 @@ class Test:
                 vnf.cmd("./build/coin_yolo &")
 
         # TODO: Add measurement steps here.
+        print("*** Running sockperf measurements...")
+        self.client.cmd(f"cd share")
+        self.client.cmd(f"python3 ./run_sockperf.py -d 60 -r 2 -m 50000 -o mps/result")
+        self.client.cmd(f"python3 ./run_sockperf.py -d 60 -r 2 -m 5000 -o mps/result")
+        print("*** Finished sockperf test")
 
     def run(self, test: str):
         self.warm_up()
