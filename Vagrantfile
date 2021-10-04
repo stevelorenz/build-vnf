@@ -6,7 +6,7 @@
 ###############
 
 CPUS = 4
-RAM = 2048
+RAM = 4096
 
 # Use Ubuntu LTS for dev. bento box is relative light weight.
 BOX = "bento/ubuntu-20.04"

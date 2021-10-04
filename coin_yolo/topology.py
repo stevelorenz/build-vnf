@@ -21,6 +21,8 @@ from mininet.log import info, setLogLevel
 from mininet.node import Controller, RemoteController
 from mininet.term import makeTerm
 
+import config
+
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
 DIMAGE = "coin_yolo:0.0.1"
@@ -66,12 +68,15 @@ class Test:
         info("*** Adding end hosts\n")
         # TODO: Extend this to multiple end hosts ?
         # TODO: Add a noisy neighbor host if there's no gain with compute-and-forwar
+        # TODO: Check the cpuset_cpus and allocate them on different sockets
+        client_cpu_args = config.end_host_cpu_args["client"]
         self.client = self.net.addDockerHost(
             "client",
             dimage=f"{DIMAGE}",
             ip="10.0.1.11/16",
             docker_args={
-                "cpuset_cpus": "0",
+                "cpuset_cpus": client_cpu_args["cpuset_cpus"],
+                "nano_cpus": client_cpu_args["nano_cpus"],
                 "hostname": "client",
                 "working_dir": "/coin_yolo",
                 "volumes": {
@@ -80,12 +85,14 @@ class Test:
             },
         )
 
+        server_cpu_args = config.end_host_cpu_args["server"]
         self.server = self.net.addDockerHost(
             "server",
             dimage=f"{DIMAGE}",
             ip="10.0.3.11/16",
             docker_args={
-                "cpuset_cpus": "1",
+                "cpuset_cpus": server_cpu_args["cpuset_cpus"],
+                "nano_cpus": server_cpu_args["nano_cpus"],
                 "hostname": "server",
                 "working_dir": "/coin_yolo",
                 "volumes": {
@@ -132,13 +139,7 @@ class Test:
             self._vnfs.append(vnf)
             self._switches.append(self.net.addSwitch(f"s{n}", protocols="OpenFlow13"))
 
-        # TODO: Check if different link parameters should be tested ?
-        link_params = {
-            "host-sw": {"bw": 1000, "delay": "1ms"},
-            "sw-sw": {"bw": 1000, "delay": "1ms"},
-            "sw-vnf": {"bw": 1000, "delay": "0ms"},
-        }
-
+        link_params = config.link_params
         info("*** Creating links.\n")
         self.net.addLinkNamedIfce(
             self._switches[0],
@@ -189,25 +190,33 @@ class Test:
         info(
             f"* Run measurements for multi-hop topology with VNF mode: {self.vnf_mode}, test: {test}\n"
         )
-        sfc_port = 9999
-        default_port = 11111
-        if test == "sockperf":
-            self.server.cmd(f"sockperf server -p {default_port} --daemonize")
-            self.server.cmd(f"sockperf server -p {sfc_port} --daemonize")
-
+        # Deploy programs on VNFs
         if self.vnf_mode == "null":
-            return
-
-        if self.vnf_mode == "store_forward":
+            info("null mode! Deploy nothing on VNF(s)\n")
+        elif self.vnf_mode == "store_forward":
             for vnf in self._vnfs:
                 vnf.cmd("./build/coin_yolo &")
+        elif self.vnf_mode == "compute_forward":
+            print("Compute and Forward!!!")
 
-        # TODO: Add measurement steps here.
-        print("*** Running sockperf measurements...")
-        self.client.cmd(f"cd share")
-        self.client.cmd(f"python3 ./run_sockperf.py -d 60 -r 2 -m 50000 -o mps/result")
-        self.client.cmd(f"python3 ./run_sockperf.py -d 60 -r 2 -m 5000 -o mps/result")
-        print("*** Finished sockperf test")
+        # Deploy programs on end hosts
+        if test == "sockperf":
+            self.server.cmd(f"sockperf server -p {config.DEFAULT_PORT} --daemonize")
+            self.server.cmd(f"sockperf server -p {config.SFC_PORT} --daemonize")
+
+        # Run measurements
+        if test == "sockperf":
+            print("*** Running sockperf measurements...")
+            self.client.cmd("cd share")
+            self.client.cmd("python3 ./run_sockperf.py -d 60 -r 2 -m 10000 -o result")
+            self.client.cmd("python3 ./run_sockperf.py -d 60 -r 2 -m 10000 -o result")
+            print("*** Finished sockperf test")
+        elif test == "coin_yolo":
+            print("AbaAba")
+        elif test == "server_local":
+            print("*** Running server local measurements...")
+            ret = self.server.cmd("python3 ./server.py -m server_local")
+            print(ret)
 
     def run(self, test: str):
         self.warm_up()
@@ -228,7 +237,6 @@ def main():
         sys.exit(1)
     parser = argparse.ArgumentParser(description="Network topology to test COIN YOLO")
     parser.add_argument(
-        "-t",
         "--topo",
         type=str,
         default="multi_hop",
@@ -247,17 +255,15 @@ def main():
         "--vnf_mode",
         type=str,
         default="store_forward",
-        # null is just for debug
+        # null is just for debug, nothing is deployed on VNF(s)
         choices=["null", "store_forward", "compute_forward"],
         help="Working mode of all VNF(s)",
     )
     parser.add_argument(
-        "-t",
         "--test",
         type=str,
         default="sockperf",
-        # null is just for debug
-        choices=["sockperf", "coin_yolo"],
+        choices=["sockperf", "coin_yolo", "server_local"],
         help="The test to be performed",
     )
     parser.add_argument(

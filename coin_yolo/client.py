@@ -12,6 +12,11 @@ import socket
 import sys
 import time
 
+import cv2
+import numpy as np
+import tensorflow as tf
+
+import config
 import log
 import rtp_packet
 
@@ -31,7 +36,6 @@ class Client:
         self.client_address_data = client_address_data
         self.server_address_data = server_address_data
         self.sock_data = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock_data.bind(self.client_address_data)
 
         if verbose:
             self.logger = log.get_logger("debug")
@@ -40,23 +44,45 @@ class Client:
 
     def setup(self):
         self.logger.info("Setup client")
+        self.sock_data.bind(self.client_address_data)
 
-    # def start_session(self, wav_range, source_number, total_msg_num):
-    #     """Start a new session for messages with specific parameters."""
-    #     self.sock_control.connect(self.server_address_control)
-    #     context = ",".join((str(wav_range), str(source_number), str(total_msg_num)))
-    #     self.sock_control.sendall(context.encode())
-    #     ack = self.sock_control.recv(1024).decode()
-    #     if ack != "INIT_ACK":
-    #         raise RuntimeError("Failed to get the INIT ACK from server!")
-    #     self.sock_control.sendall("CONTROL_CLOSE".encode())
+    def send_hello(self):
+        for _ in range(3):
+            self.sock_data.sendto("H".encode(), self.server_address_data)
 
-    def warmup(self):
+    def send_bye(self):
+        for _ in range(3):
+            self.sock_data.sendto("B".encode(), self.server_address_data)
+
+    def imread_jpeg(self, img_path):
+        im = cv2.imread(img_path)
+        # The image is always resized and re-coded.
+        im = cv2.resize(im, (608, 608))
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+        _, im_enc = cv2.imencode(".jpg", im, encode_param)
+        return im_enc.tobytes()
+
+    def get_rtp_packets(self, im_data):
         pass
 
-    def run(self, mode: str, mps: int):
+    def send_frame():
         pass
-        # self.start_session(wav_range, source_number, total_msg_num)
+
+    def run_yolo(self, num_frames):
+        im_data = self.imread_jpeg("./pedestrain.jpg")
+        print(im_data)
+        for f in range(num_frames):
+            self.logger.debug(f"Send frame: {f}")
+
+    def run(self, mode: str, num_frames: int):
+        """MARK: Should I make the send the recv concurrently?"""
+        self.logger.info(f"Run client with mode:{mode}, number of frames: {num_frames}")
+        self.sock_control.connect(self.server_address_control)
+        self.send_hello()
+
+        self.run_yolo(num_frames)
+
+        self.send_bye()
 
     def cleanup(self):
         self.sock_control.close()
@@ -74,32 +100,22 @@ if __name__ == "__main__":
         help="The working mode of the client",
     )
     parser.add_argument(
-        "-d", "--duration", type=int, default=60, help="Duration of one iteration"
-    )
-    parser.add_argument(
-        "--mps",
-        type=int,
-        default=int(1e5),
-        help="Messages-per-second, the same as mps in sockperf",
+        "-f", "--num_frames", type=int, default=17, help="Number of frames to send"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Make the client more talkative"
     )
     args = parser.parse_args()
 
-    client_address_data = ("10.0.1.11", 9999)
-    server_address_data = ("10.0.3.11", 9999)
-    # data port + 1
-    server_address_control = (server_address_data[0], server_address_data[1] + 1)
-
     try:
         client = Client(
-            server_address_control,
-            client_address_data,
-            server_address_data,
+            config.server_address_control,
+            config.client_address_data,
+            config.server_address_data,
             args.verbose,
         )
         client.setup()
+        client.run(args.mode, args.num_frames)
     except KeyboardInterrupt:
         print("KeyboardInterrupt! Stop client!")
     finally:
