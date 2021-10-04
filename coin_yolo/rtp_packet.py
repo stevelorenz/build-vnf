@@ -38,6 +38,8 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 """
 
+import timeit
+
 
 class InvalidPacketException(Exception):
     pass
@@ -47,7 +49,7 @@ class RTPPacket:
     # default header info
     HEADER_SIZE = 12  # bytes
     VERSION = 0b10  # 2 bits -> current version 2
-    PADDING = 0b0  # 1 bit
+    PADDING = 0b0  # 1 bit -> no padding is used.
     EXTENSION = 0b0  # 1 bit
     CC = 0x0  # 4 bits
     MARKER = 0b0  # 1 bit
@@ -131,5 +133,30 @@ class RTPPacket:
             print(s, end=" " if i not in (3, 7) else "\n")
 
 
+def test():
+    print("* Run tests")
+    p = RTPPacket(payload_type=0, sequence_number=0, timestamp=1, payload=b"lol")
+    d = p.get_packet()
+    assert type(d) == bytes
+    p_new = RTPPacket.from_packet(d)
+
+
+def benchmark():
+    setup = """
+from __main__ import RTPPacket
+    """
+    stmt = """
+p = RTPPacket(payload_type=0, sequence_number=0, timestamp=1, payload=b"lol")
+d = p.get_packet()
+p_new = RTPPacket.from_packet(d)
+    """
+    print("* Run benchmark")
+    number = 1000
+    ret = timeit.timeit(stmt=stmt, setup=setup, number=number)
+    ret = (ret / number) * 1e3
+    print(f"Time: {ret} ms")
+
+
 if __name__ == "__main__":
-    print("Run tests")
+    test()
+    benchmark()

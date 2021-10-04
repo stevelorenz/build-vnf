@@ -64,7 +64,8 @@ class Test:
 
     def setup_multi_hop(self):
         info("*** Adding end hosts\n")
-        # TODO: extend this to multiple end hosts ?
+        # TODO: Extend this to multiple end hosts ?
+        # TODO: Add a noisy neighbor host if there's no gain with compute-and-forwar
         self.client = self.net.addDockerHost(
             "client",
             dimage=f"{DIMAGE}",
@@ -184,14 +185,15 @@ class Test:
         self.client.cmd(f"ping -c 1 {self.server.IP()}")
         self.server.cmd(f"ping -c 1 {self.client.IP()}")
 
-    def run_multi_hop(self):
+    def run_multi_hop(self, test):
         info(
-            f"* Run measurements for multi-hop topology with VNF mode: {self.vnf_mode}\n"
+            f"* Run measurements for multi-hop topology with VNF mode: {self.vnf_mode}, test: {test}\n"
         )
         sfc_port = 9999
         default_port = 11111
-        self.server.cmd(f"sockperf server -p {default_port} --daemonize")
-        self.server.cmd(f"sockperf server -p {sfc_port} --daemonize")
+        if test == "sockperf":
+            self.server.cmd(f"sockperf server -p {default_port} --daemonize")
+            self.server.cmd(f"sockperf server -p {sfc_port} --daemonize")
 
         if self.vnf_mode == "null":
             return
@@ -202,7 +204,7 @@ class Test:
 
         # TODO: Add measurement steps here.
 
-    def run(self):
+    def run(self, test: str):
         self.warm_up()
         info("*** Ping server from client.\n")
         ret = self.client.cmd(f"ping -c 3 {self.server.IP()}")
@@ -212,7 +214,7 @@ class Test:
         print(ret)
 
         if self.topo == "multi_hop":
-            self.run_multi_hop()
+            self.run_multi_hop(test)
 
 
 def main():
@@ -245,6 +247,15 @@ def main():
         help="Working mode of all VNF(s)",
     )
     parser.add_argument(
+        "-t",
+        "--test",
+        type=str,
+        default="sockperf",
+        # null is just for debug
+        choices=["sockperf", "coin_yolo"],
+        help="The test to be performed",
+    )
+    parser.add_argument(
         "--dev", action="store_true", help="Run the setup for dev purpose on laptop"
     )
     args = parser.parse_args()
@@ -267,7 +278,7 @@ def main():
     # ISSUE: The code here is not exception safe! Fix it later!
     try:
         test = Test(args.topo, args.node_num, args.vnf_mode, args.dev)
-        test.run()
+        test.run(args.test)
         info("*** Enter CLI\n")
         CLI(test.net)
     finally:
