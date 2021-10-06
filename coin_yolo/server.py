@@ -49,6 +49,7 @@ class Server:
         self.sock_data.bind(self.server_address_data)
 
     def run_server_local(self, num_rounds):
+        durations = list()
         self.logger.info(f"Run server local test for {num_rounds} rounds")
         det = detector.Detector(mode="raw")
         data = det.read_img_jpeg_bytes("./pedestrain.jpg")
@@ -62,8 +63,14 @@ class Server:
             ret = det.inference(data)
             ret = det.get_detection_results(*ret)
             duration = time.time() - start
+            durations.append(duration)
             # TODO: Measure the computational time of local server inference and store them.
             print(f"[{r}], duration: {duration} s")
+
+        print("Durations: ", durations)
+        with open("./share/results/server_local/interference/server_local_interference.csv", "w") as f:
+            writer = csv.writer(f)
+            writer.writerows(map(lambda x: [x], durations))
 
     def run(self, mode):
         """MARK: Packet losses are not considered yet!"""
