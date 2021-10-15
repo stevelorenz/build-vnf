@@ -1,4 +1,5 @@
 #!/bin/bash
 
-docker build -f ./Dockerfile -t "coin_yolo:0.0.1" .
-docker image prune
+# It takes about 660 seconds to finish without caching
+DOCKER_BUILDKIT=1 docker build -f ./Dockerfile -t "coin_yolo:latest" .
+docker image prune --force

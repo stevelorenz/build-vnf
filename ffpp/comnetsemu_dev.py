@@ -23,6 +23,7 @@ if __name__ == "__main__":
         print("Run this script with sudo.", file=sys.stderr)
         sys.exit(1)
     setLogLevel("error")
+
     try:
         net = Containernet(xterms=False)
 

@@ -18,7 +18,7 @@ import tensorflow as tf
 
 import config
 import log
-import rtp_packet
+import rtp
 
 
 class Client:

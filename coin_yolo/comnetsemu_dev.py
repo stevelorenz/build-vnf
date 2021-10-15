@@ -10,12 +10,14 @@ from comnetsemu.net import Containernet
 from mininet.log import setLogLevel
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
+DIMAGE = "coin_yolo:latest"
 
 if __name__ == "__main__":
     if os.geteuid() != 0:
         print("Run this script with sudo.", file=sys.stderr)
         sys.exit(1)
     setLogLevel("error")
+
     try:
         net = Containernet(
             xterms=False,
@@ -23,7 +25,7 @@ if __name__ == "__main__":
 
         dev = net.addDockerHost(
             "dev",
-            dimage="coin_yolo:0.0.1",
+            dimage=f"{DIMAGE}",
             ip="10.0.1.11/16",
             docker_args={
                 "hostname": "dev",
@@ -31,7 +33,7 @@ if __name__ == "__main__":
                     "/dev": {"bind": "/dev", "mode": "rw"},
                     CURRENT_DIR: {"bind": "/coin_yolo/share", "mode": "rw"},
                 },
-                "working_dir": "/coin_yolo",
+                "working_dir": "/coin_yolo/share",
             },
         )
         net.start()

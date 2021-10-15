@@ -25,7 +25,7 @@ import config
 
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
-DIMAGE = "coin_yolo:0.0.1"
+DIMAGE = "coin_yolo:latest"
 
 
 def check_env():
@@ -200,12 +200,15 @@ class Test:
             print("Compute and Forward!!!")
 
         # Deploy programs on end hosts
+        # Always run sockperf on the DEFAULT_PORT, can be used for e.g. noisy neighbor
+        self.server.cmd(f"sockperf server -p {config.DEFAULT_PORT} --daemonize")
         if test == "sockperf":
-            self.server.cmd(f"sockperf server -p {config.DEFAULT_PORT} --daemonize")
             self.server.cmd(f"sockperf server -p {config.SFC_PORT} --daemonize")
 
         # Run measurements
-        if test == "sockperf":
+        if test == "null":
+            return
+        elif test == "sockperf":
             print("*** Running sockperf measurements...")
             self.client.cmd("cd share")
             self.client.cmd("python3 ./run_sockperf.py -d 60 -r 2 -m 10000 -o result")
@@ -235,6 +238,7 @@ def main():
     if os.geteuid() != 0:
         print("Run this script with sudo.", file=sys.stderr)
         sys.exit(1)
+
     parser = argparse.ArgumentParser(description="Network topology to test COIN YOLO")
     parser.add_argument(
         "--topo",
@@ -263,7 +267,7 @@ def main():
         "--test",
         type=str,
         default="sockperf",
-        choices=["sockperf", "coin_yolo", "server_local"],
+        choices=["null", "sockperf", "coin_yolo", "server_local"],
         help="The test to be performed",
     )
     parser.add_argument(
@@ -273,12 +277,6 @@ def main():
 
     check_env()
     setLogLevel("info")
-
-    # Make xterm looks better
-    home_dir = os.path.expanduser("~")
-    xresources_path = os.path.join(home_dir, ".Xresources")
-    if os.path.exists(xresources_path):
-        subprocess.run(shlex.split(f"xrdb -merge {xresources_path}"), check=True)
 
     # IPv6 is currently not used, disable it.
     subprocess.run(
@@ -290,8 +288,9 @@ def main():
     try:
         test = Test(args.topo, args.node_num, args.vnf_mode, args.dev)
         test.run(args.test)
-        info("*** Enter CLI\n")
-        CLI(test.net)
+        if args.dev:
+            info("*** Enter CLI\n")
+            CLI(test.net)
     finally:
         info("*** Stopping network")
         test.net.stop()

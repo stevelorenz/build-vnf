@@ -24,6 +24,12 @@
 # SOFTWARE.
 
 """
+This file extends the rtp_packet.py from [1] for the COIN-YOLO prototype
+
+[1] https://github.com/gabrieljablonski/rtsp-rtp-stream
+
+Main references: RFC 3550,2435
+
 0                   1                   2                   3
 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -36,9 +42,49 @@
 |            contributing source (CSRC) identifiers             |
 |                             ....                              |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| Type-specific |              Fragment Offset                  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|      Type     |       Q       |     Width     |     Height    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 """
 
+import struct
 import timeit
+
+
+class JPEGHeader(object):
+
+    """JPEGHeader"""
+
+    HEADER_SIZE = 8
+
+    def __init__(self, type_specific, fragment_offset, type_=0, q=0, width=0, height=0):
+        """TODO: to be defined."""
+        self.type_specific = type_specific
+        self.fragment_offset = fragment_offset
+        self.type_ = type_
+        self.q = q
+        self.width = width
+        self.height = height
+
+        self.header = bytearray(self.HEADER_SIZE)
+        self.header[0] = type_specific & 255
+        fragment_offset = fragment_offset.to_bytes(3, byteorder="big")
+        self.header[1] = fragment_offset[0]
+        self.header[2] = fragment_offset[1]
+        self.header[3] = fragment_offset[2]
+        self.header[4] = type_ & 255
+
+    def pack(self) -> bytes:
+        return bytes(self.header)
+
+    @classmethod
+    def unpack(cls, header: bytes):
+        return cls(0, 1)
 
 
 class InvalidPacketException(Exception):
@@ -67,6 +113,7 @@ class RTPPacket:
     ):
 
         self.payload = payload
+        # TODO: Add JPEGHeader
         self.payload_type = payload_type
         self.sequence_number = sequence_number
         self.timestamp = timestamp
@@ -101,7 +148,7 @@ class RTPPacket:
         )
 
     @classmethod
-    def from_packet(cls, packet: bytes):
+    def unpack(cls, packet: bytes):
         if len(packet) < cls.HEADER_SIZE:
             raise InvalidPacketException(f"The packet {repr(packet)} is invalid")
 
@@ -122,7 +169,7 @@ class RTPPacket:
 
         return cls(payload_type, sequence_number, timestamp, payload)
 
-    def get_packet(self) -> bytes:
+    def pack(self) -> bytes:
         return bytes((*self.header, *self.payload))
 
     def print_header(self):
@@ -136,9 +183,13 @@ class RTPPacket:
 def test():
     print("* Run tests")
     p = RTPPacket(payload_type=0, sequence_number=0, timestamp=1, payload=b"lol")
-    d = p.get_packet()
+    d = p.pack()
     assert type(d) == bytes
-    p_new = RTPPacket.from_packet(d)
+    p_new = RTPPacket.unpack(d)
+    assert p_new.payload_type == 0
+    assert p_new.sequence_number == 0
+    assert p_new.timestamp == 1
+    assert p_new.payload == b"lol"
 
 
 def benchmark():
@@ -147,14 +198,14 @@ from __main__ import RTPPacket
     """
     stmt = """
 p = RTPPacket(payload_type=0, sequence_number=0, timestamp=1, payload=b"lol")
-d = p.get_packet()
-p_new = RTPPacket.from_packet(d)
+d = p.pack()
+p_new = RTPPacket.unpack(d)
     """
     print("* Run benchmark")
     number = 1000
     ret = timeit.timeit(stmt=stmt, setup=setup, number=number)
     ret = (ret / number) * 1e3
-    print(f"Time: {ret} ms")
+    print(f"Pack/unpack time for one RTP packet: {ret} ms")
 
 
 if __name__ == "__main__":

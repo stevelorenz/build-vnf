@@ -13,10 +13,12 @@ import sys
 import time
 import json
 
+import psutil
+
 import config
 import detector
 import log
-import rtp_packet
+import rtp
 
 
 class Server:
@@ -41,34 +43,53 @@ class Server:
         else:
             self.logger = log.get_logger("info")
 
-    def setup(self):
-        self.logger.info("Setup server")
-        self.sock_control.bind(self.server_address_control)
-        self.sock_control.listen(1)
+    def setup(self, mode):
+        self.logger.info(f"Setup server with mode {mode}")
+        if mode == "server_local":
+            return
+        else:
+            self.sock_control.bind(self.server_address_control)
+            self.sock_control.listen(1)
 
-        self.sock_data.bind(self.server_address_data)
+            self.sock_data.bind(self.server_address_data)
 
-    def run_server_local(self, num_rounds):
+    @staticmethod
+    def fake_inference(duration):
+        """Fake it until you make it!"""
+        start = time.time()
+        i = 0
+        while True:
+            i = i * i
+            d = time.time() - start
+            if d >= duration:
+                break
+
+    def run_server_local(self, num_rounds, fake_inference):
         self.logger.info(f"Run server local test for {num_rounds} rounds")
         det = detector.Detector(mode="raw")
         data = det.read_img_jpeg_bytes("./pedestrain.jpg")
         # Warm up the session, first time inference is slow
         ret = det.inference(data)
         ret = det.get_detection_results(*ret)
+        mem_gb = (psutil.Process().memory_info().rss) / (1024 * 1024 * 1024)
+        self.logger.info(f"Tensorflow session is warmed up, memory usage: {mem_gb} GB")
         print("Warm-up inference result:")
         print(ret)
         for r in range(num_rounds):
             start = time.time()
-            ret = det.inference(data)
-            ret = det.get_detection_results(*ret)
+            if fake_inference:
+                self.fake_inference(0.8)
+            else:
+                ret = det.inference(data)
+                _ = det.get_detection_results(*ret)
             duration = time.time() - start
             # TODO: Measure the computational time of local server inference and store them.
             print(f"[{r}], duration: {duration} s")
 
-    def run(self, mode):
+    def run(self, mode, fake_inference):
         """MARK: Packet losses are not considered yet!"""
         if mode == "server_local":
-            self.run_server_local(30)
+            self.run_server_local(30, fake_inference)
         else:
             self.logger.info("Run server main loop")
             # Just for single connection
@@ -102,6 +123,11 @@ if __name__ == "__main__":
         help="Working mode of the server",
     )
     parser.add_argument(
+        "--fake_inference",
+        action="store_true",
+        help="Use fake inference, assume that a magic GPU is used",
+    )
+    parser.add_argument(
         "-v", "--verbose", action="store_true", help="Make the server more talkative"
     )
     args = parser.parse_args()
@@ -113,8 +139,8 @@ if __name__ == "__main__":
             config.server_address_data,
             args.verbose,
         )
-        server.setup()
-        server.run(args.mode)
+        server.setup(args.mode)
+        server.run(args.mode, args.fake_inference)
     except KeyboardInterrupt:
         print("KeyboardInterrupt! Stop server!")
     except RuntimeError as e:
