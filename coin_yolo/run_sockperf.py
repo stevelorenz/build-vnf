@@ -21,7 +21,7 @@ def run_test(mps, test_duration, num_rounds, outfile):
                     --msg-size 64 \
                     -t {test_duration} \
                     --full-rtt \
-                    --full-log ./sockperf_csv/{outfile}_{port}_duration_{test_duration}_mps_{mps}_round_{round}_.log"
+                    --full-log ./results/server_local/sockperf/{outfile}_{port}_duration_{test_duration}_mps_{mps}_round_{round}_.log"
             cmd = shlex.split(cmd)
             ret = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
             assert ret.returncode == 0
@@ -35,7 +35,7 @@ def main():
         "-d",
         "--duration",
         type=int,
-        default=10,
+        default=60,
         help="Duration of one iteration",
     )
     parser.add_argument(

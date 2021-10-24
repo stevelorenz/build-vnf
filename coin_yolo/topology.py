@@ -212,7 +212,6 @@ class Test:
             print("*** Running sockperf measurements...")
             self.client.cmd("cd share")
             self.client.cmd("python3 ./run_sockperf.py -d 60 -r 2 -m 10000 -o result")
-            self.client.cmd("python3 ./run_sockperf.py -d 60 -r 2 -m 10000 -o result")
             print("*** Finished sockperf test")
         elif test == "coin_yolo":
             print("AbaAba")

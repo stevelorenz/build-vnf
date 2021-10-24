@@ -65,6 +65,7 @@ class Server:
                 break
 
     def run_server_local(self, num_rounds, fake_inference):
+        durations = list()
         self.logger.info(f"Run server local test for {num_rounds} rounds")
         det = detector.Detector(mode="raw")
         data = det.read_img_jpeg_bytes("./pedestrain.jpg")
@@ -83,6 +84,7 @@ class Server:
                 ret = det.inference(data)
                 _ = det.get_detection_results(*ret)
             duration = time.time() - start
+            durations.append(duration)
             # TODO: Measure the computational time of local server inference and store them.
             print(f"[{r}], duration: {duration} s")
 
