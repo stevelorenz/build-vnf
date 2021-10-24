@@ -1,5 +1,7 @@
 # COIN YOLO
 
+- [] TODO:  <24-10-21, Zuo> Update README after paper submission
+
 # Build and Run
 
 Install ComNetsEmu using script:

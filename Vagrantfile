@@ -124,6 +124,8 @@ Vagrant.configure("2") do |config|
     # - Drop the system caches to allocate hugepages
     dev.vm.provision "shell", privileged:true, run: "always", path: "./scripts/setup_hugepage.sh"
 
+    dev.vm.provision "shell", privileged:false, run: "always", path: "./scripts/echo_banner.sh"
+
     dev.ssh.forward_agent = true
     dev.ssh.forward_x11 = true
   end

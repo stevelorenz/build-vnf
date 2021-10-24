@@ -1,4 +1,4 @@
-# FFPP - Fast Functional Packet Processing
+# FFPP - Fancy Fast Packet Processing
 
 FFPP is a Packet Processing (PP) library developed to explore the use cases of the research topic COIN.
 The project is currently under **heavy development and revision**.

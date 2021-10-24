@@ -14,8 +14,8 @@
 #include <pybind11/embed.h>
 #include <tins/tins.h>
 
-#include <ffpp/packet_engine.hpp>
 #include <ffpp/mbuf_pdu.hpp>
+#include <ffpp/packet_engine.hpp>
 
 using namespace Tins;
 using namespace ffpp;
@@ -26,54 +26,51 @@ namespace py = pybind11;
 
 bool gExit = false;
 
-void exit_handler(int signal)
-{
-	LOG(INFO) << "Exit the program.";
-	gExit = true;
+void exit_handler(int signal) {
+  LOG(INFO) << "Exit the program.";
+  gExit = true;
 }
 
-void run_store_forward(PEConfig pe_config)
-{
-	LOG(INFO) << "Run store-and-forward loop";
-	PacketEngine pe = PacketEngine(pe_config);
+void run_store_forward(PEConfig pe_config) {
+  LOG(INFO) << "Run store-and-forward loop";
+  PacketEngine pe = PacketEngine(pe_config);
 
-	vector<struct rte_mbuf *> vec;
-	uint32_t max_num_burst = 3;
-	vec.reserve(kMaxBurstSize * max_num_burst);
+  vector<struct rte_mbuf *> vec;
+  uint32_t max_num_burst = 3;
+  vec.reserve(kMaxBurstSize * max_num_burst);
 
-	uint32_t num_rx = 0;
-	uint32_t i = 0;
-	while (not gExit) {
-		num_rx = pe.rx_pkts(vec, max_num_burst);
-		// ONLY for debug
-		//if (num_rx > 0) {
-		//	cout << num_rx << endl;
-		//}
-		for (i = 0; i < num_rx; ++i) {
-			// Touch the packet and update the checksums using libtins.
-			auto eth = read_mbuf_to_eth(vec[i]);
-			UDP &udp = eth.rfind_pdu<UDP>();
-			if (udp.dport() != uint16_t(9999)) {
-				LOG(ERROR) << "LOL!";
-			}
-			write_eth_to_mbuf(eth, vec[i]);
-		}
-		pe.tx_pkts(vec, chrono::microseconds(3));
-	}
+  uint32_t num_rx = 0;
+  uint32_t i = 0;
+  while (not gExit) {
+    num_rx = pe.rx_pkts(vec, max_num_burst);
+    // ONLY for debug
+    // if (num_rx > 0) {
+    //	cout << num_rx << endl;
+    //}
+    for (i = 0; i < num_rx; ++i) {
+      // Touch the packet and update the checksums using libtins.
+      auto eth = read_mbuf_to_eth(vec[i]);
+      UDP &udp = eth.rfind_pdu<UDP>();
+      if (udp.dport() != uint16_t(9999)) {
+        LOG(ERROR) << "LOL!";
+      }
+      write_eth_to_mbuf(eth, vec[i]);
+    }
+    pe.tx_pkts(vec, chrono::microseconds(3));
+  }
 
 } // MARK: pe is out of scope, RAII
 
-int main(int argc, char *argv[])
-{
-	FLAGS_logtostderr = 1;
+int main(int argc, char *argv[]) {
+  FLAGS_logtostderr = 1;
 
-	string mode = "store_forward";
-	string host_name = boost::asio::ip::host_name();
-	string iface = host_name + "-s" + host_name.back();
+  string mode = "store_forward";
+  string host_name = boost::asio::ip::host_name();
+  string iface = host_name + "-s" + host_name.back();
 
-	try {
-		po::options_description desc("COIN YOLO");
-		// clang-format off
+  try {
+    po::options_description desc("COIN YOLO");
+    // clang-format off
 		desc.add_options()
 			("help,h", "Produce help message")
 			("iface,i", po::value<string>(), "The name of the IO interface.")
@@ -89,6 +86,7 @@ int main(int argc, char *argv[])
 		if (vm.count("iface")) {
 			iface = vm["iface"].as<string>();
 		}
+		/* TODO:  <25-10-21, Zuo> Add a mode to measure batch sizes ? */
 		if (vm.count("mode")) {
 			mode = vm["mode"].as<string>();
 		}
