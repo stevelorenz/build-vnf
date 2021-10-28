@@ -10,27 +10,29 @@ This is just an **experimental**, research and study oriented project to explore
 
 **Build-VNF** (Build Virtualized Network Function) is a collection (monorepo 🙈) of sources and tools that I developed and used during my PhD study :wink: (2018-2022) at [ComNets TU Dresden](https://cn.ifn.et.tu-dresden.de/).
 
-When I started my PhD in 2018, SDN/NFV was a completely new topic for me, so this monolithic repository was created to store and manage my prototype code.
+When I started my PhD in 2018, SDN/NFV was (and is 😉) a new topic for me, so this monolithic repository was created to store and manage my prototype/experimental code during my studies.
+Since I learned that there are already many popular and mature research and industry projects for NFVI and NFV-MANO components, I decided to investigate the possibility of building fast, energy-efficient and intelligent VNFs for 5G and beyond 😆.
 
-So the structure and code here is totally unstable because I am not expert yet and still in try-error-retry loop 😢.
-Also I'm keep exploring new ideas and refine the topic of my PhD thesis, so I just use snippets in this repo to perform
-measurements and get fancy plots quickly...
-I plan to create separate repositories when there's some stable outcome from this repository.
+Subdirectories are currently created for sub-projects (ideas and topics) and measurements.
+Each subdirectory should contain clear READMEs for their usage.
 
-The project is currently still under **heavy development and revision**.
+The structure and code here is completely unstable right now, as I'm not an expert **yet** and am still in the try-error-retry loop 😢.
+I plan to create a separate repository after this one has some good and meaningful 🙈 results.
 Better, structured documentation will be added later when the project structure is stable.
 
-## Repo Structure
+Thanks to all the open source SDN/NFV projects for teaching me.
 
-- FFPP (Fancy Fast Packet Processing): Fancy packet processing engine designed for in-network computing
-- COIN_YOLO: DNN based traffic compression
+## Repository Structure
+
+- FFPP (Fancy Fast Packet Processing): Fancy 🐼 packet processing engine (library) designed for CNF (Containerized Network Function) and COIN (Computing in the Network) use cases
+- COIN_DL: Implementing a COIN-driven distributed deep learning system for in-network video traffic compression
 - pktgen: Scripts and tools for software packet generators
 
 ## Citing Our Works
 
 If you like any ideas or tools inside this repository, please consider reading and citing our papers.
 
-- For CALVIN and FFPP:
+- For [CALVIN (IEEE JSAC)](https://ieeexplore.ieee.org/abstract/document/8672612) and FFPP:
 
 ```
 @inproceedings{xiang2018latency,
@@ -52,11 +54,35 @@ If you like any ideas or tools inside this repository, please consider reading a
   year={2019},
   publisher={IEEE}
 }
+
+@article{Wu2021njica,
+  title = {Computing Meets Network: COIN-aware Offloading for Data-intensive Blind Source Separation},
+  author = {Huanzhuo {Wu} and Zuo {Xiang} and Giang T. {Nguyen} and Yunbin {Shen} and Frank H. P. {Fitzek}},
+  year = {2021},
+  date = {2021-09-01},
+  journal = {IEEE Network Magazine, Special Issue },
+  keywords = {},
+  pubstate = {published},
+  tppubtype = {article}
+}
 ```
 
-- For COIN_YOLO:
+- For COIN_DL:
 
 ```
+@article{xiang2020comnetsemu,
+  title = {An Open Source Testbed for Virtualized Communication Networks},
+  author = {Zuo {Xiang} and Sreekrishna {Pandi} and Juan A. {Cabrera Guerrero} and Fabrizio {Granelli} and Patrick {Seeling} and Frank H. P. {Fitzek}},
+  year = {2021},
+  date = {2021-01-01},
+  journal = {IEEE Communications Magazine},
+  pages = {1--8},
+  note = {(Accepted, 2020)},
+  keywords = {},
+  pubstate = {published},
+  tppubtype = {article}
+}
+
 @article{xiang2021you,
   title={You Only Look Once, But Compute Twice: Service Function Chaining for Low-Latency Object Detection in Softwarized Networks},
   author={Xiang, Zuo and Seeling, Patrick and Fitzek, Frank HP},
