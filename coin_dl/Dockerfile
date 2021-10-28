@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 	software-properties-common \
 	zip
 
-WORKDIR /coin_yolo
+WORKDIR /coin_dl
 RUN wget https://github.com/stevelorenz/yolov2/archive/refs/heads/master.zip && \
 	unzip ./master.zip -d ./ && \
 	rm ./master.zip
@@ -24,7 +24,7 @@ ENV PATH="/opt/conda/bin:${PATH}"
 RUN wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
 	/bin/bash ~/miniconda.sh -b -p /opt/conda && \
 	rm ~/miniconda.sh && \
-	/opt/conda/bin/conda env create -f /coin_yolo/environment.yml && \
+	/opt/conda/bin/conda env create -f /coin_dl/environment.yml && \
 	echo "source activate tf_mkl" > ~/.bashrc
 
 ENV PATH /opt/conda/envs/tf_mkl/bin:$PATH
@@ -49,9 +49,9 @@ RUN rm -rf /var/lib/apt/lists/* && \
 	conda clean -y --all && \
 	rm -rf /opt/conda/pkgs/*
 
-# Build coin_yolo related programs
+# Build coin_dl related programs
 COPY Makefile *.jpg *.cpp *.build *.py *.sh \
-	/coin_yolo/
+	/coin_dl/
 RUN make release
 
 CMD ["bash"]

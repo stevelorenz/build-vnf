@@ -1,4 +1,4 @@
-project('coin_yolo', 'cpp',
+project('coin_dl', 'cpp',
 	version : '0.0.1',
 	default_options : [
 		'warning_level=2',
@@ -46,8 +46,8 @@ all_deps = declare_dependency(
 	dependencies: dep_list,
 )
 
-executable('coin_yolo',
-	'coin_yolo.cpp',
+executable('coin_dl',
+	'coin_dl.cpp',
 	dependencies:all_deps,
 	install : false
 )

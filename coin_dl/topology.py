@@ -25,7 +25,7 @@ import config
 
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
-DIMAGE = "coin_yolo:latest"
+DIMAGE = "coin_dl:latest"
 
 
 def check_env():
@@ -78,9 +78,9 @@ class Test:
                 "cpuset_cpus": client_cpu_args["cpuset_cpus"],
                 "nano_cpus": client_cpu_args["nano_cpus"],
                 "hostname": "client",
-                "working_dir": "/coin_yolo",
+                "working_dir": "/coin_dl",
                 "volumes": {
-                    CURRENT_DIR: {"bind": "/coin_yolo/share", "mode": "rw"},
+                    CURRENT_DIR: {"bind": "/coin_dl/share", "mode": "rw"},
                 },
             },
         )
@@ -94,9 +94,9 @@ class Test:
                 "cpuset_cpus": server_cpu_args["cpuset_cpus"],
                 "nano_cpus": server_cpu_args["nano_cpus"],
                 "hostname": "server",
-                "working_dir": "/coin_yolo",
+                "working_dir": "/coin_dl",
                 "volumes": {
-                    CURRENT_DIR: {"bind": "/coin_yolo/share", "mode": "rw"},
+                    CURRENT_DIR: {"bind": "/coin_dl/share", "mode": "rw"},
                 },
             },
         )
@@ -131,9 +131,9 @@ class Test:
                             "mode": "rw",
                         },
                         "/dev": {"bind": "/dev", "mode": "rw"},
-                        CURRENT_DIR: {"bind": "/coin_yolo/share", "mode": "rw"},
+                        CURRENT_DIR: {"bind": "/coin_dl/share", "mode": "rw"},
                     },
-                    "working_dir": "/coin_yolo",
+                    "working_dir": "/coin_dl",
                 },
             )
             self._vnfs.append(vnf)
@@ -195,7 +195,7 @@ class Test:
             info("null mode! Deploy nothing on VNF(s)\n")
         elif self.vnf_mode == "store_forward":
             for vnf in self._vnfs:
-                vnf.cmd("./build/coin_yolo &")
+                vnf.cmd("./build/coin_dl &")
         elif self.vnf_mode == "compute_forward":
             print("Compute and Forward!!!")
 
@@ -213,7 +213,7 @@ class Test:
             self.client.cmd("cd share")
             self.client.cmd("python3 ./run_sockperf.py -d 60 -r 2 -m 10000 -o result")
             print("*** Finished sockperf test")
-        elif test == "coin_yolo":
+        elif test == "coin_dl":
             print("AbaAba")
         elif test == "server_local":
             print("*** Running server local measurements...")
@@ -266,7 +266,7 @@ def main():
         "--test",
         type=str,
         default="sockperf",
-        choices=["null", "sockperf", "coin_yolo", "server_local"],
+        choices=["null", "sockperf", "coin_dl", "server_local"],
         help="The test to be performed",
     )
     parser.add_argument(

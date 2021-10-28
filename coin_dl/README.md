@@ -16,8 +16,8 @@ Run script to fix dependency issue (`eventlet`) for Ryu SDN controller:
 sudo bash ./fix_ryu.sh
 ```
 
-Build super!!! bloated `coin_yolo` image:
-The image size is (unfortunately) larger than **8** GB...
+Build super!!! bloated `coin_dl` image:
+The image size is (unfortunately) larger than **6** GB...
 ```bash
 sudo bash ./build_image.sh
 ```

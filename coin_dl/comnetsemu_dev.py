@@ -10,7 +10,7 @@ from comnetsemu.net import Containernet
 from mininet.log import setLogLevel
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
-DIMAGE = "coin_yolo:latest"
+DIMAGE = "coin_dl:latest"
 
 if __name__ == "__main__":
     if os.geteuid() != 0:
@@ -31,9 +31,9 @@ if __name__ == "__main__":
                 "hostname": "dev",
                 "volumes": {
                     "/dev": {"bind": "/dev", "mode": "rw"},
-                    CURRENT_DIR: {"bind": "/coin_yolo/share", "mode": "rw"},
+                    CURRENT_DIR: {"bind": "/coin_dl/share", "mode": "rw"},
                 },
-                "working_dir": "/coin_yolo/share",
+                "working_dir": "/coin_dl/share",
             },
         )
         net.start()

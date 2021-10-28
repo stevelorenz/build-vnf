@@ -4,31 +4,33 @@
 <img alt="Build-VNF" src="https://github.com/stevelorenz/build-vnf/raw/master/logo/logo_horizontal.png" width="500">
 </p>
 
-## About The Project
+This is just an **experimental**, research and study oriented project to explore new ideas for my PhD thesis (in short, for papers ... 💡) .
 
-**Build-VNF (Build Virtualized Network Function)** is a collection of sources and utilities I developed and used for my PhD
-topic: Intelligent and energy-efficient VNF **dataplane**.
-So it is **ONLY** a **experimental** and **research-and-learning-oriented** project to explore new ideas (for papers...) for my PhD.
-SDN/NFV was a completely new topic for me when I started my PhD in 2018, so this monolithic repository was created to
-store my prototype code.
-So the structure and code here is totally unstable because I am not expert yet and still in try-error-retry loop ;).
+## About
+
+**Build-VNF** (Build Virtualized Network Function) is a collection (monorepo 🙈) of sources and tools that I developed and used during my PhD study :wink: (2018-2022) at [ComNets TU Dresden](https://cn.ifn.et.tu-dresden.de/).
+
+When I started my PhD in 2018, SDN/NFV was a completely new topic for me, so this monolithic repository was created to store and manage my prototype code.
+
+So the structure and code here is totally unstable because I am not expert yet and still in try-error-retry loop 😢.
 Also I'm keep exploring new ideas and refine the topic of my PhD thesis, so I just use snippets in this repo to perform
-measurements and get plots quickly...
+measurements and get fancy plots quickly...
 I plan to create separate repositories when there's some stable outcome from this repository.
 
-The project is currently under **heavy development and revision**.
-More documentation will be added later when the structure is stable.
+The project is currently still under **heavy development and revision**.
+Better, structured documentation will be added later when the project structure is stable.
 
-## Repo organization
+## Repo Structure
 
-```
-- coin_yolo:
-- ffpp: Packet engine for fast functional packet processing
-```
+- FFPP (Fancy Fast Packet Processing): Fancy packet processing engine designed for in-network computing
+- COIN_YOLO: DNN based traffic compression
+- pktgen: Scripts and tools for software packet generators
 
 ## Citing Our Works
 
-If you like tools inside this repository, please consider citing our papers.
+If you like any ideas or tools inside this repository, please consider reading and citing our papers.
+
+- For CALVIN and FFPP:
 
 ```
 @inproceedings{xiang2018latency,
@@ -52,6 +54,8 @@ If you like tools inside this repository, please consider citing our papers.
 }
 ```
 
+- For COIN_YOLO:
+
 ```
 @article{xiang2021you,
   title={You Only Look Once, But Compute Twice: Service Function Chaining for Low-Latency Object Detection in Softwarized Networks},
@@ -67,12 +71,12 @@ If you like tools inside this repository, please consider citing our papers.
 
 ## Contributing
 
-This project exists thanks to all people who contribute.
-The [list](./CONTRIBUTORS) of all contributors.
+This project exists thanks to all people (all my students 😉) who contribute.
+The [list](./CONTRIBUTORS.md) of all contributors.
 
 ## Contact
 
-* **Zuo Xiang** - *Project Maintainer* - zuo.xiang@tu-dresden.de
+- Zuo Xiang - Maintainer - zuo.xiang@tu-dresden.de or xianglinks@gmail.com (personal)
 
 ## License
 
