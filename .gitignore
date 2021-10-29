@@ -62,8 +62,8 @@ dkms.conf
 *.gcno
 
 # Meson build system
-builddir
-build
+build/
+builddir/
 
 .ccls-cache/
 
@@ -194,16 +194,7 @@ massif.*
 
 .gdb_history
 .vagrant/
-.vscode
-build/
-builddir/
-dataset/
-doc/.build
-doc/build/
-html/
-latex/
-lib_src
-vm_share/
+.vscode/
 
 ----------
 -  FFPP  -
@@ -222,5 +213,6 @@ xdp_time_user
 -----------
 -  Malte  -
 -----------
+
 coin_yolo/sockperf_csv/
 coin_yolo/coin_yolo_csv/

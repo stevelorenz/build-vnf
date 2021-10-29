@@ -21,5 +21,3 @@ The image size is (unfortunately) larger than **6** GB...
 ```bash
 sudo bash ./build_image.sh
 ```
-
-Run the topology

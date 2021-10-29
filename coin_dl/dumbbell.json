@@ -1,0 +1,30 @@
+{
+  "bottleneck": {
+    "BDP_B": 625000.0,
+    "bandwidth_mbps": 500,
+    "delay_ms": 10
+  },
+  "clients": {
+    "client1": {
+      "ip": "10.0.1.11/16"
+    },
+    "client2": {
+      "ip": "10.0.1.12/16"
+    }
+  },
+  "controllers": [
+    {
+      "name": "c1",
+      "port": 6653
+    }
+  ],
+  "servers": {
+    "server1": {
+      "ip": "10.0.2.11/16"
+    },
+    "server2": {
+      "ip": "10.0.2.12/16"
+    }
+  },
+  "sfc_port": 9999
+}

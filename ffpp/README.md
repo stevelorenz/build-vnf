@@ -4,8 +4,6 @@ FFPP is a Packet Processing (PP) library developed to explore the use cases of t
 The project is currently under **heavy development and revision**.
 More docs will be added later when the structure and source code are stable.
 
-I'm currently exploring rewriting FFPP in Go or Rust.
-
 ## TODO: Build and Run
 
 ## Catalog

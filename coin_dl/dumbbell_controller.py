@@ -14,15 +14,13 @@
 # limitations under the License.
 
 """
-About: Ryu application for the multi-hop topology.
+About: Ryu SDN controller application for the dumbbell topology.
 
-Ideas for improvements:
+TODO:
+    - Add monitoring
+    - Add QoS for bandwidth shaping
 
-    - Use MPLS or IPv6 segment routing to address network nodes with computing
-      services.
-
-    - The SDN controller can communicate with the orchestrator (WIP) to manage
-      computing services dynamically.
+MARK: I'm not an expert for SDN controller programming :-)
 """
 
 import json
@@ -39,13 +37,9 @@ from ryu.lib import dpid as dpid_lib
 from ryu.lib.ovs import vsctl
 from ryu.ofproto import ofproto_v1_3
 
-
-APP_INSTANCE_NAME = "multi_hop_api_app"
-
 # Assume the controller knows the IPs of end-hosts.
 CLIENT_IP = "10.0.1.11"
-SERVER_IP = "10.0.3.11"
-SERVER_UDP_PORT = 9999
+SERVER_IP = "10.0.2.11"
 
 
 class MultiHopRest(app_manager.RyuApp):
@@ -62,6 +56,10 @@ class MultiHopRest(app_manager.RyuApp):
         self.ip_to_port = {}
         # Map specific interface names to port.
         self.vnf_iface_to_port = {}
+
+        # Load topology information
+        with open("./dumbbell.json", "r", encoding="ascii") as f:
+            self.topo_params = json.load(f)
 
     # ISSUE: This is a temp workaround to get openflow port of each VNF instance
     # without adding a service discovery system.
@@ -200,22 +198,25 @@ class MultiHopRest(app_manager.RyuApp):
         )
         datapath.send_msg(out)
 
-    @staticmethod
-    def _check_sanity_udp(pkt):
+    def check_sfc_flow(self, pkt):
+        """Check if the given packet belongs to flows that should be managed by SFC.
+
+        :param pkt:
+        """
         ip = pkt.get_protocol(packet_lib.ipv4.ipv4)
         udp = pkt.get_protocol(packet_lib.udp.udp)
 
         if (
             ip.src == CLIENT_IP
             and ip.dst == SERVER_IP
-            and udp.dst_port == SERVER_UDP_PORT
+            and udp.dst_port == self.topo_params["sfc_port"]
         ):
             return True
 
         return False
 
     def handle_udp(self, msg, pkt):
-        if not self._check_sanity_udp(pkt):
+        if not self.check_sfc_flow(pkt):
             self.logger.info(
                 "<Packet-In>[UDP]: Receive un-known UDP flows. Action: L2FWD."
             )

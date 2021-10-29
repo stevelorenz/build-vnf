@@ -42,7 +42,7 @@ RUN wget http://images.cocodataset.org/annotations/annotations_trainval2017.zip 
 	rm ./annotations_trainval2017.zip ./cocoapi/annotations/instances_train2017.json ./cocoapi/annotations/person_keypoints_train2017.json
 
 RUN apt-get update && apt-get install -y \
-	sockperf
+	sockperf iperf3
 
 # Try to reduce image size...
 RUN rm -rf /var/lib/apt/lists/* && \

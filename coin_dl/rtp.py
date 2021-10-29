@@ -193,6 +193,8 @@ def test():
 
 
 def benchmark():
+    import socket
+
     setup = """
 from __main__ import RTPPacket
     """
