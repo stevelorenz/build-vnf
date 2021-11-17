@@ -5,11 +5,8 @@
 **/*.out
 **/*.so
 **/.ccls-cache
-.ccls-cache
-backup
-bin
-build
 **/build
-builddir
-**/builddir
-docs
+.ccls-cache
+.vscode
+build
+doc

@@ -1,4 +1,4 @@
-# Available suits:
+# Available suts:
 # - unit: Unit tests
 # - no-leak: There's no memory leaking from FFPP's code, but there's problems in the dependencies...
 #            So the leak information is manually checked and make sure there's no-leak in FFPP's code.

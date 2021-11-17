@@ -2,22 +2,13 @@
 # -*- coding: utf-8 -*-
 # vim:fenc=utf-8
 
-import argparse
-import json
-import shlex
 import subprocess
-
-
-def load_topo_info():
-    with open("./share/dumbbell.json", "r", encoding="ascii") as f:
-        topo_info = json.load(f)
-    return topo_info
+import argparse
+import shlex
+import json
 
 
 def run_test(mps, test_duration, num_rounds, outfile):
-    # Calculate the parameters
-    topo_info = load_topo_info()
-
     server_ip = "10.0.3.11"
     sfc_port = 9999
     default_port = 11111
@@ -42,7 +33,7 @@ def run_test(mps, test_duration, num_rounds, outfile):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run sockperf to measure network latency."
+        description="Script to test network performance with sockperf"
     )
     parser.add_argument(
         "-d",
@@ -58,7 +49,16 @@ def main():
         default=1,
         help="Number of iterations",
     )
-    parser.add_argument("--share_dir", default="./share")
+    parser.add_argument(
+        "-o", "--outfile", type=str, default="result", help="Name of result file"
+    )
+    parser.add_argument(
+        "-m",
+        "--mps",
+        type=int,
+        default=10000,
+        help="MPS to use for the measurement",
+    )
     args = parser.parse_args()
 
     run_test(args.mps, args.duration, args.num_rounds, args.outfile)

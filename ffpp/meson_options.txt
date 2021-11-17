@@ -1,8 +1,8 @@
-option('examples', type: 'boolean', value: false,
-	description: 'Build built-in examples.')
+option('examples', type: 'boolean', value: true,
+  description: 'Build all built-in examples.')
 
 option('tests', type: 'boolean', value: false,
-	description: 'Build tests.')
+  description: 'Build all tests.')
 
-option('related_works', type: 'boolean', value: false,
-	description: 'Build related works for comparison (used for paper publication).')
+option('related_works', type: 'boolean', value: true,
+  description: 'Build all related works (It is used to reproduce the results of some papers without open source code. The main purpose is to compare andpublish papers).')

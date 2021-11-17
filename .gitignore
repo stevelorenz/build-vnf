@@ -1,6 +1,6 @@
------------
--  C/CPP  -
------------
+###########
+#  C/CPP  #
+###########
 
 # Prerequisites
 *.d
@@ -67,9 +67,9 @@ builddir/
 
 .ccls-cache/
 
-------------
--  Python  -
-------------
+############
+#  Python  #
+############
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -176,43 +176,31 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-----------
--  MISC  -
-----------
+##########
+#  FFPP  #
+##########
+
+###############
+#  COIN-YOLO  #
+###############
+
+!coin_yolo/pedestrain.jpg
+coin_yolo/results/*
+
+##########
+#  MISC  #
+##########
 
 !logo/*.png
-!coin_yolo/pedestrain.jpg
 
 *.bin
-*.csv
 *.data
+*.log
 *.mbuf
 *.pdf
 *.png
 *.weights
-massif.*
-
 .gdb_history
 .vagrant/
 .vscode/
-
-----------
--  FFPP  -
-----------
-
-# XDP-related userspace programs, remove them when xdp-loader works nicely.
-# Remove this when eBPF programs are managed by Meson and binaries are moved to build directory
-af_xdp_dpdk_user
-xdp_count_loader
-xdp_count_user
-xdp_fwd_loader
-xdp_fwd_user
-xdp_time_loader
-xdp_time_user
-
------------
--  Malte  -
------------
-
-coin_yolo/sockperf_csv/
-coin_yolo/coin_yolo_csv/
+massif.*

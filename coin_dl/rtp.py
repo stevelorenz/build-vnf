@@ -91,6 +91,11 @@ class InvalidPacketException(Exception):
     pass
 
 
+class RTPExtension:
+    def __init__(self):
+        pass
+
+
 class RTPPacket:
     # default header info
     HEADER_SIZE = 12  # bytes

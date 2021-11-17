@@ -143,7 +143,7 @@ def create_dumbbell(num_hosts: int = 2):
     DELAY_BOTTLENECK_MS = 10
     DELAY_BOTTLENECK_MS_STR = str(DELAY_BOTTLENECK_MS) + "ms"
     BDP = ((BW_BOTTLENECK * 10 ** 6) * (DELAY_BOTTLENECK_MS * 10 ** -3)) / 8.0
-    info(f"\n*** The BDP of the network is {BDP:.2f} B\n")
+    info(f"\n*** The BDP of the bottleneck link is {BDP:.2f} B\n")
     topo_params.update(
         {
             "bottleneck": {
@@ -206,6 +206,36 @@ def deploy_vnfs(vnfs):
         v.cmd(f"ip addr flush vnf{idx+1}-s{idx+1}")
 
 
+def run_test_sockperf(nodes):
+    info("*** Running test: sockperf\n")
+
+    info("*** Run single client sockperf with under-load mode\n")
+
+    info("*** Run multi-clients sockperf with under-load mode\n")
+
+    # 30310
+
+
+def run_store_forward(nodes):
+    info("*** Running test: store and forward\n")
+
+
+def run_tests(nodes: list, tests: list):
+    test_func_map = {"sockperf": run_test_sockperf, "store_forward": run_store_forward}
+    for test in tests:
+        if test in test_func_map:
+            test_func_map[test](nodes)
+        else:
+            raise RuntimeError(f"Function for test: {test} is not defined!")
+
+
+def parse_tests(tests_str):
+    tests = tests_str.strip().split(",")
+    tests = [t.strip() for t in tests if t != ""]
+    assert len(tests) > 0
+    return tests
+
+
 def main():
     if os.geteuid() != 0:
         print("Run this script with sudo.", file=sys.stderr)
@@ -222,11 +252,10 @@ def main():
         help="Working mode of all VNF(s)",
     )
     parser.add_argument(
-        "--test",
+        "--tests",
         type=str,
         default="sockperf",
-        choices=["null", "sockperf", "coin_dl", "server_local"],
-        help="The test to be performed",
+        help="Test names separated by commas. Example: sockperf,store_forward",
     )
     parser.add_argument(
         "--dev", action="store_true", help="Run the setup for dev purpose on laptop"
@@ -235,6 +264,8 @@ def main():
 
     check_env()
     setLogLevel("info")
+
+    tests = parse_tests(args.tests)
 
     # IPv6 is currently not used, disable it.
     subprocess.run(
@@ -254,6 +285,7 @@ def main():
         start_controllers(nodes["controllers"])
         deploy_vnfs(nodes["vnfs"])
         deploy_servers(nodes["servers"])
+        run_tests(nodes, tests)
         if args.dev:
             CLI(net)
     finally:

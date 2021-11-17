@@ -3,7 +3,11 @@
 # vim:fenc=utf-8
 
 """
-About: Client
+About: A crazy and selfish client that just shoots RTP packets (CBR) to the
+       server and pray for the response from the server for object detection.
+
+TODO (Zuo): Look into WebRTC (AioRTC) if the toy "implementation" should be
+aligned to the standard specification.
 """
 
 import argparse

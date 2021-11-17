@@ -56,30 +56,28 @@ RUN mkdir -p ${RTE_SDK} && \
 
 # Install FFPP dependencies.
 RUN debian_frontend="noninteractive" apt-get install -y \
-	libcpufreq-dev \
-	libczmq-dev \
-	libjansson-dev \
-	python3-dev \
-	python3-numpy \
-	python3-pip \
-	python3-pybind11 \
-	python3-zmq
-# Dependencies under test. They can be removed at any time.
-RUN debian_frontend="noninteractive" apt-get install -y \
 	libbenchmark-dev \
 	libboost-coroutine-dev \
 	libboost-dev \
 	libboost-program-options-dev \
 	libboost-system-dev \
-	libfccp-dev \
+	libcpufreq-dev \
+	libczmq-dev \
 	libfmt-dev \
 	libgoogle-glog-dev \
+	libjansson-dev \
 	libmnl-dev \
 	libmsgsl-dev \
 	libtins-dev \
-	libyaml-cpp-dev
+	libyaml-cpp-dev \
+	python3-dev \
+	python3-numpy \
+	python3-pip \
+	python3-pybind11 \
+	python3-zmq
 RUN pip3 install -q docker
-# Development and debug tools. These packages are not needed in deployment.
+# Development, test and debug tools.
+# These packages are NOT needed in release.
 RUN debian_frontend="noninteractive" apt-get install -y \
 	clang-tidy \
 	cppcheck \
@@ -91,13 +89,15 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	net-tools \
 	tcpdump
 
-# Build and install the FFPP library.
+# Build and install FFPP targets.
 ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}
 WORKDIR ${FFPP_PATH}
-# Do not run install, otherwise the binaries may prefer system-wide libraries instead of the local ones.
-RUN make release
+RUN meson build --buildtype=release && \
+	cd build && \
+	ninja && ninja install && ldconfig
+
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/lib/x86_64-linux-gnu/pkgconfig
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib/x86_64-linux-gnu
 ENV PYTHONPATH="${PYTHONPATH}:/usr/local/lib/python3.8/site-packages"

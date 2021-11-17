@@ -6,6 +6,9 @@
 ###############
 
 CPUS = 4
+# 4GB is required by some deep learning applications, typical network functions
+# do not require so much memory.
+# 2GB should be enough to test most network functions.
 RAM = 4096
 
 # Use Ubuntu LTS for dev. bento box is relative light weight.
