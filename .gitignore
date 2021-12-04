@@ -65,7 +65,11 @@ dkms.conf
 build/
 builddir/
 
+# CCLS language server
 .ccls-cache/
+
+# Compile commands, used by clangd
+compile_commands.json
 
 ############
 #  Python  #

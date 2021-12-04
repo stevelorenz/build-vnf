@@ -24,9 +24,9 @@ if __name__ == "__main__":
         sys.exit(1)
     setLogLevel("error")
 
+    net = None
     try:
         net = Containernet(xterms=False)
-
         dev = net.addDockerHost(
             "dev",
             dimage=f"ffpp:{FFPP_VER}",
@@ -43,4 +43,5 @@ if __name__ == "__main__":
         net.start()
         CLI(net)
     finally:
-        net.stop()
+        if net:
+            net.stop()

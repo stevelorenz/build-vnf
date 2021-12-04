@@ -220,8 +220,6 @@ int main(int argc, char *argv[])
 	if (ret < 0) {
 		rte_exit(EXIT_FAILURE, "Invalid EAL arguments.\n");
 	}
-	argc -= ret;
-	argv += ret;
 
 	rte_timer_subsystem_init();
 

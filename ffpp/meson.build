@@ -4,13 +4,14 @@ project('ffpp', 'c', 'cpp',
   meson_version: '>= 0.53.0',
   default_options: [
     'c_std=gnu18',
-    # C++20 is used mainly for C-style designated initializers.
+    # C++20 is required mainly for C-style designated initializers.
     'cpp_std=c++2a',
     'buildtype=debugoptimized',
-    'warning_level=2',
+    'warning_level=3',
     'default_library=both',
     'werror=true',
     'b_lundef=true',
+    'b_ndebug=if-release',
     ],
   )
 

@@ -1,9 +1,13 @@
 FROM ubuntu:20.04
 
-# Install dependencies for DPDK and xdp-tools.
+#
+# Install common build dependencies
+#
+
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y \
 	build-essential \
 	clang \
+	cmake \
 	gcc-multilib \
 	git \
 	libelf-dev \
@@ -21,6 +25,11 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y \
 	wget
 
 WORKDIR /opt/
+
+#
+# Build and install dependencies that cannot be installed directly by a package manager
+# This is just a WORKAROUND due to issues such as package versions or compilation configurations...
+#
 
 # Build xdp-tools from source using git.
 # The reason to use git instead of downloading a tarball or deb package is that the
@@ -54,7 +63,11 @@ RUN mkdir -p ${RTE_SDK} && \
 	ninja && ninja install && ldconfig && \
 	rm -rf /opt/dpdk-${DPDK_VER}.tar.xz
 
-# Install FFPP dependencies.
+#
+# Install dependencies that be installed directly by a package manager
+#
+
+# TODO: Remove unused dependencies !!!
 RUN debian_frontend="noninteractive" apt-get install -y \
 	libbenchmark-dev \
 	libboost-coroutine-dev \
@@ -75,9 +88,9 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	python3-pip \
 	python3-pybind11 \
 	python3-zmq
-RUN pip3 install -q docker
-# Development, test and debug tools.
-# These packages are NOT needed in release.
+
+# Development, testing and debugging tools.
+# These packages are NOT needed in production.
 RUN debian_frontend="noninteractive" apt-get install -y \
 	clang-tidy \
 	cppcheck \
@@ -86,10 +99,19 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	googletest \
 	iproute2 \
 	iputils-ping \
+	# For perf
+	linux-tools-`uname -r`\
+	linux-tools-common \
 	net-tools \
 	tcpdump
 
-# Build and install FFPP targets.
+# TODO: Check if miniconda is a better option.
+RUN pip3 install -q docker
+
+#
+# Finally! Build and install FFPP targets with release version. :)
+#
+
 ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}
 COPY . ${FFPP_PATH}

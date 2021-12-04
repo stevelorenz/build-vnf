@@ -1086,7 +1086,7 @@ static void check_all_ports_link_status(uint32_t port_mask)
 					       port_id, link.link_speed,
 					       (link.link_duplex ==
 						ETH_LINK_FULL_DUPLEX) ?
-							     ("full-duplex") :
+						       ("full-duplex") :
 							     ("half-duplex\n"));
 				else
 					printf("Port %d Link Down\n", port_id);
@@ -1535,7 +1535,6 @@ int main(int argc, char **argv)
 	printf("Continue to launch the forwarding loop? y/[n]\n");
 	resp = fgetc(stdin);
 	if (resp == 'y') {
-		ret = 0;
 		/* launch per-lcore init on every non-main lcore */
 		// MARK: If the scaling is required to perform on all cores of a
 		// single socket, rte_eal_remote_launch can be used.
@@ -1546,11 +1545,9 @@ int main(int argc, char **argv)
 			launch_timer(rte_lcore_id());
 		}
 
-		// SLAVE will be removed in the new DPDK release.
 		RTE_LCORE_FOREACH_WORKER(lcore_id)
 		{
 			if (rte_eal_wait_lcore(lcore_id) < 0) {
-				ret = -1;
 				break;
 			}
 		}

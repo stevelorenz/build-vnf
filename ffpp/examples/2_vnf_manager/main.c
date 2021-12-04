@@ -214,6 +214,7 @@ static void stats_poll(int map_fd, struct freq_info *freq_info, int num_vnfs)
 	int i;
 	int active_vnf;
 	bool manage = false;
+	num_vnfs = 2;
 	int raw_keys[2] = { 1400,
 			    1399 }; // Currently hard-coded, keys for stats map
 	struct stats_record prev[2], record[2] = { 0 };

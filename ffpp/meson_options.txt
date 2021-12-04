@@ -1,7 +1,7 @@
 option('examples', type: 'boolean', value: true,
   description: 'Build all built-in examples.')
 
-option('tests', type: 'boolean', value: false,
+option('tests', type: 'boolean', value: true,
   description: 'Build all tests.')
 
 option('related_works', type: 'boolean', value: true,

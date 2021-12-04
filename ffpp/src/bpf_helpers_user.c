@@ -104,6 +104,8 @@ void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
 	if ((bpf_map_lookup_elem(fd, &key, values)) != 0) {
 		fprintf(stderr, "ERR:bpf_map_lookup_elem failed key:0x%X\n",
 			key);
+		value->rx_packets = sum_pkts;
+		value->rx_time = latest_time;
 		return;
 	}
 
