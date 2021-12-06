@@ -33,7 +33,7 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>
-#include <pybind11/embed.h>
+#include <pybind11/embed.h> //NOLINT
 #include <rte_eal.h>
 #include <rte_ethdev.h>
 #include <rte_mempool.h>

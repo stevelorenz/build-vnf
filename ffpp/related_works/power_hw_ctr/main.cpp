@@ -503,8 +503,8 @@ int main(int argc, char *argv[])
 		rte_exit(EXIT_FAILURE, "Failed to init power manager.\n");
 	}
 
-	RTE_LOG(INFO, EAL, "Run core monitor on the master core :%u\n",
-		rte_get_master_lcore());
+	RTE_LOG(INFO, EAL, "Run core monitor on the main core :%u\n",
+		rte_get_main_lcore());
 	run_branch_monitor(&ci);
 
 	rte_eal_mp_wait_lcore();

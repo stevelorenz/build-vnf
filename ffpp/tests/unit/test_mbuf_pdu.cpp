@@ -54,7 +54,7 @@ TEST(UnitTest, TestPacketParsing)
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 
-	auto num_rx = gPE.rx_pkts(vec, max_num_burst);
+	auto num_rx = gPE.rx_pkts(vec, max_num_burst);  // NOLINT
 
 	EthernetII eth = create_sample_ethernet_frame();
 	IP &ip = eth.rfind_pdu<IP>();

@@ -34,6 +34,7 @@ using namespace ffpp;
 static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
 
 // MARK: Can be extended to benchmark different PMDs ?
+// NOLINTBEGIN
 static void bm_pe_rxtx(benchmark::State &state)
 {
 	std::vector<struct rte_mbuf *> vec;
@@ -44,6 +45,7 @@ static void bm_pe_rxtx(benchmark::State &state)
 		gPE.tx_pkts(vec, std::chrono::microseconds(0));
 	}
 }
+// NOLINTEND
 
 // TODO: Check if this can be used for performance benchmark with different
 // traffic, without using a separate pktgen ?

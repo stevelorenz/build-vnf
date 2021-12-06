@@ -19,7 +19,6 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y \
 	meson \
 	ninja-build\
 	pkg-config \
-	python-pyelftools \
 	python3 \
 	python3-pyelftools \
 	wget
@@ -52,14 +51,13 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
 # Build DPDK from source.
 # The deb package (of Ubuntu 20.04) is not used currently since it does not
 # contain AF_XDP PMD. Will use the deb package when AF_XDP is fully supported.
-ENV DPDK_VER="21.08"
-ENV DPDK_BUILD_OPTION="-Dtests=false"
+ENV DPDK_VER="21.11"
 ENV RTE_SDK="/opt/dpdk"
-ENV RTE_TARGET="x86_64-native-linuxapp-gcc"
 RUN mkdir -p ${RTE_SDK} && \
 	wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz && \
-	tar -xJf dpdk-${DPDK_VER}.tar.xz -C ./dpdk --strip-components 1 && \
-	cd ./dpdk && meson ${DPDK_BUILD_OPTION} build && cd build && \
+	tar -xJf dpdk-${DPDK_VER}.tar.xz -C ${RTE_SDK} --strip-components 1
+COPY ./configs/dpdk/meson_options.txt ${RTE_SDK}/meson_options.txt
+RUN cd ${RTE_SDK} && meson build && cd build && \
 	ninja && ninja install && ldconfig && \
 	rm -rf /opt/dpdk-${DPDK_VER}.tar.xz
 
@@ -68,6 +66,7 @@ RUN mkdir -p ${RTE_SDK} && \
 #
 
 # TODO: Remove unused dependencies !!!
+# TODO: Check if clang can be used to build pybind11 in e.g. Ubuntu 22.04
 RUN debian_frontend="noninteractive" apt-get install -y \
 	libbenchmark-dev \
 	libboost-coroutine-dev \
@@ -78,11 +77,14 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	libczmq-dev \
 	libfmt-dev \
 	libgoogle-glog-dev \
+	libgrpc++-dev \
 	libjansson-dev \
 	libmnl-dev \
 	libmsgsl-dev \
+	libprotobuf-dev \
 	libtins-dev \
 	libyaml-cpp-dev \
+	protobuf-compiler-grpc \
 	python3-dev \
 	python3-numpy \
 	python3-pip \

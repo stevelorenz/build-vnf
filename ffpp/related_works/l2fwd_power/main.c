@@ -309,11 +309,12 @@ static inline void l2fwd_mac_updating(struct rte_mbuf *m, unsigned dest_port_id)
 	eth = rte_pktmbuf_mtod(m, struct rte_ether_hdr *);
 
 	/* 02:00:00:00:00:xx */
-	tmp = &eth->d_addr.addr_bytes[0];
+	tmp = &eth->dst_addr.addr_bytes[0];
 	*((uint64_t *)tmp) = 0x000000000002 + ((uint64_t)dest_port_id << 40);
 
 	/* src addr */
-	rte_ether_addr_copy(&l2fwd_ports_eth_addr[dest_port_id], &eth->s_addr);
+	rte_ether_addr_copy(&l2fwd_ports_eth_addr[dest_port_id],
+			    &eth->src_addr);
 }
 
 static void l2fwd_simple_forward(struct rte_mbuf *m, unsigned port_id)
@@ -461,7 +462,7 @@ static void power_freq_scale_down_cb()
 /* Main processing loop of the legacy power management.
  *
  * - In order to make the scaling work on "old" Intel CPUs, scaling function is
- *   called on ALL RUNNING LCORES (including the master lcore), instead of the
+ *   called on ALL RUNNING LCORES (including the main lcore), instead of the
  *   current lcore running the forwarding function.
  *
  * - ISSUE !!!: It runs 10 times faster than the no-pm loop, if the system sleep
@@ -560,9 +561,9 @@ static void l2fwd_main_loop_legacy(void)
 
 				/* if timer has reached its timeout */
 				if (unlikely(timer_tsc >= timer_period)) {
-					/* do this only on master core */
+					/* do this only on main core */
 					if (cur_lcore_id ==
-					    rte_get_master_lcore()) {
+					    rte_get_main_lcore()) {
 						print_stats();
 						/* reset the timer */
 						timer_tsc = 0;
@@ -727,9 +728,8 @@ static void l2fwd_main_loop_no_pm(void)
 
 				/* if timer has reached its timeout */
 				if (unlikely(timer_tsc >= timer_period)) {
-					/* do this only on master core */
-					if (lcore_id ==
-					    rte_get_master_lcore()) {
+					/* do this only on main core */
+					if (lcore_id == rte_get_main_lcore()) {
 						print_stats();
 						/* reset the timer */
 						timer_tsc = 0;
@@ -1175,10 +1175,10 @@ static int launch_timer(unsigned int lcore_id)
 {
 	RTE_SET_USED(lcore_id);
 
-	if (rte_get_master_lcore() != lcore_id) {
+	if (rte_get_main_lcore() != lcore_id) {
 		rte_exit(EXIT_FAILURE,
-			 "Timer on lcore:%d which is not a master core:%d\n",
-			 lcore_id, rte_get_master_lcore());
+			 "Timer on lcore:%d which is not a main core:%d\n",
+			 lcore_id, rte_get_main_lcore());
 	}
 	RTE_LOG(INFO, POWER, "Launch the timer\n");
 	empty_poll_setup_timer();
