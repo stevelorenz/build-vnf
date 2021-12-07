@@ -4,15 +4,15 @@ Just a cheat sheet of some of the most common CLI commands used in development:
 
 ## Meson
 
-- Wipe build directory and reconfigure using new options
+- Use release build: `meson setup build --buildtype release`
 
-```bash
-meson setup build --wipe
-```
+- Wipe build directory and reconfigure using new options: `meson setup build --wipe`
 
-- Set compiler: `CC=mycc meson <options>`
+- Set compiler: `CC=mycc meson setup build`
 
 - Use `cppcheck`: `ninja cppcheck`
+
+- Run unit tests: `ninja test`
 
 - Use sanitizers (e.g. ASAN): `meson <other options> -Db_sanitize=address`
 

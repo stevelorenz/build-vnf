@@ -8,9 +8,13 @@ ffpp_headers = files(
 	'ffpp/scaling_helpers_user.h',
 	'ffpp/utils.h',
 
+    'ffpp/ffpp.hpp',
+
 	'ffpp/graph.hpp',
 	'ffpp/mbuf_pdu.hpp',
     'ffpp/packet_engine.hpp',
+    'ffpp/rtp.hpp',
+    'ffpp/rtp_reassembler.hpp',
 )
 
 install_headers(ffpp_headers, subdir: 'ffpp')

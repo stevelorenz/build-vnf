@@ -24,7 +24,7 @@ Thanks to all the open source SDN/NFV projects for teaching me.
 
 ## Repository Structure
 
-- FFPP (Fancy Fast Packet Processing): Fancy 🐼 packet processing engine (library) designed for CNF (Containerized Network Function) and COIN (Computing in the Network) use cases
+- FFPP (Fast Forward Packet Processing): A fancy 🐼 packet processing engine (library) designed for CNF (Containerized Network Function) and COIN (Computing in the Network) use cases
 - COIN_DL: Implementing a COIN-driven distributed deep learning system for in-network video traffic compression
 - pktgen: Scripts and tools for software packet generators
 
@@ -32,7 +32,7 @@ Thanks to all the open source SDN/NFV projects for teaching me.
 
 If you like any ideas or tools inside this repository, please consider reading and citing our papers.
 
-- For [CALVIN (IEEE JSAC)](https://ieeexplore.ieee.org/abstract/document/8672612) and FFPP:
+- For [CALVIN (IEEE JSAC)](https://ieeexplore.ieee.org/abstract/document/8672612), X-MAN and FFPP:
 
 ```
 @inproceedings{xiang2018latency,
@@ -53,6 +53,17 @@ If you like any ideas or tools inside this repository, please consider reading a
   pages={1098--1116},
   year={2019},
   publisher={IEEE}
+}
+
+@ARTICLE{9610120,
+  author={Xiang, Zuo and Höweler, Malte and You, Dongho and Reisslein, Martin and Fitzek, Frank H.P.},
+  journal={IEEE Transactions on Network and Service Management},
+  title={X-MAN: A Non-intrusive Power Manager for Energy-adaptive Cloud-native Network Functions},
+  year={2021},
+  volume={},
+  number={},
+  pages={1-1},
+  doi={10.1109/TNSM.2021.3126822}
 }
 
 @article{Wu2021njica,

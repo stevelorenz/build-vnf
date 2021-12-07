@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2020 Zuo Xiang
+ *  Copyright (C) 2021 Zuo Xiang
  *  All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,15 +23,12 @@
 
 #pragma once
 
-#include <vector>
-
-#include <rte_mbuf.h>
-#include <tins/tins.h>
+#include "ffpp/rtp.hpp"
 
 namespace ffpp
 {
-int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
 
-Tins::EthernetII read_mbuf_to_eth(const struct rte_mbuf *m);
+class RtpReassembler {
+};
 
 } // namespace ffpp

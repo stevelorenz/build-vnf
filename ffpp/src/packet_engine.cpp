@@ -33,7 +33,7 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>
-#include <pybind11/embed.h> //NOLINT
+#include <pybind11/embed.h> // NOLINT
 #include <rte_eal.h>
 #include <rte_ethdev.h>
 #include <rte_mempool.h>
@@ -122,7 +122,7 @@ void log_config(const struct PEConfig &pe_config)
 				 pe_config.main_lcore_id);
 	LOG(INFO) << fmt::format("The lcore ids: {}",
 				 fmt::join(pe_config.lcore_ids, ","));
-	LOG(INFO) << fmt::format("The pre-allocated memory: {} MB",
+	LOG(INFO) << fmt::format("The pre-allocated hugepage memory: {} MB",
 				 pe_config.memory_mb);
 	if (not pe_config.use_null_pmd) {
 		LOG(INFO) << fmt::format("The data plane vdev: {}",
@@ -180,11 +180,12 @@ void init_mempools(const std::string &id)
 		nb_vdev_num * (kRXDescDefault + kTXDescDefault + kMaxBurstSize +
 			       kComputePktNum + kMempoolCacheSize),
 		8192U);
+	std::string pool_name = fmt::format("pool_{}", id);
 	LOG(INFO) << fmt::format(
-		"Initialize the memory pool. Number of mbufs in the pool: {}",
-		nb_mbufs);
-	pool_ = rte_pktmbuf_pool_create(fmt::format("pool_{}", id).c_str(),
-					nb_mbufs, kMempoolCacheSize, 0,
+		"Initialize the memory pool: {}. Number of mbufs in the pool: {}",
+		pool_name, nb_mbufs);
+	pool_ = rte_pktmbuf_pool_create(pool_name.c_str(), nb_mbufs,
+					kMempoolCacheSize, 0,
 					RTE_MBUF_DEFAULT_BUF_SIZE,
 					rte_socket_id());
 	if (pool_ == nullptr) {
@@ -205,12 +206,13 @@ void init_vdevs(void)
 		avail_vdev_num);
 	if (avail_vdev_num != 1) {
 		throw std::runtime_error(
-			"The number of data plane network devices must be 1 !");
+			"The number of data plane network devices CURRENTLY must be 1 !");
 	}
 
 	uint32_t vdev_id = 0;
 
-	// Assume there's only one queue per vdev
+	// Assume there's only one queue per vdev.
+	// This is typical for pure software NIC like a veth pair
 	RTE_ETH_FOREACH_DEV(vdev_id)
 	{
 		struct rte_eth_dev_info dev_info;
@@ -266,19 +268,17 @@ void init_vdevs(void)
 	LOG(INFO) << "All vdevs are successfully configured and started.";
 }
 
-PacketEngine::PacketEngine(const struct PEConfig pe_config)
+void init_all(struct PEConfig &pe_config)
 {
-	pe_config_ = pe_config;
 	pid_t cur_pid = getpid();
-	pe_config_.id = fmt::format("pe_{}", cur_pid);
-
-	log_config(pe_config_);
-	config_glog(pe_config_.loglevel);
-	init_eal(pe_config_);
-	init_mempools(pe_config_.id);
+	pe_config.id = fmt::format("pe_{}", cur_pid);
+	log_config(pe_config);
+	config_glog(pe_config.loglevel);
+	init_eal(pe_config);
+	init_mempools(pe_config.id);
 	init_vdevs();
 
-	LOG(INFO) << "Run embeded Python interpreter.";
+	LOG(INFO) << "Run the embeded Python interpreter.";
 	py::initialize_interpreter();
 	{
 		auto sys = py::module::import("sys");
@@ -286,24 +286,16 @@ PacketEngine::PacketEngine(const struct PEConfig pe_config)
 	}
 }
 
+PacketEngine::PacketEngine(const struct PEConfig pe_config)
+{
+	pe_config_ = pe_config;
+	init_all(pe_config_);
+}
+
 PacketEngine::PacketEngine(const std::string &config_file_path)
 {
 	load_config_file(config_file_path, pe_config_);
-	pid_t cur_pid = getpid();
-	pe_config_.id = fmt::format("pe_{}", cur_pid);
-
-	log_config(pe_config_);
-	config_glog(pe_config_.loglevel);
-	init_eal(pe_config_);
-	init_mempools(pe_config_.id);
-	init_vdevs();
-
-	LOG(INFO) << "Run embeded Python interpreter.";
-	py::initialize_interpreter();
-	{
-		auto sys = py::module::import("sys");
-		py::print("[PY] interpreter is already initialized");
-	}
+	init_all(pe_config_);
 }
 
 PacketEngine::~PacketEngine()

@@ -93,6 +93,8 @@ zmq_dep = dependency('libzmq', required: true)
 cppc.has_header('gsl/gsl', required : true)
 cppc.has_header('pybind11/pybind11.h', required : true)
 
+subdir('deps')
+
 ffpp_dep_list = [
   boost_dep,
   boost_header_only_dep,
@@ -153,7 +155,7 @@ pkg_mod.generate(
   filebase: 'lib' + meson.project_name().to_lower(),
   libraries : [ffpplib_shared, ffpplib_static],
   version: meson.project_version(),
-  description : 'Library for fancy fast packet processing.'
+  description : 'Library for Fast Forward Packet Processing.'
   )
 
 #

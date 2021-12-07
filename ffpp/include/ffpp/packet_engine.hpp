@@ -60,11 +60,32 @@ class PacketEngine {
 	PacketEngine(const std::string &config_file_path);
 	~PacketEngine();
 
+	PacketEngine(const PacketEngine &) = delete;
+	PacketEngine &operator=(const PacketEngine &) = delete;
+
+	PacketEngine(const PacketEngine &&) = delete;
+	PacketEngine &operator=(const PacketEngine &&) = delete;
+
 	// WARNING: The std::vector is used here for prototyping... Maybe a io_ring based on rte_ring would be added for
 	// better performance.
+
+	/**
+	 * @brief rx_pkts 
+	 *
+	 * @param vec
+	 * @param max_num_burst
+	 *
+	 * @return 
+	 */
 	uint32_t rx_pkts(std::vector<struct rte_mbuf *> &vec,
 			 uint32_t max_num_burst = 3);
 
+	/**
+	 * @brief tx_pkts 
+	 *
+	 * @param vec
+	 * @param burst_gap
+	 */
 	void tx_pkts(std::vector<struct rte_mbuf *> &vec,
 		     std::chrono::microseconds burst_gap);
 

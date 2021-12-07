@@ -21,17 +21,32 @@
  *  IN THE SOFTWARE.
  */
 
-#pragma once
-
+#include <iostream>
+#include <chrono>
+#include <string>
 #include <vector>
 
-#include <rte_mbuf.h>
-#include <tins/tins.h>
+#include <benchmark/benchmark.h>
 
-namespace ffpp
+#include "ffpp/packet_engine.hpp"
+
+using namespace ffpp;
+
+static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
+
+static void bm_pe_io(benchmark::State &state)
 {
-int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
+	std::vector<struct rte_mbuf *> vec;
+	uint32_t max_num_burst = 10;
+	auto pkt_num = (kMaxBurstSize * max_num_burst);
+	std::cout << "Number of packets: " << pkt_num << std::endl;
+	vec.reserve(kMaxBurstSize * max_num_burst);
+	for (auto _ : state) {
+		auto num_rx = gPE.rx_pkts(vec, max_num_burst);
+		gPE.tx_pkts(vec, std::chrono::microseconds(0));
+	}
+}
 
-Tins::EthernetII read_mbuf_to_eth(const struct rte_mbuf *m);
+BENCHMARK(bm_pe_io);
 
-} // namespace ffpp
+BENCHMARK_MAIN();

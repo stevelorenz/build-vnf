@@ -1,4 +1,4 @@
-# FFPP - Fancy Fast Packet Processing
+# FFPP - Fast Forward Packet Processing
 
 FFPP is a Packet Processing (PP) library developed primarily to (at least, try to) explore the research topic [Computing in the Network](https://datatracker.ietf.org/rg/coinrg/about/).
 Another research target is to exploit the judicious synergistic collaboration of kernel space eBPF/XDP and user space DPDK for NFV software dataplane network.

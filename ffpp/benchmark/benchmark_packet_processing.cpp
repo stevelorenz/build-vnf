@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2020 Zuo Xiang
+ *  Copyright (C) 2021 Zuo Xiang
  *  All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,17 +21,30 @@
  *  IN THE SOFTWARE.
  */
 
-#pragma once
-
+#include <chrono>
+#include <string>
 #include <vector>
 
-#include <rte_mbuf.h>
-#include <tins/tins.h>
+#include <benchmark/benchmark.h>
 
-namespace ffpp
+#include "ffpp/mbuf_pdu.hpp"
+#include "ffpp/packet_engine.hpp"
+#include "ffpp/rtp.hpp"
+
+using namespace ffpp;
+
+static void bm_rtp_pack_jpeg(benchmark::State &state)
 {
-int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
+	struct rtp_hdr rtp_h;
+	struct rtp_jpeg_hdr rtp_jpeg_h;
 
-Tins::EthernetII read_mbuf_to_eth(const struct rte_mbuf *m);
+	std::string payload = "test";
 
-} // namespace ffpp
+	for (auto _ : state) {
+		auto rtp_pdu = rtp_pack_jpeg(rtp_h, rtp_jpeg_h, payload);
+	}
+}
+
+BENCHMARK(bm_rtp_pack_jpeg);
+
+BENCHMARK_MAIN();

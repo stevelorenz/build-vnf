@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2020 Zuo Xiang
+ *  Copyright (C) 2021 Zuo Xiang
  *  All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,17 +21,36 @@
  *  IN THE SOFTWARE.
  */
 
-#pragma once
+#include <cstdint>
+#include <iostream>
 
-#include <vector>
-
-#include <rte_mbuf.h>
+#include <gtest/gtest.h>
+#include <string>
 #include <tins/tins.h>
 
-namespace ffpp
+#include "ffpp/packet_engine.hpp"
+#include "ffpp/rtp.hpp"
+
+using namespace ffpp;
+
+TEST(UnitTest, TestRtpPackUnpack)
 {
-int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
+	struct rtp_hdr rtp_h;
+	// RTP header is 16 bytes
+	ASSERT_EQ(sizeof(rtp_h), kRtpHdrSize);
 
-Tins::EthernetII read_mbuf_to_eth(const struct rte_mbuf *m);
+	struct rtp_jpeg_hdr rtp_jpeg_h;
+	ASSERT_EQ(sizeof(rtp_jpeg_h), kRtpJpegHdrSize);
 
-} // namespace ffpp
+	std::string payload = "test";
+	Tins::RawPDU rtp_pdu = rtp_pack_jpeg(rtp_h, rtp_jpeg_h, payload);
+
+	ASSERT_EQ(
+		rtp_pdu.payload_size(),
+		(unsigned int)(kRtpHdrSize + kRtpJpegHdrSize + payload.size()));
+}
+
+TEST(UnitTest, TestRtpFrameProcessor)
+{
+	ASSERT_EQ(0, 0);
+}

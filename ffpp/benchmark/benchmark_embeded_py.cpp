@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2020 Zuo Xiang
+ *  Copyright (C) 2021 Zuo Xiang
  *  All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,17 +21,25 @@
  *  IN THE SOFTWARE.
  */
 
-#pragma once
-
+#include <iostream>
+#include <chrono>
+#include <string>
 #include <vector>
 
-#include <rte_mbuf.h>
-#include <tins/tins.h>
+#include <benchmark/benchmark.h>
 
-namespace ffpp
+#include "ffpp/packet_engine.hpp"
+
+using namespace ffpp;
+
+static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
+
+static void bm_embeded_py_xor_sync(benchmark::State &state)
 {
-int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
+	for (auto _ : state) {
+	}
+}
 
-Tins::EthernetII read_mbuf_to_eth(const struct rte_mbuf *m);
+BENCHMARK(bm_embeded_py_xor_sync);
 
-} // namespace ffpp
+BENCHMARK_MAIN();

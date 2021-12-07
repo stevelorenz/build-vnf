@@ -7,6 +7,7 @@ ffpp_sources = [
 	'graph.cpp',
 	'mbuf_pdu.cpp',
 	'packet_engine.cpp',
+    'rtp.cpp',
 ]
 
 ffpplib_static = static_library('ffpp',

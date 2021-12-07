@@ -5,6 +5,7 @@ memory_mb: 256
 data_vdev_cfg: eth_af_packet0,iface=eth0
 
 use_null_pmd: true
+# Use the minimal IP packet size to test the worst case
 null_pmd_packet_size: 64
 
 loglevel: ERROR

@@ -23,9 +23,7 @@
 
 #pragma once
 
-#include <rte_graph.h>
-
-#include <rte_graph_worker.h>
+#include <rte_graph.h> // NOLINT
 
 namespace ffpp
 {

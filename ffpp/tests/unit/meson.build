@@ -39,3 +39,19 @@ test_mbuf_pdu_exe = executable('test_mbuf_pdu',
 test('test_mbuf_pdu', test_mbuf_pdu_exe, is_parallel: false, suite: ['unit', 'dev'],
 	workdir : meson.source_root()
 )
+
+test_rtp_exe = executable('test_rtp',
+	sources: ['test_rtp.cpp'],
+	include_directories: inc,
+	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+test('test_rtp', test_rtp_exe, is_parallel: false, suite: ['unit'],
+	workdir : meson.source_root()
+)
+
+test_embeded_py_exe = executable('test_embeded_py',
+	sources: ['test_embeded_py.cpp'],
+	include_directories: inc,
+	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+test('test_embeded_py', test_embeded_py_exe, is_parallel: false, suite: ['unit'],
+	workdir : meson.source_root()
+)

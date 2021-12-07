@@ -8,6 +8,7 @@ About: ONLY for development and test.
 
 import os
 import sys
+import time
 
 from comnetsemu.cli import CLI
 from comnetsemu.net import Containernet
@@ -26,6 +27,7 @@ if __name__ == "__main__":
 
     net = None
     try:
+        start = time.time()
         net = Containernet(xterms=False)
         dev = net.addDockerHost(
             "dev",
@@ -41,6 +43,12 @@ if __name__ == "__main__":
             },
         )
         net.start()
+
+        print("Try to uninstall libffpp to avoid conflicts with development sources.")
+        _ = dev.cmd("bash ./scripts/uninstall_ninja.sh")
+
+        duration = time.time() - start
+        print(f"* Duration to start the dev container: {duration} second(s)")
         CLI(net)
     finally:
         if net:

@@ -21,35 +21,9 @@
  *  IN THE SOFTWARE.
  */
 
-#include <chrono>
-#include <string>
-#include <vector>
+#include <gtest/gtest.h>
 
-#include <benchmark/benchmark.h>
-
-#include "ffpp/packet_engine.hpp"
-
-using namespace ffpp;
-
-static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
-
-// MARK: Can be extended to benchmark different PMDs ?
-// NOLINTBEGIN
-static void bm_pe_rxtx(benchmark::State &state)
+TEST(UnitTest, TestEmbededPyString)
 {
-	std::vector<struct rte_mbuf *> vec;
-	uint32_t max_num_burst = 3;
-	vec.reserve(kMaxBurstSize * max_num_burst);
-	for (auto _ : state) {
-		auto num_rx = gPE.rx_pkts(vec, max_num_burst);
-		gPE.tx_pkts(vec, std::chrono::microseconds(0));
-	}
+	ASSERT_TRUE(1 + 1 == 2);
 }
-// NOLINTEND
-
-// TODO: Check if this can be used for performance benchmark with different
-// traffic, without using a separate pktgen ?
-
-BENCHMARK(bm_pe_rxtx);
-
-BENCHMARK_MAIN();

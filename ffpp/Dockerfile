@@ -88,7 +88,6 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	python3-dev \
 	python3-numpy \
 	python3-pip \
-	python3-pybind11 \
 	python3-zmq
 
 # Development, testing and debugging tools.
@@ -101,14 +100,17 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	googletest \
 	iproute2 \
 	iputils-ping \
-	# For perf
+	# For Linux perf tool: CPU hardware couters and events.
 	linux-tools-`uname -r`\
 	linux-tools-common \
 	net-tools \
-	tcpdump
+	tcpdump \
+	# Mainly for checking and profiling WITHOUT modification of the source code
+	valgrind
 
 # TODO: Check if miniconda is a better option.
-RUN pip3 install -q docker
+# Latest pybind11 is needed for bytesarray and clang support
+RUN pip3 install -q "docker==5.0.3" "pybind11[global]==2.8.1"
 
 #
 # Finally! Build and install FFPP targets with release version. :)

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2020 Zuo Xiang
+ *  Copyright (C) 2021 Zuo Xiang
  *  All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,17 +21,24 @@
  *  IN THE SOFTWARE.
  */
 
-#pragma once
-
+#include <chrono>
+#include <string>
 #include <vector>
+#include <thread>
 
-#include <rte_mbuf.h>
-#include <tins/tins.h>
+#include <benchmark/benchmark.h>
 
-namespace ffpp
+#include "ffpp/packet_engine.hpp"
+#include "ffpp/rtp_reassembler.hpp"
+
+using namespace ffpp;
+
+static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
+
+static void bm_rtp_reassembler(benchmark::State &state)
 {
-int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf);
+}
 
-Tins::EthernetII read_mbuf_to_eth(const struct rte_mbuf *m);
+BENCHMARK(bm_rtp_reassembler);
 
-} // namespace ffpp
+BENCHMARK_MAIN();
