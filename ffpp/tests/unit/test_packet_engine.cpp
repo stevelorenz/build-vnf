@@ -21,6 +21,7 @@
  *  IN THE SOFTWARE.
  */
 
+#include <queue>
 #include <chrono>
 
 #include <gtest/gtest.h>

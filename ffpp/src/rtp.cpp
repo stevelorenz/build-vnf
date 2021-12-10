@@ -34,14 +34,14 @@ namespace ffpp
 
 Tins::RawPDU rtp_pack_jpeg(const struct rtp_hdr &rtp_h,
 			   const struct rtp_jpeg_hdr &rtp_jpeg_h,
-			   std::string payload)
+			   const Tins::RawPDU &payload_pdu)
 {
 	using namespace Tins;
 
 	static_assert(sizeof(rtp_h) == kRtpHdrSize);
 	static_assert(sizeof(rtp_jpeg_hdr) == kRtpJpegHdrSize);
 
-	// I know, I know, the implementation looks very inefficient...
+	// I know, I know, the implementation looks ( And it really is ;) ) very inefficient...
 	// I'm just a researcher :)
 	uint8_t buf[kRtpHdrSize + kRtpJpegHdrSize];
 	rte_memcpy(buf, &rtp_h, kRtpHdrSize);
@@ -51,8 +51,7 @@ Tins::RawPDU rtp_pack_jpeg(const struct rtp_hdr &rtp_h,
 	rtp_pdu_payload.insert(rtp_pdu_payload.begin(), buf,
 			       buf + (kRtpHdrSize + kRtpJpegHdrSize));
 	// Add payload
-	std::vector<uint8_t> payload_vec(payload.begin(), payload.end());
-	for (const uint8_t &b : payload_vec) {
+	for (const uint8_t &b : payload_pdu.payload()) {
 		rtp_pdu_payload.push_back(b);
 	}
 
@@ -60,4 +59,12 @@ Tins::RawPDU rtp_pack_jpeg(const struct rtp_hdr &rtp_h,
 
 	return rtp_pdu;
 }
+
+RTP::RTP(uint16_t mark_bit, uint16_t payload_type, uint16_t seq_number,
+	 uint16_t timestamp, uint32_t ssrc, uint32_t csrc,
+	 const std::string payload)
+{
+	payload_ = rtp_payload_type(payload.begin(), payload.end());
+}
+
 } // namespace ffpp

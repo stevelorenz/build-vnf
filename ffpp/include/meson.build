@@ -1,3 +1,5 @@
+# Maybe, somewhen, I can use modules and avoid hpp headers files for C++ code ;)
+
 ffpp_headers = files(
 	'ffpp/bpf_defines_user.h',
 	'ffpp/bpf_helpers_user.h',
@@ -14,7 +16,6 @@ ffpp_headers = files(
 	'ffpp/mbuf_pdu.hpp',
     'ffpp/packet_engine.hpp',
     'ffpp/rtp.hpp',
-    'ffpp/rtp_reassembler.hpp',
 )
 
 install_headers(ffpp_headers, subdir: 'ffpp')

@@ -44,7 +44,10 @@ int write_eth_to_mbuf(Tins::EthernetII &eth, struct rte_mbuf *mbuf)
 
 	char *p = nullptr;
 	// The checksums should be already calculated here
-	auto payload = eth.serialize(); // MARK: potential bottleneck.
+	// MARK: This serialize() is the bottleneck according to the
+	// micro benchmark.
+	// eth_to_mbuf now takes twice as long as the read_mbuf_to_eth...
+	auto payload = eth.serialize();
 	p = rte_pktmbuf_append(mbuf, payload.size());
 	if (unlikely(p == nullptr)) {
 		LOG(ERROR)

@@ -19,7 +19,6 @@ BOX_LIBVIRT = "generic/ubuntu2004"
 #######################
 #  Provision Scripts  #
 #######################
-# These scripts ONLY work for this VM managed by the Vagrant.
 
 $bootstrap= <<-SCRIPT
 # Install dependencies
@@ -31,15 +30,17 @@ SCRIPT
 # For latest kernel features supporting eBPF and XDP (xdp-tools).
 # 5.10 is required for multi-attach feature provided by xdp-tool.
 # 5.11 is required for busy-pooling with AF_XDP (DPDK AF_XDP PMD supports busy polling for performance).
+# Besides the kernel, linux-tools are also installed for tools like perf (a.k.a perf_events).
 $install_kernel= <<-SCRIPT
 DEBIAN_FRONTEND=noninteractive apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-5.11.0-25-generic linux-headers-5.11.0-25-generic linux-tools-generic linux-tools-5.11.0-25-generic
+DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-5.11.0-25-generic linux-headers-5.11.0-25-generic linux-tools-common linux-tools-generic linux-tools-5.11.0-25-generic
 SCRIPT
 
-# Firstly install/update kernel before install other kernel-related packages.
+# Hotspot is a GUI tool to visualize perf record
+# TODO: Move install_devtools to a separate bash script
 $install_devtools=<<-SCRIPT
 DEBIAN_FRONTEND=noninteractive apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y linux-tools-common linux-tools-generic
+DEBIAN_FRONTEND=noninteractive apt-get install -y valgrind hotspot
 SCRIPT
 
 $setup_dev_net= <<-SCRIPT
@@ -88,6 +89,7 @@ Vagrant.configure("2") do |config|
       vb.name = "build-vnf-dev"
       vb.memory = RAM
       vb.cpus = CPUS
+      # These configs are needed to let the VM has SSE4 SIMD instructions. They are required by DPDK.
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
     end
@@ -114,11 +116,11 @@ Vagrant.configure("2") do |config|
     dev.vm.box_check_update= true
 
     dev.vm.provision "shell", inline: $bootstrap, privileged: true
-    dev.vm.provision "shell", inline: $install_kernel, privileged: true, reboot: true
+    dev.vm.provision "shell", inline: $install_kernel, privileged: true, reboot: true  # reboot is needed to load the new kernel
     dev.vm.provision "shell", inline: $install_devtools, privileged: true
     dev.vm.provision "shell", inline: $setup_x11_server_apt, privileged: true
 
-    # Install related projects: ComNetsEmu
+    # Install related projects: ComNetsEmu. It's used for local development and tests based on network emulation.
     dev.vm.provision "shell", privileged:false ,path: "./scripts/install_comnetsemu.sh", reboot: true
 
     dev.vm.provision "shell", inline: $post_installation, privileged: true

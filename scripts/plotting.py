@@ -1,3 +1,7 @@
+"""
+Some little helpers for plotting figures in IEEE papers
+"""
+
 import os
 import sys
 import argparse

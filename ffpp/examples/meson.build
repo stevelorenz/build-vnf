@@ -17,5 +17,3 @@ foreach example: all_examples
 		dependencies: ffpp_deps,
 		link_with : [ffpplib_shared])
 	endforeach
-
-# link_args : '-lcpufreq'

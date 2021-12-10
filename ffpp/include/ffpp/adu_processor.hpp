@@ -23,12 +23,13 @@
 
 #pragma once
 
-#include "ffpp/rtp.hpp"
+/**
+ * @file
+ * ADU processor
+ *
+ */
 
 namespace ffpp
 {
 
-class RtpReassembler {
-};
-
-} // namespace ffpp
+}

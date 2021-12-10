@@ -7,9 +7,10 @@ project('ffpp', 'c', 'cpp',
     # C++20 is required mainly for C-style designated initializers.
     'cpp_std=c++2a',
     'buildtype=debugoptimized',
+    # Come on! For me, all warnings are errors :)
     'warning_level=3',
-    'default_library=both',
     'werror=true',
+    'default_library=both',
     'b_lundef=true',
     'b_ndebug=if-release',
     ],
@@ -115,6 +116,8 @@ ffpp_dep_list = [
 ffpp_deps = declare_dependency(
   dependencies: ffpp_dep_list,
   )
+
+# TODO: Consider adding Rust toolchain and FFI support DPDK and eBPF programming.
 
 # Development and test dependencies
 

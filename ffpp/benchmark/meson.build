@@ -13,7 +13,7 @@ benchmark_reassembler_exe = executable('benchmark_reassembler',
   include_directories: inc,
   dependencies: [ffpp_deps], link_with: [ffpplib_shared])
 
-benchmark_embeded_py_exe = executable('benchmark_embeded_py',
-  sources: ['benchmark_embeded_py.cpp'],
+benchmark_adu_processor_exe = executable('benchmark_adu_processor',
+  sources: ['benchmark_adu_processor.cpp'],
   include_directories: inc,
   dependencies: [ffpp_deps], link_with: [ffpplib_shared])

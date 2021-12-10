@@ -90,6 +90,10 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	python3-pip \
 	python3-zmq
 
+# TODO: Check if miniconda is a better option.
+# Latest pybind11 is needed for bytesarray and clang support
+RUN pip3 install -q "docker==5.0.3" "pybind11[global]==2.8.1"
+
 # Development, testing and debugging tools.
 # These packages are NOT needed in production.
 RUN debian_frontend="noninteractive" apt-get install -y \
@@ -107,10 +111,6 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 	tcpdump \
 	# Mainly for checking and profiling WITHOUT modification of the source code
 	valgrind
-
-# TODO: Check if miniconda is a better option.
-# Latest pybind11 is needed for bytesarray and clang support
-RUN pip3 install -q "docker==5.0.3" "pybind11[global]==2.8.1"
 
 #
 # Finally! Build and install FFPP targets with release version. :)
