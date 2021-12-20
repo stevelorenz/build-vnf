@@ -5,13 +5,15 @@
 #  Variables  #
 ###############
 
+# Reduce this if your computer does not have enough CPU cores.
 CPUS = 4
 # 4GB is required by some deep learning applications, typical network functions
 # do not require so much memory.
 # 2GB should be enough to test most network functions.
 RAM = 4096
 
-# Use Ubuntu LTS for dev. bento box is relative light weight.
+# Use Ubuntu LTS for dev.
+# Bento box is relative light weight.
 BOX = "bento/ubuntu-20.04"
 # Box for using libvirt as the provider, bento boxes do not support libvirt.
 BOX_LIBVIRT = "generic/ubuntu2004"
@@ -20,8 +22,8 @@ BOX_LIBVIRT = "generic/ubuntu2004"
 #  Provision Scripts  #
 #######################
 
+# Update mirrors and install some basic tools
 $bootstrap= <<-SCRIPT
-# Install dependencies
 DEBIAN_FRONTEND=noninteractive apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config gdb bash-completion htop dfc tcpdump wget curl
@@ -44,10 +46,11 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y valgrind hotspot
 SCRIPT
 
 $setup_dev_net= <<-SCRIPT
-# Enable IP forwarding
+# Enable IPv4 forwarding
 sysctl -w net.ipv4.ip_forward=1
 SCRIPT
 
+# x11 packages are needed for X forwarding
 $setup_x11_server_apt= <<-SCRIPT
 DEBIAN_FRONTEND=noninteractive apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y xorg openbox xterm xauth
@@ -65,21 +68,6 @@ SCRIPT
 #  Vagrant Config  #
 ####################
 
-require 'optparse'
-
-# Parse the provider argument
-def get_provider
-  ret = nil
-  opt_parser = OptionParser.new do |opts|
-    opts.on("--provider provider") do |provider|
-      ret = provider
-    end
-  end
-  opt_parser.parse!(ARGV)
-  ret
-end
-provider = get_provider || "virtualbox"
-
 Vagrant.configure("2") do |config|
 
   config.vm.define "dev" do |dev|
@@ -92,18 +80,17 @@ Vagrant.configure("2") do |config|
       # These configs are needed to let the VM has SSE4 SIMD instructions. They are required by DPDK.
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+
+      dev.vm.box = BOX
+      dev.vm.synced_folder ".", "/vagrant"
     end
 
     dev.vm.provider "libvirt" do |libvirt|
+      # TODO: Check if CPU, GPU passthrough can be configured here.
       libvirt.driver = "kvm"
       libvirt.cpus = CPUS
       libvirt.memory = RAM
-    end
 
-    if provider == "virtualbox"
-      dev.vm.box = BOX
-      dev.vm.synced_folder ".", "/vagrant"
-    elsif provider == "libvirt"
       dev.vm.box = BOX_LIBVIRT
       # This option does not invoke vagrant rsync automatically.
       # Run `vagrant rsync-auto dev` after the VM is booted.
@@ -112,6 +99,7 @@ Vagrant.configure("2") do |config|
       dev.vm.synced_folder ".", "/vagrant", type:'rsync'
     end
 
+    # General VM configuration for both virtualbox and libvirt
     dev.vm.hostname="build-vnf-dev"
     dev.vm.box_check_update= true
 
