@@ -4,6 +4,15 @@
 #        Alternative (better) approach is to use kernel parameter.
 #
 
+if [ "$EUID" -ne 0 ]; then
+    echo "Please run this script with sudo or as root."
+    exit 1
+fi
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
 HUGEPAGE_NUM_2048=256
 
 echo 3 | tee /proc/sys/vm/drop_caches

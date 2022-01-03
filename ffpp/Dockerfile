@@ -4,10 +4,10 @@ FROM ubuntu:20.04
 # Install common build dependencies
 #
 
-RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y --no-install-recommends \
 	build-essential \
+	ca-certificates \
 	clang \
-	cmake \
 	gcc-multilib \
 	git \
 	libelf-dev \
@@ -21,6 +21,7 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y \
 	pkg-config \
 	python3 \
 	python3-pyelftools \
+	tzdata \
 	wget
 
 WORKDIR /opt/
@@ -38,7 +39,7 @@ WORKDIR /opt/
 ENV XDP_TOOLS_VER="v1.2.0"
 ENV XDP_TOOLS_DIR="/opt/xdp-tools"
 RUN mkdir -p ${XDP_TOOLS_DIR} && \
-	git clone https://github.com/xdp-project/xdp-tools && \
+	git clone https://github.com/xdp-project/xdp-tools.git && \
 	cd ./xdp-tools && git checkout -b ${XDP_TOOLS_VER} ${XDP_TOOLS_VER} && \
 	git submodule init && git submodule update && \
 	./configure && make && make install && \
@@ -59,12 +60,14 @@ RUN mkdir -p ${RTE_SDK} && \
 COPY ./configs/dpdk/meson_options.txt ${RTE_SDK}/meson_options.txt
 RUN cd ${RTE_SDK} && meson build && cd build && \
 	ninja && ninja install && ldconfig && \
-	rm -rf /opt/dpdk-${DPDK_VER}.tar.xz
+	rm -rf /opt/dpdk-${DPDK_VER}.tar.xz && \
+	rm -rf /opt/dpdk/build
 
 #
 # Install dependencies that be installed directly by a package manager
 #
 
+# Size: 301 MB
 # TODO: Remove unused dependencies !!!
 # TODO: Check if clang can be used to build pybind11 in e.g. Ubuntu 22.04
 RUN debian_frontend="noninteractive" apt-get install -y \
@@ -96,6 +99,7 @@ RUN pip3 install -q "docker==5.0.3" "pybind11[global]==2.8.1"
 
 # Development, testing and debugging tools.
 # These packages are NOT needed in production.
+# Size: 262 MB
 RUN debian_frontend="noninteractive" apt-get install -y \
 	clang-tidy \
 	cppcheck \
@@ -114,7 +118,7 @@ RUN debian_frontend="noninteractive" apt-get install -y \
 
 #
 # Finally! Build and install FFPP targets with release version. :)
-#
+# Size: 12 MB
 
 ENV FFPP_PATH /ffpp
 RUN mkdir -p ${FFPP_PATH}

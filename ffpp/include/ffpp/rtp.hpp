@@ -101,6 +101,8 @@ Tins::RawPDU rtp_unpack_jpeg(Tins::RawPDU rtp_pdu, struct rtp_hdr &rtp_h,
 
 /**
  * RTP PDU as RawPDU
+ *
+ * I know, I know,
  */
 class RTP {
     public:
@@ -133,6 +135,7 @@ class RTP {
 	struct rtp_hdr rtp_hdr_;
 	struct rtp_jpeg_hdr rtp_jpeg_hdr_;
 	rtp_payload_type payload_;
+	uint8_t test;
 };
 
 /**
