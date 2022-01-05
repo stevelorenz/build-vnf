@@ -23,49 +23,67 @@
 
 #include <cstdint>
 #include <iostream>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
-#include <string>
 #include <tins/tins.h>
 
 #include "ffpp/packet_engine.hpp"
 #include "ffpp/rtp.hpp"
 
-using namespace ffpp;
+std::string kTestPayload = "Detective Conan: One truth prevails !";
 
 TEST(UnitTest, TestRtpPackUnpack)
 {
-	struct rtp_hdr rtp_h;
-	// RTP header is 16 bytes
-	ASSERT_EQ(sizeof(rtp_h), kRtpHdrSize);
+	using namespace ffpp;
+	using namespace Tins;
 
+	struct rtp_hdr rtp_h;
 	struct rtp_jpeg_hdr rtp_jpeg_h;
+	ASSERT_EQ(sizeof(rtp_h), kRtpHdrSize);
 	ASSERT_EQ(sizeof(rtp_jpeg_h), kRtpJpegHdrSize);
 
-	std::string payload = "FanFan";
-	Tins::RawPDU payload_pdu = Tins::RawPDU(payload);
-	Tins::RawPDU rtp_pdu = rtp_pack_jpeg(rtp_h, rtp_jpeg_h, payload_pdu);
+	RTPJPEG rtp_jpeg = RTPJPEG(1, 123, 321, 2048, kTestPayload);
 
-	ASSERT_EQ(
-		rtp_pdu.payload_size(),
-		(unsigned int)(kRtpHdrSize + kRtpJpegHdrSize + payload.size()));
+	// Test getters and setters
+	ASSERT_EQ(rtp_jpeg.mark_bit(), 1);
+	rtp_jpeg.mark_bit(0);
+	ASSERT_EQ(rtp_jpeg.mark_bit(), 0);
+	ASSERT_EQ(rtp_jpeg.seq_number(), (uint16_t)(123));
+	rtp_jpeg.seq_number(321);
+	ASSERT_EQ(rtp_jpeg.seq_number(), (uint16_t)(321));
+	ASSERT_EQ(rtp_jpeg.timestamp(), (uint32_t)(321));
+	rtp_jpeg.timestamp(123);
+	ASSERT_EQ(rtp_jpeg.timestamp(), (uint32_t)(123));
+	ASSERT_EQ(rtp_jpeg.fragment_offset(), (uint32_t)(2048));
+	rtp_jpeg.fragment_offset(8402);
+	ASSERT_EQ(rtp_jpeg.fragment_offset(), (uint32_t)(8402));
 
-	RTP rtp = RTP(0, 0, 0, 0, 0, 0, "AAA");
+	RawPDU rtp_jpeg_pdu = rtp_jpeg.pack_to_rawpdu();
+	ASSERT_EQ(rtp_jpeg_pdu.payload_size(),
+		  (kRtpHdrSize + kRtpJpegHdrSize + kTestPayload.size()));
+
+	RTPJPEG rtp_jpeg_new = RTPJPEG(rtp_jpeg_pdu);
+	ASSERT_EQ(rtp_jpeg_new.mark_bit(), 0);
+	ASSERT_EQ(rtp_jpeg_new.seq_number(), (uint16_t)(321));
+	ASSERT_EQ(rtp_jpeg_new.timestamp(), (uint32_t)(123));
+	ASSERT_EQ(rtp_jpeg_new.fragment_offset(), (uint32_t)(8402));
+
+	RTPJPEG::rtp_payload_type payload = rtp_jpeg_new.payload();
+	std::string unpacked_payload(payload.begin(), payload.end());
+	ASSERT_EQ(kTestPayload, unpacked_payload);
 }
 
 TEST(UnitTest, TestReleaseUdpPdu)
 {
+	using namespace ffpp;
 	using namespace Tins;
-	struct rtp_hdr rtp_h;
-	struct rtp_jpeg_hdr rtp_jpeg_h;
-	std::string payload = "FanFan";
-	Tins::RawPDU payload_pdu = Tins::RawPDU(payload);
-	Tins::RawPDU rtp_pdu = rtp_pack_jpeg(rtp_h, rtp_jpeg_h, payload_pdu);
 
 	// MARK: The EthernetII can add automatically padding bytes when size < 60!
 	EthernetII eth = EthernetII("aa:aa:aa:aa:aa:aa", "aa:aa:aa:aa:aa:aa") /
 			 IP("127.0.0.1", "127.0.0.1") / UDP(1, 0) /
-			 RawPDU("Detective Conan: One truth prevails !");
+			 RawPDU(kTestPayload);
 	ASSERT_TRUE(eth.size() > 60);
 	UDP *udp = eth.find_pdu<UDP>();
 	auto inner_pdu = udp->release_inner_pdu();
@@ -75,8 +93,11 @@ TEST(UnitTest, TestReleaseUdpPdu)
 	// and not managed by eth's RAII.
 	delete inner_pdu;
 	ASSERT_EQ(eth.size(), (unsigned int)(60));
-	udp = udp / rtp_pdu;
-	unsigned int eth_new_size = 14 + 20 + 8 + rtp_pdu.size();
+
+	RTPJPEG rtp_jpeg = RTPJPEG(1, 123, 321, 2048, kTestPayload);
+	RawPDU rtp_jpeg_pdu = rtp_jpeg.pack_to_rawpdu();
+	udp = udp / rtp_jpeg_pdu;
+	unsigned int eth_new_size = 14 + 20 + 8 + rtp_jpeg_pdu.size();
 	ASSERT_EQ(eth.size(), eth_new_size);
 }
 

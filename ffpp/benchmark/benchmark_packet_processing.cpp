@@ -98,10 +98,6 @@ static void bm_rtp_pack_jpeg(benchmark::State &state)
 	struct rtp_jpeg_hdr rtp_jpeg_h;
 
 	RawPDU payload_pdu = RawPDU("FanFan");
-
-	for (auto _ : state) {
-		auto rtp_pdu = rtp_pack_jpeg(rtp_h, rtp_jpeg_h, payload_pdu);
-	}
 }
 
 BENCHMARK(bm_eth_pdu_serialise);

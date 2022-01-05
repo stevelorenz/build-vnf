@@ -40,7 +40,6 @@
 
 #include <cstdint>
 #include <string>
-#include <tins/rawpdu.h>
 #include <vector>
 
 #include <tins/tins.h>
@@ -50,17 +49,14 @@ namespace ffpp
 
 constexpr uint16_t kRtpHdrSize = 16; // bytes
 constexpr uint16_t kRtpJpegHdrSize = 8; // bytes
+constexpr uint16_t kRtpJpegPayloadType = 26;
 
 /**
  * Ref: RFC 3550
  */
 struct rtp_hdr {
-	rte_be16_t version : 2;
-	rte_be16_t pad_bit : 1;
-	rte_be16_t ext_bit : 1;
-	rte_be16_t cc : 4;
-	rte_be16_t mark_bit : 1;
-	rte_be16_t payload_type : 7;
+	uint8_t v_p_e_cc;
+	uint8_t m_pt;
 	// MARK: pay attention to endianness!
 	rte_be16_t seq_number;
 	rte_be32_t timestamp;
@@ -72,10 +68,8 @@ struct rtp_hdr {
  * Ref: RFC 2435
  */
 struct rtp_jpeg_hdr {
-	rte_be32_t type_specific : 8;
-
 	// MARK: pay attention to endianness!
-	rte_be32_t fragment_offset : 24;
+	rte_be32_t fragment_offset;
 	uint8_t type;
 	uint8_t q;
 	uint8_t width;
@@ -87,55 +81,81 @@ struct rtp_jpeg_hdr {
 // A proper zero-copy and efficient C++ wrapper for mbuf operations should be
 // used. I have not yet found the proper library.
 
-// I know, it's very C-style. I use C + STL + class ;)
-// Maybe it's not a good idea to mix C-style struct and libtins's PDU design...
-// Naja, just for prototyping... I don't want to modify libtins's source code to
-// add new protocols currently.
-
-Tins::RawPDU rtp_pack_jpeg(const struct rtp_hdr &rtp_h,
-			   const struct rtp_jpeg_hdr &rtp_jpeg_h,
-			   const Tins::RawPDU &payload_pdu);
-
-Tins::RawPDU rtp_unpack_jpeg(Tins::RawPDU rtp_pdu, struct rtp_hdr &rtp_h,
-			     struct rtp_jpeg_hdr &rtp_jpeg_hdr);
-
 /**
- * RTP PDU as RawPDU
+ * RTP with JPEG payload
  *
- * I know, I know,
+ * ISSUE: Many implicit memory copies can happen when using std::vector<uint8_t> as payload type...
+ * libtins's current design does not care about the memory alloc/free and copies when process packets.
+ * So this is really an INEFFICIENT prototyping
  */
-class RTP {
+class RTPJPEG {
     public:
 	using rtp_payload_type = std::vector<uint8_t>;
-	RTP(const Tins::RawPDU &raw_pdu);
-	RTP(uint16_t mark_bit, uint16_t payload_type, uint16_t seq_number,
-	    uint16_t timestamp, uint32_t ssrc, uint32_t csrc,
-	    const std::string payload);
 
-	RTP(uint16_t mark_bit, uint16_t payload_type, uint16_t seq_number,
-	    uint16_t timestamp, uint32_t ssrc, uint32_t csrc,
-	    const std::vector<uint8_t> &payload);
+	RTPJPEG(uint8_t mark_bit, uint16_t seq_number, uint16_t timestamp,
+		uint32_t fragment_offset, const std::string payload);
 
-	uint16_t mark_bit() const
-	{
-		return rte_be_to_cpu_16(rtp_hdr_.mark_bit);
-	}
+	RTPJPEG(const Tins::RawPDU &raw_pdu);
+
+	uint8_t mark_bit() const;
+
+	void mark_bit(uint8_t mark_bit);
 
 	uint16_t seq_number() const
 	{
 		return rte_be_to_cpu_16(rtp_hdr_.seq_number);
 	}
 
-	uint16_t payload_type() const
+	void seq_number(uint16_t seq_number)
 	{
-		return rte_be_to_cpu_16(rtp_hdr_.payload_type);
+		rtp_hdr_.seq_number = rte_cpu_to_be_16(seq_number);
 	}
 
+	uint32_t timestamp() const
+	{
+		return rte_be_to_cpu_32(rtp_hdr_.timestamp);
+	}
+
+	void timestamp(uint32_t timestamp)
+	{
+		rtp_hdr_.timestamp = rte_cpu_to_be_32(timestamp);
+	}
+
+	uint32_t fragment_offset() const
+	{
+		return rte_be_to_cpu_32(rtp_jpeg_hdr_.fragment_offset);
+	}
+
+	void fragment_offset(uint32_t fragment_offset)
+	{
+		rtp_jpeg_hdr_.fragment_offset =
+			rte_cpu_to_be_32(fragment_offset);
+	}
+
+	rtp_payload_type payload() const
+	{
+		return payload_;
+	}
+
+	// Check assign method of vector and templates for ForwardIterator
+	void payload(rtp_payload_type payload)
+	{
+		payload_ = payload;
+	}
+
+	/**
+	 * pack_to_rawpdu
+	 *
+	 * @return 
+	 */
+	Tins::RawPDU pack_to_rawpdu();
+
     private:
+	// I know, pimpl can be used to build the compiler firewall. This is just toy research tool code
 	struct rtp_hdr rtp_hdr_;
 	struct rtp_jpeg_hdr rtp_jpeg_hdr_;
+	// The name of the variable and type needs more consideration
 	rtp_payload_type payload_;
-	uint8_t test;
 };
 
 /**
