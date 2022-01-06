@@ -36,7 +36,7 @@ static auto gPE = PacketEngine("/ffpp/tests/unit/test_config.yaml");
 
 TEST(UnitTest, TestPERxTx)
 {
-	std::vector<struct rte_mbuf *> vec;
+	PacketEngine::packet_ring_type vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 

@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2020 Zuo Xiang
+ *  Copyright (C) 2021 Zuo Xiang
  *  All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,9 +21,19 @@
  *  IN THE SOFTWARE.
  */
 
-#include <gtest/gtest.h>
+#pragma once
 
-TEST(UnitTest, TestEmbededPyString)
+/**
+ * @file
+ * Data processor
+ *
+ */
+
+#include <pybind11/embed.h>
+
+namespace ffpp
 {
-	ASSERT_TRUE(1 + 1 == 2);
-}
+
+void py_insert_sys_path(std::string path, uint64_t index);
+
+} // namespace ffpp

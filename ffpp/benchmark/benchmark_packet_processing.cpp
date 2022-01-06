@@ -61,7 +61,7 @@ static void bm_eth_pdu_serialise(benchmark::State &state)
 
 static void bm_eth_pdu_to_mbuf(benchmark::State &state)
 {
-	std::vector<struct rte_mbuf *> vec;
+	PacketEngine::packet_ring_type vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 
@@ -78,7 +78,7 @@ static void bm_eth_pdu_to_mbuf(benchmark::State &state)
 
 static void bm_eth_mbuf_to_pdu(benchmark::State &state)
 {
-	std::vector<struct rte_mbuf *> vec;
+	PacketEngine::packet_ring_type vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 

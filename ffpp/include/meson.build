@@ -14,6 +14,7 @@ ffpp_headers = files(
 
 	'ffpp/graph.hpp',
 	'ffpp/mbuf_pdu.hpp',
+    'ffpp/data_processor.hpp',
     'ffpp/packet_engine.hpp',
     'ffpp/rtp.hpp',
 )

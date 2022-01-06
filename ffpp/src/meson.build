@@ -7,6 +7,7 @@ ffpp_sources = [
 	'graph.cpp',
 	'mbuf_pdu.cpp',
 	'packet_engine.cpp',
+    'data_processor.cpp',
     'rtp.cpp',
 ]
 

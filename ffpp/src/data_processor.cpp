@@ -21,25 +21,19 @@
  *  IN THE SOFTWARE.
  */
 
-#include <iostream>
-#include <chrono>
-#include <string>
-#include <vector>
+#include <cstdint>
 
-#include <benchmark/benchmark.h>
+#include "ffpp/data_processor.hpp"
 
-#include "ffpp/packet_engine.hpp"
+namespace py = pybind11;
 
-using namespace ffpp;
-
-static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
-
-static void bm_embeded_py_xor_sync(benchmark::State &state)
+namespace ffpp
 {
-	for (auto _ : state) {
-	}
+
+void py_insert_sys_path(std::string path, uint64_t index)
+{
+	py::module sys = py::module::import("sys");
+	sys.attr("path").attr("insert")(index, path);
 }
 
-BENCHMARK(bm_embeded_py_xor_sync);
-
-BENCHMARK_MAIN();
+} // namespace ffpp

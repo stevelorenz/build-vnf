@@ -23,11 +23,12 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
-#include <vector>
 #include <chrono>
 #include <functional>
+#include <memory>
+#include <queue>
+#include <string>
+#include <vector>
 
 #include <rte_mbuf.h>
 
@@ -56,6 +57,10 @@ struct PEConfig {
 
 class PacketEngine {
     public:
+	// WARNING: The std::vector is used here for prototyping... Maybe a io_ring based on rte_ring would be added for
+	// better performance.
+	using packet_ring_type = std::vector<struct rte_mbuf *>;
+
 	PacketEngine(const struct PEConfig pe_config);
 	PacketEngine(const std::string &config_file_path);
 	~PacketEngine();
@@ -66,9 +71,6 @@ class PacketEngine {
 	PacketEngine(const PacketEngine &&) = delete;
 	PacketEngine &operator=(const PacketEngine &&) = delete;
 
-	// WARNING: The std::vector is used here for prototyping... Maybe a io_ring based on rte_ring would be added for
-	// better performance.
-
 	/**
 	 * @brief rx_pkts 
 	 *
@@ -77,8 +79,7 @@ class PacketEngine {
 	 *
 	 * @return 
 	 */
-	uint32_t rx_pkts(std::vector<struct rte_mbuf *> &vec,
-			 uint32_t max_num_burst = 3);
+	uint32_t rx_pkts(packet_ring_type &vec, uint32_t max_num_burst = 3);
 
 	/**
 	 * @brief tx_pkts 
@@ -86,7 +87,7 @@ class PacketEngine {
 	 * @param vec
 	 * @param burst_gap
 	 */
-	void tx_pkts(std::vector<struct rte_mbuf *> &vec,
+	void tx_pkts(packet_ring_type &vec,
 		     std::chrono::microseconds burst_gap);
 
 	/**

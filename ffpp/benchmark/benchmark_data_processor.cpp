@@ -21,15 +21,46 @@
  *  IN THE SOFTWARE.
  */
 
-#pragma once
+#include <iostream>
+#include <chrono>
+#include <string>
+#include <vector>
 
-/**
- * @file
- * ADU processor
- *
- */
+#include <benchmark/benchmark.h>
+#include <pybind11/embed.h>
 
-namespace ffpp
+#include "ffpp/packet_engine.hpp"
+#include "ffpp/data_processor.hpp"
+
+namespace py = pybind11;
+
+static auto gPE = ffpp::PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
+
+// According the benchmark on my dev VM: The Python based implementation is at least
+// 15 times slower to just append a string...
+static void bm_embeded_py(benchmark::State &state)
 {
-
+	ffpp::py_insert_sys_path("/ffpp/tests/unit/", 0);
+	auto test_module = py::module::import("test_py_data_processor");
+	auto append_test_str = test_module.attr("append_test_str");
+	py::object ret;
+	std::string new_str = "";
+	for (auto _ : state) {
+		ret = append_test_str("zuozuo");
+		new_str = ret.cast<std::string>();
+	}
 }
+
+static void bm_embeded_py_cpp_ref(benchmark::State &state)
+{
+	std::string str = "zuozuo";
+	std::string new_str = "";
+	for (auto _ : state) {
+		new_str = str + "_fanfan";
+	}
+}
+
+BENCHMARK(bm_embeded_py);
+BENCHMARK(bm_embeded_py_cpp_ref);
+
+BENCHMARK_MAIN();
