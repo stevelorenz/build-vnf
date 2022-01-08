@@ -32,13 +32,12 @@
 #include "ffpp/packet_engine.hpp"
 #include "ffpp/rtp.hpp"
 
-using namespace ffpp;
-using namespace Tins;
-
-static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
+static auto gPE = ffpp::PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
 
 Tins::EthernetII create_sample_ethernet_frame()
 {
+	using namespace ffpp;
+	using namespace Tins;
 	NetworkInterface iface = NetworkInterface::default_interface();
 	NetworkInterface::Info info = iface.addresses();
 	EthernetII eth = EthernetII("17:17:17:17:17:17", info.hw_addr) /
@@ -50,6 +49,7 @@ Tins::EthernetII create_sample_ethernet_frame()
 
 static void bm_eth_pdu_serialise(benchmark::State &state)
 {
+	using namespace Tins;
 	EthernetII eth = create_sample_ethernet_frame();
 	for (auto _ : state) {
 		// According to the profiling(valgrind callgraph), the most
@@ -61,6 +61,8 @@ static void bm_eth_pdu_serialise(benchmark::State &state)
 
 static void bm_eth_pdu_to_mbuf(benchmark::State &state)
 {
+	using namespace ffpp;
+	using namespace Tins;
 	PacketEngine::packet_vector vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
@@ -78,6 +80,8 @@ static void bm_eth_pdu_to_mbuf(benchmark::State &state)
 
 static void bm_eth_mbuf_to_pdu(benchmark::State &state)
 {
+	using namespace ffpp;
+	using namespace Tins;
 	PacketEngine::packet_vector vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
@@ -92,17 +96,45 @@ static void bm_eth_mbuf_to_pdu(benchmark::State &state)
 	gPE.tx_pkts(vec, std::chrono::microseconds(0));
 }
 
-static void bm_rtp_pack_jpeg(benchmark::State &state)
-{
-	struct rtp_hdr rtp_h;
-	struct rtp_jpeg_hdr rtp_jpeg_h;
+/* TODO: Add benchmarks for RTPJPEG unpack and pack <09-01-22, Zuo> */
 
-	RawPDU payload_pdu = RawPDU("FanFan");
+static void bm_rtp_jpeg_fragmentize(benchmark::State &state)
+{
+	using namespace ffpp;
+	auto fragmenter = RTPFragmenter();
+	std::string test_data(48000, 'A');
+	RTPJPEG base = RTPJPEG(0, 123, 321, 0, "");
+	for (auto _ : state) {
+		fragmenter.fragmentize(test_data, base, 1400);
+	}
+}
+
+static void bm_rtp_jpeg_reassemble(benchmark::State &state)
+{
+	using namespace ffpp;
+
+	auto reassembler = RTPReassembler();
+	auto fragmenter = RTPFragmenter();
+	std::string test_data(48000, 'A');
+	RTPJPEG base = RTPJPEG(0, 123, 321, 0, "");
+	auto fragments = fragmenter.fragmentize(test_data, base, 1400);
+
+	for (auto _ : state) {
+		auto ret = reassembler.add_fragment(&fragments[0]);
+		for (auto it = fragments.begin() + 1; it != fragments.end() - 1;
+		     ++it) {
+			ret = reassembler.add_fragment(&(*it));
+		}
+		ret = reassembler.add_fragment(&(fragments.back()));
+
+		auto frame = reassembler.get_frame();
+	}
 }
 
 BENCHMARK(bm_eth_pdu_serialise);
 BENCHMARK(bm_eth_pdu_to_mbuf);
 BENCHMARK(bm_eth_mbuf_to_pdu);
-BENCHMARK(bm_rtp_pack_jpeg);
+BENCHMARK(bm_rtp_jpeg_fragmentize);
+BENCHMARK(bm_rtp_jpeg_reassemble);
 
 BENCHMARK_MAIN();

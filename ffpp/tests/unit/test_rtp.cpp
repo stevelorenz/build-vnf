@@ -101,7 +101,53 @@ TEST(UnitTest, TestReleaseUdpPdu)
 	ASSERT_EQ(eth.size(), eth_new_size);
 }
 
-TEST(UnitTest, TestRtpFrameProcessor)
+TEST(UnitTest, TestRTPFragmenter)
 {
-	ASSERT_EQ(0, 0);
+	using namespace ffpp;
+
+	auto fragmenter = RTPFragmenter();
+	std::string test_data(48000, 'A');
+	RTPJPEG base = RTPJPEG(0, 123, 321, 0, kTestPayload);
+	auto fragments = fragmenter.fragmentize(test_data, base, 1400);
+
+	ASSERT_TRUE(fragments.size() == 35);
+	ASSERT_TRUE(fragments[0].fragment_offset() == 0);
+	ASSERT_TRUE(fragments[1].fragment_offset() == 1400);
+	ASSERT_TRUE(fragments[1].mark_bit() == 0);
+	ASSERT_TRUE(fragments.back().fragment_offset() == 47600);
+	ASSERT_TRUE(fragments.back().payload().size() == 400);
+	ASSERT_TRUE(fragments.back().mark_bit() == 1);
+}
+
+TEST(UnitTest, TestRTPReassembler)
+{
+	using namespace ffpp;
+
+	auto reassembler = RTPReassembler();
+
+	auto fragmenter = RTPFragmenter();
+	std::string test_data(48000, 'A');
+	RTPJPEG base = RTPJPEG(0, 123, 321, 0, kTestPayload);
+	auto fragments = fragmenter.fragmentize(test_data, base, 1400);
+
+	auto ret = reassembler.add_fragment(&fragments[1]);
+	ASSERT_TRUE(ret == RTPReassembler::BAD_NEW_FRAME);
+	ret = reassembler.add_fragment(&fragments[0]);
+	ASSERT_TRUE(ret == RTPReassembler::GOOD_NEW_FRAME);
+	ret = reassembler.add_fragment(&fragments[2]);
+	ASSERT_TRUE(ret == RTPReassembler::BAD_CUR_FRAME);
+	ASSERT_TRUE(reassembler.fragment_vec_size() == 0);
+
+	ret = reassembler.add_fragment(&fragments[0]);
+	ASSERT_TRUE(ret == RTPReassembler::GOOD_NEW_FRAME);
+	for (auto it = fragments.begin() + 1; it != fragments.end() - 1; ++it) {
+		ret = reassembler.add_fragment(&(*it));
+		ASSERT_TRUE(ret == RTPReassembler::GOOD_CUR_FRAME);
+	}
+	ret = reassembler.add_fragment(&(fragments.back()));
+	ASSERT_TRUE(ret == RTPReassembler::HAS_ENTIRE_FRAME);
+
+	auto reassembled_data = reassembler.get_frame();
+	ASSERT_TRUE(reassembler.fragment_vec_size() == 0);
+	ASSERT_TRUE(reassembled_data == test_data);
 }

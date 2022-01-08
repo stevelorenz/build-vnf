@@ -47,6 +47,8 @@ class PacketRing {
 	PacketRing(std::string name, uint64_t count, uint64_t socket_id);
 	virtual ~PacketRing();
 
+	/* TODO: Add iterators to make it STL-like <09-01-22, Zuo> */
+
 	bool empty() const;
 
 	bool full() const;

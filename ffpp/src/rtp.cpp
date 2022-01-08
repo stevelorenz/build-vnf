@@ -21,10 +21,12 @@
  *  IN THE SOFTWARE.
  */
 
+#include <cassert>
 #include <iostream>
 #include <rte_memcpy.h>
 #include <string>
 
+#include <rte_branch_prediction.h>
 #include <tins/tins.h>
 
 #include "ffpp/rtp.hpp"
@@ -124,6 +126,82 @@ Tins::RawPDU RTPJPEG::pack_to_rawpdu()
 
 	RawPDU raw_pdu = RawPDU(pdu_data);
 	return raw_pdu;
+}
+
+std::vector<RTPJPEG> RTPFragmenter::fragmentize(const std::string &data,
+						const RTPJPEG &base,
+						uint64_t max_fragment_size)
+{
+	std::vector<RTPJPEG> fragments;
+	// MARK: std::div should be faster than / and % combo
+	auto dv = std::ldiv(data.size(), max_fragment_size);
+	if (likely(dv.rem != 0)) {
+		fragments.reserve(dv.quot + 1);
+	} else {
+		fragments.reserve(dv.quot);
+	}
+
+	for (uint64_t i = 0; i < data.size(); i += max_fragment_size) {
+		// MARK: Based on basic benchmarking, the substr method of std::string is pretty slow...
+		fragments.emplace_back(0, base.seq_number(), base.timestamp(),
+				       i, data.substr(i, max_fragment_size));
+	}
+	// RFC2435: The mark_bit of the last packet must be 1
+	fragments.back().mark_bit(1);
+
+	return fragments;
+}
+
+RTPReassembler::AddResult RTPReassembler::add_fragment(const RTPJPEG *fragment)
+{
+	// Add the first fragment of a new frame
+	if (unlikely(fragment_vec_.size() == 0)) {
+		if (unlikely(fragment->fragment_offset() != 0)) {
+			reset();
+			return AddResult::BAD_NEW_FRAME;
+		} else {
+			assert(cur_seq_number_ || next_fragment_offset_ == 0);
+			cur_seq_number_ = fragment->seq_number();
+			next_fragment_offset_ = next_fragment_offset_ +
+						fragment->payload().size();
+			fragment_vec_.push_back(fragment);
+			return AddResult::GOOD_NEW_FRAME;
+		}
+	}
+	// Add further fragments into the vec
+	else {
+		if ((cur_seq_number_ == fragment->seq_number()) &&
+		    (next_fragment_offset_ == fragment->fragment_offset())) {
+			fragment_vec_.push_back(fragment);
+			next_fragment_offset_ = next_fragment_offset_ +
+						fragment->payload().size();
+			if (fragment->mark_bit() == 1) {
+				return AddResult::HAS_ENTIRE_FRAME;
+			} else {
+				return AddResult::GOOD_CUR_FRAME;
+			}
+		} else {
+			reset();
+			return AddResult::BAD_CUR_FRAME;
+		}
+	}
+}
+
+std::string RTPReassembler::get_frame()
+{
+	RTPJPEG::rtp_payload_type buf{};
+	// Should be slow... LOTS!!! of copies...
+	for (auto fit = fragment_vec_.begin(); fit != fragment_vec_.end();
+	     ++fit) {
+		auto payload = (*fit)->payload();
+		for (auto pit = payload.begin(); pit != payload.end(); ++pit) {
+			buf.push_back(*pit);
+		}
+	}
+	std::string frame(buf.begin(), buf.end());
+
+	reset();
+	return frame;
 }
 
 } // namespace ffpp

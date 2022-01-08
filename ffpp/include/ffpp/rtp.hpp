@@ -159,24 +159,80 @@ class RTPJPEG {
 };
 
 /**
- * @brief
- */
-class RTPReassembler {
-    public:
-	RTPReassembler();
-
-    private:
-};
-
-/**
- * @brief
+ * RTP fragmenter
  */
 class RTPFragmenter {
     public:
-	RTPFragmenter();
+	RTPFragmenter(){};
+
+	std::vector<RTPJPEG> fragmentize(const std::string &data,
+					 const RTPJPEG &base,
+					 uint64_t max_fragment_size);
 
     private:
 	/* data */
+};
+
+/**
+ * RTP reassembler
+ *
+ * This is currently JUST an OVER-SIMPLIFIED prototype without considering
+ * out-of-order packets and fixing the packet losses.
+ *
+ * Compared to fragmenter, reassembler is more complicated since
+ * input packets could be lost or out-of-order.
+ * So the reassembler feels like a RLNC recoder.
+ * This should be the virtual class for different RTPReassembler.
+ * Currently only RTPJPEG payload type is implemented.
+ */
+class RTPReassembler {
+    public:
+	RTPReassembler()
+		: fragment_vec_({}), cur_seq_number_(0),
+		  next_fragment_offset_(0){};
+
+	void reset()
+	{
+		fragment_vec_.clear();
+		cur_seq_number_ = 0;
+		next_fragment_offset_ = 0;
+	}
+
+	enum AddResult {
+		GOOD_NEW_FRAME,
+		BAD_NEW_FRAME,
+		GOOD_CUR_FRAME,
+		BAD_CUR_FRAME,
+		// get_frame() can be used to retrieve the entire frame
+		HAS_ENTIRE_FRAME,
+	};
+
+	// I feel like the design of add_fragment is not fully correct...
+	AddResult add_fragment(const RTPJPEG *fragment);
+
+	/**
+	 * Get the reassembled I-frame data
+	 *
+	 * @return 
+	 */
+	std::string get_frame();
+
+	uint64_t fragment_vec_size() const
+	{
+		return fragment_vec_.size();
+	}
+
+	uint64_t cur_seq_number() const
+	{
+		return cur_seq_number_;
+	}
+
+    private:
+	// Use reference ? But reference_wrapper is needed !
+	// Somehow STL containers does not support store references directly
+	std::vector<const RTPJPEG *> fragment_vec_;
+	uint64_t cur_seq_number_;
+	uint64_t next_fragment_offset_;
 };
 
 } // namespace ffpp
