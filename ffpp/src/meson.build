@@ -8,6 +8,7 @@ ffpp_sources = [
 	'mbuf_pdu.cpp',
 	'packet_engine.cpp',
     'data_processor.cpp',
+    'packet_ring.cpp',
     'rtp.cpp',
 ]
 

@@ -313,7 +313,7 @@ PacketEngine::~PacketEngine()
 	google::ShutdownGoogleLogging();
 }
 
-uint32_t PacketEngine::rx_pkts(packet_ring_type &vec, uint32_t max_num_burst)
+uint32_t PacketEngine::rx_pkts(packet_vector &vec, uint32_t max_num_burst)
 {
 	uint32_t num_pkts_rx = 0;
 	uint32_t num_pkts_burst = 0;
@@ -343,7 +343,7 @@ uint32_t PacketEngine::rx_pkts(packet_ring_type &vec, uint32_t max_num_burst)
 	return num_pkts_rx;
 }
 
-void PacketEngine::tx_pkts(packet_ring_type &vec,
+void PacketEngine::tx_pkts(packet_vector &vec,
 			   std::chrono::microseconds burst_gap)
 {
 	struct rte_mbuf *mbuf_burst[kMaxBurstSize]; // on stack

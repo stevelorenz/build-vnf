@@ -36,7 +36,7 @@ static auto gPE = PacketEngine("/ffpp/benchmark/benchmark_config.yaml");
 
 static void bm_pe_io(benchmark::State &state)
 {
-	PacketEngine::packet_ring_type vec;
+	PacketEngine::packet_vector vec;
 	uint32_t max_num_burst = 10;
 	auto pkt_num = (kMaxBurstSize * max_num_burst);
 	std::cout << "Number of packets: " << pkt_num << std::endl;

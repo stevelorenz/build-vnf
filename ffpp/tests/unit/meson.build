@@ -55,3 +55,11 @@ test_data_processor_exe = executable('test_data_processor',
 test('test_data_processor', test_data_processor_exe, is_parallel: false, suite: ['unit'],
 	workdir : meson.source_root()
 )
+
+test_packet_container_exe = executable('test_packet_container',
+	sources: ['test_packet_container.cpp'],
+	include_directories: inc,
+	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+test('test_packet_container', test_packet_container_exe, is_parallel: false, suite: ['unit'],
+	workdir : meson.source_root()
+)

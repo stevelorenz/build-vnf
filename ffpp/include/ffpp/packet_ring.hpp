@@ -1,5 +1,5 @@
 /**
- *  Copyright (C) 2020 Zuo Xiang
+ *  Copyright (C) 2021 Zuo Xiang
  *  All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,43 +21,51 @@
  *  IN THE SOFTWARE.
  */
 
-#include <queue>
-#include <chrono>
+#pragma once
 
-#include <gtest/gtest.h>
+#include <cstdint>
 
-#include "ffpp/packet_engine.hpp"
-#include "ffpp/packet_ring.hpp"
+#include <string>
 
-// ISSUE: The EAL can be only initialized once...
-// I need to look deeper into gtest if there's a way to put EAL inside its fixtures.
-static auto gPE = ffpp::PacketEngine("/ffpp/tests/unit/test_config.yaml");
+#include <rte_mbuf.h>
+#include <rte_ring.h>
 
-TEST(UnitTest, TestPERxTx)
+/**
+ * @file
+ * PacketRing
+ *
+ */
+
+namespace ffpp
 {
-	using namespace ffpp;
-	PacketEngine::packet_vector vec;
-	uint32_t max_num_burst = 3;
-	vec.reserve(kMaxBurstSize * max_num_burst);
 
-	auto num_rx = gPE.rx_pkts(vec, max_num_burst);
-	ASSERT_EQ(num_rx, (unsigned int)(kMaxBurstSize * max_num_burst));
-	ASSERT_EQ(num_rx, vec.size());
-	PacketRing ring = PacketRing("test_ring", 1024, 0);
+/**
+ * A wrapper for rte_ring
+ */
+class PacketRing {
+    public:
+	PacketRing(std::string name, uint64_t count, uint64_t socket_id);
+	virtual ~PacketRing();
 
-	for (auto m : vec) {
-		auto ret = ring.push(m);
-		ASSERT_TRUE(ret);
-	}
-	ASSERT_EQ(ring.size(), num_rx);
+	bool empty() const;
 
-	while (not ring.empty()) {
-		auto m = ring.pop();
-	}
-	ASSERT_TRUE(ring.size() == 0);
+	bool full() const;
 
-	gPE.tx_pkts(vec, std::chrono::microseconds(3));
-	ASSERT_EQ((unsigned int)(0), vec.size());
-	ASSERT_EQ((unsigned int)(kMaxBurstSize * max_num_burst),
-		  vec.capacity());
-}
+	uint64_t count() const;
+
+	uint64_t size() const
+	{
+		return count();
+	};
+
+	uint64_t capacity() const;
+
+	struct rte_mbuf *pop();
+
+	bool push(struct rte_mbuf *m);
+
+    private:
+	struct rte_ring *ring_;
+};
+
+} // namespace ffpp

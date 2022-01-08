@@ -57,9 +57,7 @@ struct PEConfig {
 
 class PacketEngine {
     public:
-	// WARNING: The std::vector is used here for prototyping... Maybe a io_ring based on rte_ring would be added for
-	// better performance.
-	using packet_ring_type = std::vector<struct rte_mbuf *>;
+	using packet_vector = std::vector<struct rte_mbuf *>;
 
 	PacketEngine(const struct PEConfig pe_config);
 	PacketEngine(const std::string &config_file_path);
@@ -79,7 +77,7 @@ class PacketEngine {
 	 *
 	 * @return 
 	 */
-	uint32_t rx_pkts(packet_ring_type &vec, uint32_t max_num_burst = 3);
+	uint32_t rx_pkts(packet_vector &vec, uint32_t max_num_burst = 3);
 
 	/**
 	 * @brief tx_pkts 
@@ -87,8 +85,7 @@ class PacketEngine {
 	 * @param vec
 	 * @param burst_gap
 	 */
-	void tx_pkts(packet_ring_type &vec,
-		     std::chrono::microseconds burst_gap);
+	void tx_pkts(packet_vector &vec, std::chrono::microseconds burst_gap);
 
 	/**
 	 * Try/learn how to use rte_graph correctly. Then corresponded functionalities should be moved to ffpp/graph.

@@ -50,7 +50,7 @@ EthernetII create_sample_ethernet_frame()
 
 TEST(UnitTest, TestPacketParsing)
 {
-	PacketEngine::packet_ring_type vec;
+	PacketEngine::packet_vector vec;
 	uint32_t max_num_burst = 3;
 	vec.reserve(kMaxBurstSize * max_num_burst);
 
