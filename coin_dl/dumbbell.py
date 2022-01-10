@@ -21,7 +21,7 @@ from mininet.node import Controller, RemoteController
 from mininet.term import makeTerm
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
-DIMAGE = "coin_dl:latest"
+DIMAGE = "coin_dl:0.1.0"
 
 SFC_PORT = 9999
 

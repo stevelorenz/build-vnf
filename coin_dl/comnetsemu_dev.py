@@ -10,7 +10,7 @@ from comnetsemu.net import Containernet
 from mininet.log import setLogLevel
 
 CURRENT_DIR = os.path.abspath(os.path.curdir)
-DIMAGE = "coin_dl:latest"
+DIMAGE = "coin_dl:0.1.0"
 
 if __name__ == "__main__":
     if os.geteuid() != 0:

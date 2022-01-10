@@ -184,12 +184,15 @@ venv.bak/
 #  FFPP  #
 ##########
 
-###############
-#  COIN-YOLO  #
-###############
+ffpp/results/*
 
-!coin_yolo/pedestrain.jpg
-coin_yolo/results/*
+#############
+#  COIN-DL  #
+#############
+
+!coin_dl/pedestrain.jpg
+coin_dl/dumbbell.json
+coin_dl/results/*
 
 ##########
 #  MISC  #
@@ -200,6 +203,7 @@ coin_yolo/results/*
 *.bin
 *.data
 *.log
+# DPDK mbuf dump files
 *.mbuf
 *.pdf
 *.png
@@ -207,4 +211,5 @@ coin_yolo/results/*
 .gdb_history
 .vagrant/
 .vscode/
+# Valgrind files
 massif.*
