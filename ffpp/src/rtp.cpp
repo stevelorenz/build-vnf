@@ -190,10 +190,13 @@ RTPReassembler::AddResult RTPReassembler::add_fragment(const RTPJPEG *fragment)
 std::string RTPReassembler::get_frame()
 {
 	RTPJPEG::rtp_payload_type buf{};
-	// Should be slow... LOTS!!! of copies...
+	buf.reserve(next_fragment_offset_);
+	// It's very slow... LOTS!!! of copies...
+	// Unfortunately that currently the design, data structures and APIs are not zero-copy aligned...
 	for (auto fit = fragment_vec_.begin(); fit != fragment_vec_.end();
 	     ++fit) {
-		auto payload = (*fit)->payload();
+		// This copy is definitely not needed.
+		RTPJPEG::rtp_payload_type payload = (*fit)->payload();
 		for (auto pit = payload.begin(); pit != payload.end(); ++pit) {
 			buf.push_back(*pit);
 		}

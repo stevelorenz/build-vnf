@@ -227,6 +227,11 @@ class RTPReassembler {
 		return cur_seq_number_;
 	}
 
+	uint64_t next_fragment_offset() const
+	{
+		return next_fragment_offset_;
+	}
+
     private:
 	// Use reference ? But reference_wrapper is needed !
 	// Somehow STL containers does not support store references directly

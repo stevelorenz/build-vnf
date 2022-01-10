@@ -126,7 +126,8 @@ TEST(UnitTest, TestRTPReassembler)
 	auto reassembler = RTPReassembler();
 
 	auto fragmenter = RTPFragmenter();
-	std::string test_data(48000, 'A');
+	// std::string test_data(48000, 'A');
+	std::string test_data(1500, 'A');
 	RTPJPEG base = RTPJPEG(0, 123, 321, 0, kTestPayload);
 	auto fragments = fragmenter.fragmentize(test_data, base, 1400);
 
@@ -146,6 +147,7 @@ TEST(UnitTest, TestRTPReassembler)
 	}
 	ret = reassembler.add_fragment(&(fragments.back()));
 	ASSERT_TRUE(ret == RTPReassembler::HAS_ENTIRE_FRAME);
+	ASSERT_TRUE(reassembler.next_fragment_offset() == test_data.size());
 
 	auto reassembled_data = reassembler.get_frame();
 	ASSERT_TRUE(reassembler.fragment_vec_size() == 0);
