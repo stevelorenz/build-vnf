@@ -49,8 +49,10 @@ RUN rm -rf /var/lib/apt/lists/* && \
 	rm -rf /opt/conda/pkgs/*
 
 # Build coin_dl related programs
-COPY Makefile *.jpg *.cpp *.build *.py *.sh \
+COPY Makefile pedestrain.jpg coin_dl.cpp meson.build \
+	*.py \
+	*.sh \
 	/coin_dl/
-RUN make release
+RUN make clean && make release
 
 CMD ["bash"]

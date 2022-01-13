@@ -5,22 +5,17 @@
 """
 About: A crazy and selfish client that just shoots RTP packets (CBR) to the
        server and pray for the response from the server for object detection.
-
-TODO (Zuo): Look into WebRTC (AioRTC) if the toy "implementation" should be
-aligned to the standard specification.
 """
 
 import argparse
 import csv
+import json
 import socket
 import sys
 import time
 
 import cv2
-import numpy as np
-import tensorflow as tf
 
-import config
 import log
 import rtp
 
@@ -69,23 +64,14 @@ class Client:
     def get_rtp_packets(self, im_data):
         pass
 
-    def send_frame():
+    def send_frame(self):
         pass
-
-    def run_yolo(self, num_frames):
-        im_data = self.imread_jpeg("./pedestrain.jpg")
-        print(im_data)
-        for f in range(num_frames):
-            self.logger.debug(f"Send frame: {f}")
 
     def run(self, mode: str, num_frames: int):
         """MARK: Should I make the send the recv concurrently?"""
         self.logger.info(f"Run client with mode:{mode}, number of frames: {num_frames}")
         self.sock_control.connect(self.server_address_control)
         self.send_hello()
-
-        self.run_yolo(num_frames)
-
         self.send_bye()
 
     def cleanup(self):
@@ -111,6 +97,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    client = None
     try:
         client = Client(
             config.server_address_control,
@@ -123,4 +110,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("KeyboardInterrupt! Stop client!")
     finally:
-        client.cleanup()
+        if client:
+            client.cleanup()

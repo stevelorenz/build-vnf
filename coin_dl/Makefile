@@ -10,7 +10,7 @@ release: mk_build_dir
 	cd $(TARGET_DIR) && ninja
 
 clean:
-	rm -rf $(TARGET_DIR)
+	-rm -rf $(TARGET_DIR)
 
 rebuild:
 	cd $(TARGET_DIR) && ninja

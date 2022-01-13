@@ -4,13 +4,15 @@
 <img alt="Build-VNF" src="https://github.com/stevelorenz/build-vnf/raw/master/logo/logo_horizontal.png" width="500">
 </p>
 
+# Build-VNF
+
 This is just an **experimental**, research and study oriented project to explore new ideas for my PhD thesis (in short, for papers ... 💡) .
 
 ## About
 
 **Build-VNF** (Build Virtualized Network Function) is a collection (monorepo 🙈) of sources and tools that I developed and used during my PhD study :wink: (2018-2022) at [ComNets TU Dresden](https://cn.ifn.et.tu-dresden.de/).
 
-When I started my PhD in 2018, SDN/NFV was (and is 😉) a new topic for me, so this monolithic repository was created to store and manage my prototype/experimental code during my studies.
+When I started my PhD in 2018, SDN/NFV was a totally new topic for me, so this monolithic repository was created to store and manage my prototype/experimental code during my studies.
 Since I learned that there are already many popular and mature research and industry projects for NFVI and NFV-MANO components, I decided to investigate the possibility of building fast, energy-efficient and intelligent VNFs for 5G and beyond 😆.
 
 Subdirectories are currently created for sub-projects (ideas and topics) and measurements.
@@ -22,15 +24,17 @@ Better, structured documentation will be added later when the project structure 
 
 Thanks to all the open source SDN/NFV projects for teaching me.
 
-## Repository Structure
+## Project Structure
 
-- FFPP (Fast Forward Packet Processing): A fancy 🐼 packet processing engine (library) designed for CNF (Containerized Network Function) and COIN (Computing in the Network) use cases
+- [FFPP (Fast Forward Packet Processing)](./ffpp/README.md): A fancy 🐼 packet processing engine (library) designed for CNF (Containerized Network Function) and COIN (Computing in the Network) use cases
 - COIN_DL: Implementing a COIN-driven distributed deep learning system for in-network video traffic compression
 - pktgen: Scripts and tools for software packet generators
+- scripts: Utility scripts and helpers
 
 ## Citing Our Works
 
 If you like any ideas or tools inside this repository, please consider reading and citing our papers.
+These papers have detailed description and rigorous performance evaluation results.
 
 - For [CALVIN (IEEE JSAC)](https://ieeexplore.ieee.org/abstract/document/8672612), X-MAN and FFPP:
 
@@ -55,7 +59,7 @@ If you like any ideas or tools inside this repository, please consider reading a
   publisher={IEEE}
 }
 
-@ARTICLE{9610120,
+@article{xiang2021xman,
   author={Xiang, Zuo and Höweler, Malte and You, Dongho and Reisslein, Martin and Fitzek, Frank H.P.},
   journal={IEEE Transactions on Network and Service Management},
   title={X-MAN: A Non-intrusive Power Manager for Energy-adaptive Cloud-native Network Functions},
@@ -78,7 +82,7 @@ If you like any ideas or tools inside this repository, please consider reading a
 }
 ```
 
-- For COIN_DL:
+- For COIN_DL and ComNetsEmu:
 
 ```
 @article{xiang2020comnetsemu,
@@ -109,7 +113,7 @@ If you like any ideas or tools inside this repository, please consider reading a
 ## Contributing
 
 This project exists thanks to all people (all my students 😉) who contribute.
-The [list](./CONTRIBUTORS.md) of all contributors.
+The [list](./CONTRIBUTORS.md) of all known contributors.
 
 ## Contact
 

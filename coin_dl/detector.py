@@ -10,6 +10,7 @@ About: YOLOv2 Detector
 import json
 import os
 import time
+import timeit
 
 import cv2
 import psutil
@@ -147,20 +148,33 @@ class Detector(object):
         return results
 
 
+def benchmark():
+    """benchmark"""
+    print("* Run benchmark of detector performance")
+    setup = """
+from __main__ import Detector
+data = Detector.read_img_jpeg_bytes("./pedestrain.jpg")
+detector = Detector(mode="raw")
+# Warm-up the session
+ret = detector.inference(data)
+    """
+    stmt = """
+ret = detector.inference(data)
+    """
+    number = 17
+    ret = timeit.timeit(stmt=stmt, setup=setup, number=number)
+    ret = ret / number
+    print(f"Inference time for one raw image: {ret}s")
+
+
 def main():
     """main"""
-    print("Test the detector...")
     data = Detector.read_img_jpeg_bytes("./pedestrain.jpg")
     detector = Detector(mode="raw")
-    # Warm-up the session
-    ret = detector.inference(data)
-    for r in range(3):
-        start = time.time()
-        ret = detector.inference(data)
-        duration = time.time() - start
-        ret = detector.get_detection_results(*ret)
-        print(ret)
-        print(f"[{r}] Duration: {duration} s")
+    _ = detector.inference(data)
+    mem = psutil.Process().memory_info().rss / (1024 ** 2)
+    print(f"Memory usage: {mem} MB")
+    benchmark()
 
 
 if __name__ == "__main__":

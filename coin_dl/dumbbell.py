@@ -24,21 +24,29 @@ CURRENT_DIR = os.path.abspath(os.path.curdir)
 DIMAGE = "coin_dl:0.1.0"
 
 SFC_PORT = 9999
+NO_SFC_PORT = SFC_PORT + 1
+CONTROL_PORT = NO_SFC_PORT + 1
 
 
 def check_env():
-    if os.cpu_count() < 3:
-        raise RuntimeError("Requires at least 3 CPUs")
+    cpu_count = os.cpu_count()
+    if cpu_count < 3:
+        raise RuntimeError("Requires at least 3 (v)CPUs")
 
 
-def create_dumbbell(num_hosts: int = 2):
+def create_dumbbell():
     """Create a single dumbbell topology with the given number of hosts on one side"""
+    num_hosts = 2
     net = Containernet(
         controller=Controller,
         link=TCLink,
         xterms=False,
     )
-    topo_params = {"sfc_port": SFC_PORT}
+    topo_params = {
+        "sfc_port": SFC_PORT,
+        "no_sfc_port": NO_SFC_PORT,
+        "control_port": CONTROL_PORT,
+    }
     nodes = {}
 
     info("*** Adding controller, listening on port 6653, use OpenFlow 1.3\n")
@@ -100,18 +108,8 @@ def create_dumbbell(num_hosts: int = 2):
     switches = [s1, s2]
 
     DPDK_VOLUME = {
-        # Even PCI is not used in virtual interfaces, still mount it to avoid EAL init error
-        "/sys/bus/pci/drivers": {
-            "bind": "/sys/bus/pci/drivers",
-            "mode": "rw",
-        },
         "/sys/kernel/mm/hugepages": {
             "bind": "/sys/kernel/mm/hugepages",
-            "mode": "rw",
-        },
-        # For CPU info
-        "/sys/devices/system/node": {
-            "bind": "/sys/devices/system/node",
             "mode": "rw",
         },
         "/dev": {"bind": "/dev", "mode": "rw"},
@@ -197,13 +195,22 @@ def deploy_servers(servers):
         s.cmd(f"sockperf server --daemonize")
 
 
-def deploy_vnfs(vnfs):
-    info("*** Deploying all VNFs\n")
+def deploy_vnfs(vnfs, vnf_mode):
+    assert len(vnfs) == 2
     # Avoid the ARP storm because the ARP response is not implemented in the VNF
     # VNF nodes work currently on layer 2
     info("*** Flushing the IP address of VNF's data plane interface.\n")
     for idx, v in enumerate(vnfs):
         v.cmd(f"ip addr flush vnf{idx+1}-s{idx+1}")
+
+    if vnf_mode == "":
+        info("*** VNF mode is empty. No VNFs are deployed.\n")
+        info("Check the -m/--mode option in CLI for available VNF modes.\n")
+        return
+    elif vnf_mode == "store_forward":
+        info("*** Deploying all VNFs with mode store_forward\n")
+        for _, v in enumerate(vnfs):
+            v.cmd("./build/coin_dl --mode store_forward > /var/log/coin_dl.log 2>&1 &")
 
 
 def run_test_sockperf(nodes):
@@ -212,8 +219,6 @@ def run_test_sockperf(nodes):
     info("*** Run single client sockperf with under-load mode\n")
 
     info("*** Run multi-clients sockperf with under-load mode\n")
-
-    # 30310
 
 
 def run_store_forward(nodes):
@@ -230,6 +235,8 @@ def run_tests(nodes: list, tests: list):
 
 
 def parse_tests(tests_str):
+    if tests_str == "":
+        return []
     tests = tests_str.strip().split(",")
     tests = [t.strip() for t in tests if t != ""]
     assert len(tests) > 0
@@ -246,26 +253,25 @@ def main():
         "-m",
         "--vnf_mode",
         type=str,
-        default="store_forward",
-        # null is just for debug, nothing is deployed on VNF(s)
-        choices=["null", "store_forward", "compute_forward"],
+        default="",
+        choices=["", "store_forward", "compute_forward"],
         help="Working mode of all VNF(s)",
     )
     parser.add_argument(
         "--tests",
         type=str,
-        default="sockperf",
-        help="Test names separated by commas. Example: sockperf,store_forward",
+        default="",
+        help="Test names separated by commas. Empty string means no tests. Example: sockperf,store_forward",
     )
-    parser.add_argument(
-        "--dev", action="store_true", help="Run the setup for dev purpose on laptop"
-    )
+    parser.add_argument("--dev", action="store_true", help="Run in development mode")
     args = parser.parse_args()
 
     check_env()
     setLogLevel("info")
 
     tests = parse_tests(args.tests)
+    if not tests:
+        info("*** No tests are going to be performed.\n")
 
     # IPv6 is currently not used, disable it.
     subprocess.run(
@@ -273,17 +279,19 @@ def main():
         check=True,
     )
 
+    net = None
+    nodes = None
     try:
-        net = None
-        nodes = None
-        net, nodes, topo_params = create_dumbbell(2)
+        net, nodes, _ = create_dumbbell()
+        # Use the minimal dumbbell as the start
+        assert len(nodes["vnfs"]) == 2
         if net:
             net.start()
         else:
             raise RuntimeError("Failed to create the dumbbell topology")
 
         start_controllers(nodes["controllers"])
-        deploy_vnfs(nodes["vnfs"])
+        deploy_vnfs(nodes["vnfs"], args.vnf_mode)
         deploy_servers(nodes["servers"])
         run_tests(nodes, tests)
         if args.dev:
