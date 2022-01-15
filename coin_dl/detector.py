@@ -11,6 +11,8 @@ import json
 import os
 import time
 import timeit
+import struct
+import gc
 
 import cv2
 import psutil
@@ -20,8 +22,9 @@ import numpy as np
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import tensorflow as tf
 
+import preprocessor
 from utils.config import class_names, anchors
-from utils.imgutils import decode_result, postprocess
+from utils.imgutils import decode_result, postprocess, image_to_feature_maps
 
 
 class Detector(object):
@@ -120,7 +123,27 @@ class Detector(object):
         return bboxes, scores, class_max_index, class_names
 
     def inference_preprocessed(self, data):
-        raise NotImplemented("")
+        l1 = struct.unpack("<H", data[2:4])[0]
+        # lp = struct.unpack(">I", data[4:8])[0]
+        header_tmp = np.frombuffer(data[8 : 8 + l1], self.dtype_header)
+        payload_tmp = np.frombuffer(data[8 + l1 :], self.dtype_payload)
+        # predict
+        feature_maps = image_to_feature_maps(
+            [(payload_tmp, header_tmp)], self.shape_splice
+        )
+        res = self.sess.run(self.output1, feed_dict={self.input1: feature_maps})
+        bboxes, obj_probs, class_probs = decode_result(
+            model_output=res,
+            output_sizes=(608 // 32, 608 // 32),
+            num_class=len(class_names),
+            anchors=anchors,
+        )
+        # image_shape: original image size for displaying
+        bboxes, scores, class_max_index = postprocess(
+            bboxes, obj_probs, class_probs, image_shape=(432, 320)
+        )
+
+        return bboxes, scores, class_max_index, class_names
 
     def inference(self, data):
         if self._mode == "preprocessed":
@@ -148,6 +171,30 @@ class Detector(object):
         return results
 
 
+def test():
+    raw_img_data = Detector.read_img_jpeg_bytes("./pedestrain.jpg")
+    det = Detector(mode="raw")
+    ret = det.inference(raw_img_data)
+    resp = det.get_detection_results(*ret)
+    print("*** Inference result of raw image!")
+    print(resp)
+    del det
+    gc.collect(1)
+    gc.collect(2)
+
+    # Test detection of preprocessed image
+    prep = preprocessor.Preprocessor()
+    compressed_img_data = prep.inference(raw_img_data, 70)
+    print(
+        f"*** Raw image size: {len(raw_img_data)}B, preprocessed image size: {len(compressed_img_data)}B"
+    )
+    det = Detector(mode="preprocessed")
+    ret = det.inference(compressed_img_data)
+    resp_prep = det.get_detection_results(*ret)
+    print("*** Inference result of preprocessed image!")
+    print(resp_prep)
+
+
 def benchmark():
     """benchmark"""
     print("* Run benchmark of detector performance")
@@ -164,17 +211,39 @@ ret = detector.inference(data)
     number = 17
     ret = timeit.timeit(stmt=stmt, setup=setup, number=number)
     ret = ret / number
-    print(f"Inference time for one raw image: {ret}s")
+    print(f"Inference time for one raw image: {ret} s")
+
+    gc.collect()
+
+    setup = """
+from __main__ import Detector, preprocessor
+data = Detector.read_img_jpeg_bytes("./pedestrain.jpg")
+prep = preprocessor.Preprocessor()
+compressed_img_data = prep.inference(data, 70)
+detector = Detector(mode="preprocessed")
+# Warm-up the session
+ret = detector.inference(compressed_img_data)
+    """
+    stmt = """
+ret = detector.inference(compressed_img_data)
+    """
+    number = 17
+    ret = timeit.timeit(stmt=stmt, setup=setup, number=number)
+    ret = ret / number
+    print(f"Inference time for one preprocessed image: {ret} s")
 
 
 def main():
     """main"""
-    data = Detector.read_img_jpeg_bytes("./pedestrain.jpg")
-    detector = Detector(mode="raw")
-    _ = detector.inference(data)
-    mem = psutil.Process().memory_info().rss / (1024 ** 2)
-    print(f"Memory usage: {mem} MB")
-    benchmark()
+    # Use RSS to estimate the memory usage of detector
+    # data = Detector.read_img_jpeg_bytes("./pedestrain.jpg")
+    # detector = Detector(mode="raw")
+    # _ = detector.inference(data)
+    # mem = psutil.Process().memory_info().rss / (1024 ** 2)
+    # print(f"Memory usage: {mem} MB")
+
+    test()
+    # benchmark()
 
 
 if __name__ == "__main__":

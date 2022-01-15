@@ -136,35 +136,36 @@ class Preprocessor(object):
         return image_expanded
 
     # Code from the student... The variable naming here is bad...
-    def inference(self, img_bytes, quality):
-        """
-
-        :param img_bytes:
-        :param quality:
-        """
+    def inference(self, img_bytes, info):
+        mode = 0
         data = np.frombuffer(img_bytes, np.uint8)
         img = cv2.imdecode(data, 1)
         img_preprossed = self.preprocess_image(img)
         feature_maps = self.sess.run(
             self.output1, feed_dict={self.input1: img_preprossed}
         )
-        # The header manipulation here is bad...
-        # A separate Python source for this special payload header should be used...
-        h_1 = bytes(self.batch_size)
-        h_2 = bytes(0)
+        # TODO: Refactor and maybe remove additional headers here... <16-01-22, Zuo> #
+        h_1 = self.batch_size.to_bytes(1, "big")
+        h_2 = mode.to_bytes(1, "big")
+        # h_1 = bytes([self.batch_size])
+        # h_2 = bytes([mode])
         header_tmp = b""
         payload_tmp = b""
         res_bytes = b""
-        fmaps_bytes_with_info = self.compressor.jpeg_enc(feature_maps, quality)
-        fmaps_data = fmaps_bytes_with_info[0]
-        header_tmp += np.array(
-            fmaps_bytes_with_info[1], dtype=self.dtype_header
-        ).tobytes()
-        payload_tmp += np.array(fmaps_data, dtype=self.dtype_payload).tobytes()
-        l1 = struct.pack("<H", len(header_tmp))
-        lp = struct.pack(">I", len(payload_tmp))
-        # res_bytes = h_1 + h_2 + l1 + lp + header_tmp + payload_tmp
-        res_bytes = b"".join((h_1, h_2, l1, lp, header_tmp, payload_tmp))
+        if mode == 0 or mode == 1:
+            quality = info
+            if mode == 0:
+                fmaps_bytes_with_info = self.compressor.jpeg_enc(feature_maps, quality)
+            if mode == 1:
+                fmaps_bytes_with_info = self.compressor.webp_enc(feature_maps, quality)
+            fmaps_data = fmaps_bytes_with_info[0]
+            header_tmp += np.array(
+                fmaps_bytes_with_info[1], dtype=self.dtype_header
+            ).tobytes()
+            payload_tmp += np.array(fmaps_data, dtype=self.dtype_payload).tobytes()
+            l1 = struct.pack("<H", len(header_tmp))
+            lp = struct.pack(">I", len(payload_tmp))
+            res_bytes = b"".join((h_1, h_2, l1, lp, header_tmp, payload_tmp))
 
         return res_bytes
 
