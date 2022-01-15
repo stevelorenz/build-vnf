@@ -192,6 +192,7 @@ ffpp/results/*
 
 !coin_dl/pedestrain.jpg
 coin_dl/dumbbell.json
+coin_dl/result/*
 coin_dl/results/*
 
 ##########

@@ -12,6 +12,7 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 
 from comnetsemu.cli import CLI
 from comnetsemu.net import Containernet
@@ -137,7 +138,7 @@ def create_dumbbell():
 
     # TODO: Pick up the suitable parameters here.
     BW_MAX = 1000  # 1Gb/sec
-    BW_BOTTLENECK = 500  # Mbits/s
+    BW_BOTTLENECK = 100  # Mbits/s
     DELAY_BOTTLENECK_MS = 10
     DELAY_BOTTLENECK_MS_STR = str(DELAY_BOTTLENECK_MS) + "ms"
     BDP = ((BW_BOTTLENECK * 10 ** 6) * (DELAY_BOTTLENECK_MS * 10 ** -3)) / 8.0
@@ -155,12 +156,8 @@ def create_dumbbell():
     info("*** Creating links\n")
     for client, server in zip(clients, servers):
         # TODO (Zuo): Check if max_queue_size need to be added here
-        net.addLinkNamedIfce(
-            client, s1, bw=BW_BOTTLENECK, delay=DELAY_BOTTLENECK_MS_STR
-        )
-        net.addLinkNamedIfce(
-            s2, server, bw=BW_BOTTLENECK, delay=DELAY_BOTTLENECK_MS_STR
-        )
+        net.addLinkNamedIfce(client, s1, bw=BW_MAX, delay=DELAY_BOTTLENECK_MS_STR)
+        net.addLinkNamedIfce(s2, server, bw=BW_MAX, delay=DELAY_BOTTLENECK_MS_STR)
     # Add bottleneck link
     net.addLinkNamedIfce(s1, s2, bw=BW_BOTTLENECK, delay=DELAY_BOTTLENECK_MS_STR)
 
@@ -185,6 +182,23 @@ def start_controllers(controllers):
     assert len(controllers) == 1
     c1 = controllers[0]
     makeTerm(c1, cmd="ryu-manager ./dumbbell_controller.py")
+
+
+def disable_checksum_offload(nodes):
+    info("*** Disable RX and TX checksum offloading on all hosts\n")
+    sw = nodes["switches"][0]
+    for client in nodes["clients"]:
+        client.cmd(f"ethtool --offload {client.name}-{sw.name} rx off")
+        client.cmd(f"ethtool --offload {client.name}-{sw.name} tx off")
+
+    sw = nodes["switches"][-1]
+    for server in nodes["servers"]:
+        server.cmd(f"ethtool --offload {server.name}-{sw.name} rx off")
+        server.cmd(f"ethtool --offload {server.name}-{sw.name} tx off")
+
+    for vnf, switch in zip(nodes["vnfs"], nodes["switches"]):
+        vnf.cmd(f"ethtool --offload {vnf.name}-{switch.name} rx off")
+        vnf.cmd(f"ethtool --offload {vnf.name}-{switch.name} tx off")
 
 
 def deploy_servers(servers):
@@ -289,8 +303,10 @@ def main():
             net.start()
         else:
             raise RuntimeError("Failed to create the dumbbell topology")
-
+        disable_checksum_offload(nodes)
         start_controllers(nodes["controllers"])
+        time.sleep(3)
+        net.pingAll()
         deploy_vnfs(nodes["vnfs"], args.vnf_mode)
         deploy_servers(nodes["servers"])
         run_tests(nodes, tests)

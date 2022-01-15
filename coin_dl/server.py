@@ -15,7 +15,6 @@ import json
 
 import psutil
 
-import config
 import detector
 import log
 import rtp
@@ -24,19 +23,35 @@ import rtp
 class Server:
     def __init__(
         self,
-        server_address_control,
-        client_address_data,
-        server_address_data,
+        topo_params_file,
+        no_sfc,
         verbose,
     ):
-        self.server_address_control = server_address_control
-        self.sock_control = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+        with open(topo_params_file, "r") as f:
+            topo_params = json.load(f)
+
+        self.server_name = socket.gethostname()
+        self.index = int(self.server_name[len("server") :])
+        self.client_name = f"client{self.index}"
+
+        self.server_ip = topo_params["servers"].get(self.server_name, None)["ip"][:-3]
+        self.client_ip = topo_params["clients"].get(self.client_name, None)["ip"][:-3]
+
+        self.server_address_control = (self.server_ip, topo_params["control_port"])
         self.sock_control = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock_control.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.client_address_data = client_address_data
-        self.server_address_data = server_address_data
+
+        if no_sfc:
+            data_port = "no_sfc_port"
+        else:
+            data_port = "sfc_port"
+        self.client_address_data = (self.client_ip, topo_params[data_port])
+        self.server_address_data = (self.server_ip, topo_params[data_port])
         self.sock_data = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        # A buffer for current fragments
+        self.fragment_buf = []
 
         if verbose:
             self.logger = log.get_logger("debug")
@@ -50,7 +65,8 @@ class Server:
         else:
             self.sock_control.bind(self.server_address_control)
             self.sock_control.listen(1)
-
+            self.logger.info(f"Bind data socket to {self.server_address_data}")
+            self.logger.info(f"Client data address: {self.client_address_data}")
             self.sock_data.bind(self.server_address_data)
 
     @staticmethod
@@ -88,26 +104,56 @@ class Server:
             # TODO: Measure the computational time of local server inference and store them.
             print(f"[{r}], duration: {duration} s")
 
-    def run(self, mode, fake_inference):
+    def warm_up(self, det):
+        self.logger.info("Warm-up the detector")
+        start = time.time()
+        data = det.read_img_jpeg_bytes("./pedestrain.jpg")
+        # Warm up the session, first time inference is slow
+        ret = det.inference(data)
+        ret = det.get_detection_results(*ret)
+        duration = time.time() - start
+        self.logger.info(f"Warm-up finished! Takes {duration} seconds")
+
+    def recv_frame(self):
+        """It's naive... It assumes no packet losses yet..."""
+        marker = 0
+        fragments = []
+        reassembler = rtp.RTPReassembler()
+        while marker != 1:
+            data, _ = self.sock_data.recvfrom(1500)
+            fragment = rtp.RTPJPEGPacket.unpack(data)
+            fragments.append(fragment)
+            marker = fragment.marker
+
+        for fragment in fragments[:-1]:
+            reassembler.add_fragment(fragment)
+        ret = reassembler.add_fragment(fragments[-1])
+        assert ret == "HAS_ENTIRE_FRAME"
+        return reassembler.get_frame()
+
+    def send_resp(self, resp):
+        data = (json.dumps(resp)).encode("ascii")
+        self.sock_data.sendto(data, self.client_address_data)
+
+    def run_store_forward(self, num_frames):
+        det = detector.Detector(mode="raw")
+        self.warm_up(det)
+        for _ in range(num_frames):
+            frame = self.recv_frame()
+            ret = det.inference(frame)
+            resp = det.get_detection_results(*ret)
+            self.send_resp(resp)
+        self.logger.info("All frames are received! Stop the server!")
+
+    def run(self, mode, num_frames, fake_inference):
         """MARK: Packet losses are not considered yet!"""
+        self.logger.info(
+            f"Run server main loop with mode {mode}, number of frames: {num_frames}"
+        )
         if mode == "server_local":
             self.run_server_local(30, fake_inference)
-        else:
-            self.logger.info("Run server main loop")
-            # Just for single connection
-            conn, addr = self.sock_control.accept()
-            self.logger.info("Get connection from {}:{}".format(*addr))
-            while True:
-                packet, _ = self.sock_data.recvfrom(4096)
-                if len(packet) == 1:
-                    if packet.decode() == "H":
-                        self.logger.info("Receive Hello packet!")
-                        continue
-                    elif packet.decode() == "B":
-                        break
-                else:
-                    print("RTP")
-            self.logger.info("Receive Byte packet! Server stops")
+        elif mode == "store_forward":
+            self.run_store_forward(num_frames)
 
     def cleanup(self):
         self.sock_control.close()
@@ -117,12 +163,34 @@ class Server:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Server")
     parser.add_argument(
+        "-n",
+        "--num_frames",
+        type=int,
+        default=3,
+        help="Total number of frames to send",
+    )
+    parser.add_argument(
         "-m",
         "--mode",
         type=str,
         default="store_forward",
         choices=["store_forward", "compute_forward", "server_local"],
         help="Working mode of the server",
+    )
+    parser.add_argument(
+        "--topo_params_file",
+        type=str,
+        default="./share/dumbbell.json",
+        help="Path of the dumbbell topology JSON file",
+    )
+    parser.add_argument(
+        "--result_dir",
+        type=str,
+        default="./share/result",
+        help="Directory to store measurement results",
+    )
+    parser.add_argument(
+        "--no_sfc", action="store_true", help="Use No SFC port, just for test"
     )
     parser.add_argument(
         "--fake_inference",
@@ -134,18 +202,19 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    server = None
     try:
         server = Server(
-            config.server_address_control,
-            config.client_address_data,
-            config.server_address_data,
+            args.topo_params_file,
+            args.no_sfc,
             args.verbose,
         )
         server.setup(args.mode)
-        server.run(args.mode, args.fake_inference)
+        server.run(args.mode, args.num_frames, args.fake_inference)
     except KeyboardInterrupt:
         print("KeyboardInterrupt! Stop server!")
     except RuntimeError as e:
         print("Server stops with error: " + str(e))
     finally:
-        server.cleanup()
+        if server:
+            server.cleanup()

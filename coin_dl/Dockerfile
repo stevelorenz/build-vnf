@@ -4,6 +4,7 @@
 FROM ffpp:0.8.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+	ethtool \
 	libfontconfig1 \
 	libgl1-mesa-glx \
 	libsm6 \

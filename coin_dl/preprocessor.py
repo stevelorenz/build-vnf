@@ -187,8 +187,13 @@ _ = preprocessor.inference(img_bytes, 70)
 
 def main():
     preprocessor = Preprocessor()
-    img_bytes = preprocessor.read_img_jpeg_bytes("./pedestrain.jpg")
-    _ = preprocessor.inference(img_bytes, 70)
+    raw_img_data = preprocessor.read_img_jpeg_bytes("./pedestrain.jpg")
+    compressed_img_data = preprocessor.inference(raw_img_data, 70)
+    compression_ratio = float(len(raw_img_data)) / len(compressed_img_data)
+    print(
+        f"Data size before compression: {len(raw_img_data)}B, after: {len(compressed_img_data)}B"
+    )
+    print(f"Compression ratio: {compression_ratio}")
     mem = psutil.Process().memory_info().rss / (1024 ** 2)
     print(f"Memory usage: {mem} MB")
     benchmark()

@@ -10,8 +10,10 @@ About: A crazy and selfish client that just shoots RTP packets (CBR) to the
 import argparse
 import csv
 import json
+import os
 import socket
 import sys
+import threading
 import time
 
 import cv2
@@ -25,15 +27,29 @@ class Client:
 
     def __init__(
         self,
-        server_address_control,
-        client_address_data,
-        server_address_data,
+        topo_params_file,
+        no_sfc,
         verbose,
     ):
-        self.server_address_control = server_address_control
+        # It looks complex...
+        with open(topo_params_file, "r") as f:
+            topo_params = json.load(f)
+
+        self.host_name = socket.gethostname()
+        self.index = int(self.host_name[len("client") :])
+        self.server_name = f"server{self.index}"
+        self.client_ip = topo_params["clients"].get(self.host_name, None)["ip"][:-3]
+        self.server_ip = topo_params["servers"].get(self.server_name, None)["ip"][:-3]
+        # Tuple (HOST, PORT)
+        if no_sfc:
+            data_port = "no_sfc_port"
+        else:
+            data_port = "sfc_port"
+        self.client_address_data = (self.client_ip, int(topo_params[data_port]))
+        self.server_address_control = (self.server_ip, int(topo_params["control_port"]))
+        self.server_address_data = (self.server_ip, int(topo_params[data_port]))
+
         self.sock_control = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_address_data = client_address_data
-        self.server_address_data = server_address_data
         self.sock_data = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         if verbose:
@@ -43,15 +59,8 @@ class Client:
 
     def setup(self):
         self.logger.info("Setup client")
+        self.logger.info(f"Bind data socket to address: {self.client_address_data}\n")
         self.sock_data.bind(self.client_address_data)
-
-    def send_hello(self):
-        for _ in range(3):
-            self.sock_data.sendto("H".encode(), self.server_address_data)
-
-    def send_bye(self):
-        for _ in range(3):
-            self.sock_data.sendto("B".encode(), self.server_address_data)
 
     def imread_jpeg(self, img_path):
         im = cv2.imread(img_path)
@@ -61,18 +70,52 @@ class Client:
         _, im_enc = cv2.imencode(".jpg", im, encode_param)
         return im_enc.tobytes()
 
-    def get_rtp_packets(self, im_data):
-        pass
+    def prepare_frames(self, num_frames):
+        frames = []
+        raw_img_data = self.imread_jpeg("./pedestrain.jpg")
+        fragmenter = rtp.RTPFragmenter()
+        # MARK: timestamps are not used...
+        for i in range(num_frames):
+            fragments = fragmenter.fragmentize(raw_img_data, i, 0, 1400)
+            frames.append(fragments)
+        self.logger.info(f"Number of fragments in a frame: {len(frames[0])}")
+        return frames
 
-    def send_frame(self):
-        pass
+    def send_frame(self, frame):
+        for idx, fragment in enumerate(frame):
+            data = fragment.pack()
+            self.sock_data.sendto(data, self.server_address_data)
+            if idx < 2:
+                time.sleep(0.3)
 
-    def run(self, mode: str, num_frames: int):
-        """MARK: Should I make the send the recv concurrently?"""
-        self.logger.info(f"Run client with mode:{mode}, number of frames: {num_frames}")
-        self.sock_control.connect(self.server_address_control)
-        self.send_hello()
-        self.send_bye()
+    def recv_resp(self, sequence_number):
+        data, _ = self.sock_data.recvfrom(1500)
+        resp = json.loads(data.decode("ascii"))
+        return resp
+
+    def request_yolo_service(self, frames):
+        service_latencies = []
+        for idx, frame in enumerate(frames):
+            self.logger.info(f"Current frame index: {idx}")
+            self.send_frame(frame)
+            start = time.time()
+            _ = self.recv_resp(idx)
+            duration = time.time() - start
+            service_latencies.append(duration)
+            time.sleep(0.5)
+        return service_latencies
+
+    def run(self, num_frames: int, result_dir):
+        self.logger.info(f"Run client. Number of frames to send: {num_frames}")
+        frames = self.prepare_frames(num_frames)
+        assert len(frames) == num_frames
+        service_latencies = self.request_yolo_service(frames)
+
+        with open(
+            os.path.join(result_dir, "client_service_latency.csv"), "a+"
+        ) as csvfile:
+            writer = csv.writer(csvfile, delimiter=",", lineterminator="\n")
+            writer.writerow(service_latencies)
 
     def cleanup(self):
         self.sock_control.close()
@@ -80,33 +123,54 @@ class Client:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Client")
+    parser = argparse.ArgumentParser(description="RTP client")
     parser.add_argument(
-        "-m",
-        "--mode",
-        type=str,
-        default="store_forward",
-        choices=["store_forward", "compute_forward"],
-        help="The working mode of the client",
+        "-n",
+        "--num_frames",
+        type=int,
+        default=3,
+        help="Total number of frames to send",
     )
     parser.add_argument(
-        "-f", "--num_frames", type=int, default=17, help="Number of frames to send"
+        "--topo_params_file",
+        type=str,
+        default="./share/dumbbell.json",
+        help="Path of the dumbbell topology JSON file",
+    )
+    parser.add_argument(
+        "--result_dir",
+        type=str,
+        default="./share/result",
+        help="Directory to store measurement results",
+    )
+    parser.add_argument(
+        "--no_sfc", action="store_true", help="Use No SFC port, just for test"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Make the client more talkative"
     )
     args = parser.parse_args()
 
+    if not os.path.isfile(args.topo_params_file):
+        raise RuntimeError(
+            f"Can not find the topology JSON file: {args.topo_params_file}"
+        )
+
+    if not os.path.isdir(args.result_dir):
+        print(
+            f"Create result directory to store measurement results: {args.result_dir}"
+        )
+        os.mkdir(args.result_dir)
+
     client = None
     try:
         client = Client(
-            config.server_address_control,
-            config.client_address_data,
-            config.server_address_data,
+            args.topo_params_file,
+            args.no_sfc,
             args.verbose,
         )
         client.setup()
-        client.run(args.mode, args.num_frames)
+        client.run(args.num_frames, args.result_dir)
     except KeyboardInterrupt:
         print("KeyboardInterrupt! Stop client!")
     finally:
