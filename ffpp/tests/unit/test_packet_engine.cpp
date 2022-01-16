@@ -60,4 +60,9 @@ TEST(UnitTest, TestPERxTx)
 	ASSERT_EQ((unsigned int)(0), vec.size());
 	ASSERT_EQ((unsigned int)(kMaxBurstSize * max_num_burst),
 		  vec.capacity());
+
+	num_rx = gPE.rx_one_pkt(vec);
+	ASSERT_TRUE(num_rx == 1);
+	ASSERT_TRUE(vec.size() == 1);
+	gPE.tx_pkts(vec, std::chrono::microseconds(0));
 }

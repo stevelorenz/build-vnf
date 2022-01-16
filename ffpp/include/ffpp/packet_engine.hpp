@@ -70,17 +70,26 @@ class PacketEngine {
 	PacketEngine &operator=(const PacketEngine &&) = delete;
 
 	/**
-	 * @brief rx_pkts 
+	 * @brief rx_one_pkt
+	 *
+	 * @param vec
+	 *
+	 * @return
+	 */
+	uint32_t rx_one_pkt(packet_vector &vec);
+
+	/**
+	 * @brief rx_pkts
 	 *
 	 * @param vec
 	 * @param max_num_burst
 	 *
-	 * @return 
+	 * @return
 	 */
 	uint32_t rx_pkts(packet_vector &vec, uint32_t max_num_burst = 3);
 
 	/**
-	 * @brief tx_pkts 
+	 * @brief tx_pkts
 	 *
 	 * @param vec
 	 * @param burst_gap
@@ -91,7 +100,7 @@ class PacketEngine {
 	 * Try/learn how to use rte_graph correctly. Then corresponded functionalities should be moved to ffpp/graph.
 	 * MARK: I tried to learn rte_graph through documentation and l3fwd-graph example. I feel that more time is needed
 	 * for me to adopt it into the codebase... So currently for quick prototyping, I'll "hard-code" the processing methods...
-	 * Later I'll learn try to refactor them using rte_graph 
+	 * Later I'll learn try to refactor them using rte_graph
 	 */
 	// void init_graph(void);
 

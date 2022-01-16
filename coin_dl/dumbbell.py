@@ -114,6 +114,7 @@ def create_dumbbell():
             "mode": "rw",
         },
         "/dev": {"bind": "/dev", "mode": "rw"},
+        CURRENT_DIR: {"bind": "/coin_dl/share", "mode": "rw"},
     }
 
     vnfs = []
@@ -124,13 +125,9 @@ def create_dumbbell():
             ip=f"10.0.3.{10+i}/16",
             docker_args={
                 "cpuset_cpus": "3",
-                "nano_cpus": int(1e9),
+                "nano_cpus": int(9e8 / 2),
                 "hostname": f"vnf{i}",
-                "volumes": DPDK_VOLUME.update(
-                    {
-                        CURRENT_DIR: {"bind": "/coin_dl/share", "mode": "rw"},
-                    }
-                ),
+                "volumes": DPDK_VOLUME,
                 "working_dir": "/coin_dl",
             },
         )

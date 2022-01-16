@@ -10,18 +10,13 @@ import argparse
 import json
 import os
 import shlex
-import socket
 import subprocess
 
 
-def run(topo_params_file, test_duration: int, mps: int):
+def run(topo_params_file, test_duration: int, mps: int, server_name: str):
     with open(topo_params_file, "r") as f:
         topo_params = json.load(f)
 
-    host_name = socket.gethostname()
-    index = int(host_name[len("client") :])
-    server_name = f"server{index}"
-    # client_ip = topo_params["clients"].get(host_name, None)["ip"][:-3]
     server_ip = topo_params["servers"].get(server_name, None)["ip"][:-3]
     port = 11111
     print(f"Run sockperf to send UDP traffic to {server_ip}")
@@ -58,6 +53,13 @@ def main():
         help="MPS to use for the measurement",
     )
     parser.add_argument(
+        "-s",
+        "--server",
+        type=str,
+        default="server1",
+        help="The name of the destination server",
+    )
+    parser.add_argument(
         "--topo_params_file",
         type=str,
         default="./share/dumbbell.json",
@@ -69,7 +71,7 @@ def main():
         raise RuntimeError(
             f"Can not find the topology JSON file: {args.topo_params_file}"
         )
-    run(args.topo_params_file, args.duration, args.mps)
+    run(args.topo_params_file, args.duration, args.mps, args.server)
 
 
 if __name__ == "__main__":

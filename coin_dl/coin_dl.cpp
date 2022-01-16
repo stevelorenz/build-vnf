@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-#include <boost/asio/ip/host_name.hpp>
+#include <boost/asio.hpp>
 #include <boost/program_options.hpp>
 #include <fmt/core.h>
 #include <glog/logging.h>
@@ -19,11 +19,14 @@
 #include <ffpp/packet_engine.hpp>
 #include <ffpp/rtp.hpp>
 
+namespace ba = boost::asio;
 namespace po = boost::program_options;
+namespace py = pybind11;
 
 bool gExit = false;
 
 static constexpr uint64_t kSFCPort = 9999;
+static constexpr uint64_t kMaxUDSMTU = 65000;
 
 void exit_handler(int signal)
 {
@@ -36,8 +39,8 @@ void run_store_forward(ffpp::PEConfig pe_config)
 	using namespace Tins;
 	using namespace ffpp;
 	using namespace std;
+
 	// Check the usage of the DPDK's traffic management APIs
-	LOG(INFO) << "Run store-and-forward loop";
 	PacketEngine pe = PacketEngine(pe_config);
 
 	vector<struct rte_mbuf *> vec;
@@ -46,6 +49,8 @@ void run_store_forward(ffpp::PEConfig pe_config)
 
 	uint32_t num_rx = 0;
 	uint32_t i = 0;
+
+	LOG(INFO) << "Run store-and-forward loop!";
 	while (not gExit) {
 		num_rx = pe.rx_pkts(vec, max_num_burst);
 		for (i = 0; i < num_rx; ++i) {
@@ -62,6 +67,120 @@ void run_store_forward(ffpp::PEConfig pe_config)
 
 } // MARK: pe is out of scope, RAII
 
+std::tuple<std::string, ffpp::RTPJPEG>
+reassemble_frame(const std::vector<struct rte_mbuf *> &vec,
+		 std::vector<Tins::EthernetII> &eths)
+{
+	using namespace Tins;
+	using namespace ffpp;
+	using namespace std;
+
+	vector<RTPJPEG> fragments{};
+	for (auto eth : eths) {
+		UDP &udp = eth.rfind_pdu<UDP>();
+		RawPDU &raw = udp.rfind_pdu<RawPDU>();
+		RTPJPEG j = RTPJPEG(raw);
+		fragments.push_back(j);
+	}
+
+	auto reassmbler = RTPReassembler();
+	for (auto f : fragments) {
+		auto ret = reassmbler.add_fragment(&f);
+	}
+
+	// BUG!!! The size of reassmbled_frame seems to be not fully correct...
+	// Currently don't have the time to figure out why... A bad hot-fix is used...
+	string reassmbled_frame = reassmbler.get_frame();
+
+	return std::make_tuple(reassmbled_frame, fragments.back());
+}
+
+/**
+ * Oops! What a freaking terrible implementation...
+ * I know... Time is limited... My PhD contract already ends, LOL.
+ * I'll refactor it soon.
+ *
+ * @param pe_config
+ */
+void run_compute_forward(ffpp::PEConfig pe_config)
+{
+	using namespace Tins;
+	using namespace ffpp;
+	using namespace std;
+
+	// Unfortunately... This is a workaround... The embeded Python interpreter currently
+	// DOES NOT work with Anaconda environment...
+	ba::io_service io_service;
+	ba::local::datagram_protocol::socket uds(io_service);
+	ba::local::datagram_protocol::endpoint server_ep("/tmp/coin_dl_server");
+	uds.open();
+
+	ba::local::datagram_protocol::endpoint client_ep("/tmp/coin_dl_client");
+	uds.bind(client_ep);
+
+	PacketEngine pe = PacketEngine(pe_config);
+
+	static constexpr uint64_t num_fragments = 167;
+	vector<struct rte_mbuf *> vec;
+	// MARK: Hard-code here...
+	vec.reserve(num_fragments);
+
+	uint64_t i;
+	uint32_t num_rx;
+	std::array<char, 140000> recv_buf;
+	auto fragmenter = RTPFragmenter();
+
+	LOG(INFO) << "Run compute-and-forward loop!";
+	// Very naive prototype...
+	while (not gExit) {
+		num_rx = pe.rx_one_pkt(vec);
+		// Messy code... Needs refactoring
+		if (vec.size() == num_fragments) {
+			vector<EthernetII> eths;
+			for (auto m : vec) {
+				eths.push_back(read_mbuf_to_eth(m));
+			}
+			auto [raw_frame, base] = reassemble_frame(vec, eths);
+			// Send the raw frame to Python preprocessor
+			string fake_frame(140000, 'a');
+			uds.send_to(ba::buffer(fake_frame), server_ep);
+			// Receive the preprocessed image
+			auto ret = uds.receive_from(ba::buffer(recv_buf),
+						    client_ep);
+			string recv_str(std::begin(recv_buf),
+					std::begin(recv_buf) + ret);
+			assert(recv_str.size() == 135279);
+
+			auto fragments =
+				fragmenter.fragmentize(recv_str, base, 1400);
+
+			auto num_pop = vec.size() - fragments.size();
+			cout << "Number of pop:" << num_pop << endl;
+			for (i = 0; i < num_pop; ++i) {
+				rte_pktmbuf_free(vec.back());
+				vec.pop_back();
+				eths.pop_back();
+			}
+			// Replace the old UDP payload with new one!
+			for (i = 0; i < vec.size(); ++i) {
+				auto eth = eths[i];
+				UDP *udp = eth.find_pdu<UDP>();
+				auto inner_pdu = udp->release_inner_pdu();
+				delete inner_pdu;
+				RawPDU fragment_pdu =
+					fragments[i].pack_to_rawpdu();
+				udp = udp / fragment_pdu;
+				write_eth_to_mbuf(eth, vec[i]);
+			}
+			// TX the preprocessed frame
+			pe.tx_pkts(vec, chrono::microseconds(0));
+			eths.clear();
+			fragments.clear();
+			break;
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	using namespace Tins;
@@ -71,18 +190,20 @@ int main(int argc, char *argv[])
 	FLAGS_logtostderr = 1;
 
 	string mode = "store_forward";
-	string host_name = boost::asio::ip::host_name();
+	string host_name = ba::ip::host_name();
 	string dev = host_name + "-s" + host_name.back();
 	uint32_t lcore_id = 3;
+	uint64_t num_fragments = 164;
 
 	try {
 		po::options_description desc("COIN YOLO");
 		// clang-format off
 		desc.add_options()
-			("help,h", "Produce help message")
 			("dev", po::value<string>(), fmt::format("The name of the IO network device. Default: {}", dev).c_str())
+			("help,h", "Produce help message")
+			("lcore_id", po::value<uint64_t>(), fmt::format("The lcore id to run on. Default: {}", lcore_id).c_str())
 			("mode", po::value<string>(), "Set working mode [store_forward, compute_forward]. Default: store_forward.")
-			("lcore_id", po::value<uint64_t>(), fmt::format("The lcore id to run on. Default: {}", lcore_id).c_str());
+			("num_fragments", po::value<uint64_t>(), fmt::format("Number of fragments in a frame").c_str());
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, desc), vm);
 		po::notify(vm);
@@ -124,6 +245,10 @@ int main(int argc, char *argv[])
 
 	if (mode == "store_forward") {
 		run_store_forward(pe_config);
+	} else if(mode == "compute_forward") {
+		run_compute_forward(pe_config);
+	} else {
+		throw std::runtime_error("Unknown mode. Use store_forward or compute_forward!");
 	}
 
 	return 0;

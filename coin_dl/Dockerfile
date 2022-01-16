@@ -1,7 +1,7 @@
 # The image size is still big (about 6GB) with Miniconda.
 # Unused dependencies should be removed later after finishing paper draft.
 
-FROM ffpp:0.8.0
+FROM ffpp:0.8.1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	ethtool \

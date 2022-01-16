@@ -313,6 +313,17 @@ PacketEngine::~PacketEngine()
 	google::ShutdownGoogleLogging();
 }
 
+uint32_t PacketEngine::rx_one_pkt(packet_vector &vec)
+{
+	uint32_t num_pkts_rx = 0;
+	struct rte_mbuf *mbuf_burst[1];
+	while (num_pkts_rx == 0) {
+		num_pkts_rx = rte_eth_rx_burst(kRxTxPortID, 0, mbuf_burst, 1);
+	}
+	vec.push_back(mbuf_burst[0]);
+	return num_pkts_rx;
+}
+
 uint32_t PacketEngine::rx_pkts(packet_vector &vec, uint32_t max_num_burst)
 {
 	uint32_t num_pkts_rx = 0;

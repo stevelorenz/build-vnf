@@ -73,6 +73,7 @@ class Client:
     def prepare_frames(self, num_frames):
         frames = []
         raw_img_data = self.imread_jpeg("./pedestrain.jpg")
+        self.logger.info(f"Size of raw image: {len(raw_img_data)} B")
         fragmenter = rtp.RTPFragmenter()
         # MARK: timestamps are not used...
         for i in range(num_frames):
@@ -81,11 +82,12 @@ class Client:
         self.logger.info(f"Number of fragments in a frame: {len(frames[0])}")
         return frames
 
-    def send_frame(self, frame):
+    def send_frame(self, frame_index, frame):
         for idx, fragment in enumerate(frame):
             data = fragment.pack()
             self.sock_data.sendto(data, self.server_address_data)
-            if idx < 2:
+            # The first frame may trigger the deployment of new OpenFlow rules.
+            if frame_index == 0 and idx < 2:
                 time.sleep(0.3)
 
     def recv_resp(self, sequence_number):
@@ -97,7 +99,7 @@ class Client:
         service_latencies = []
         for idx, frame in enumerate(frames):
             self.logger.info(f"Current frame index: {idx}")
-            self.send_frame(frame)
+            self.send_frame(idx, frame)
             start = time.time()
             _ = self.recv_resp(idx)
             duration = time.time() - start
@@ -105,14 +107,14 @@ class Client:
             time.sleep(0.5)
         return service_latencies
 
-    def run(self, num_frames: int, result_dir):
+    def run(self, num_frames: int, result_dir, result_suffix):
         self.logger.info(f"Run client. Number of frames to send: {num_frames}")
         frames = self.prepare_frames(num_frames)
         assert len(frames) == num_frames
         service_latencies = self.request_yolo_service(frames)
 
         with open(
-            os.path.join(result_dir, "client_service_latency.csv"), "a+"
+            os.path.join(result_dir, f"client_service_latency{result_suffix}.csv"), "a+"
         ) as csvfile:
             writer = csv.writer(csvfile, delimiter=",", lineterminator="\n")
             writer.writerow(service_latencies)
@@ -144,6 +146,12 @@ if __name__ == "__main__":
         help="Directory to store measurement results",
     )
     parser.add_argument(
+        "--result_suffix",
+        type=str,
+        default="",
+        help="The suffix to append to the result CSV file",
+    )
+    parser.add_argument(
         "--no_sfc", action="store_true", help="Use No SFC port, just for test"
     )
     parser.add_argument(
@@ -170,7 +178,7 @@ if __name__ == "__main__":
             args.verbose,
         )
         client.setup()
-        client.run(args.num_frames, args.result_dir)
+        client.run(args.num_frames, args.result_dir, args.result_suffix)
     except KeyboardInterrupt:
         print("KeyboardInterrupt! Stop client!")
     finally:
