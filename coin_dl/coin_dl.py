@@ -9,6 +9,7 @@ About: Slow Python program to run the image preprocessor
 import os
 import socket
 import time
+import sys
 
 import preprocessor
 
@@ -24,8 +25,20 @@ def warm_up(prep):
     print(f"* Warm-up finished. Takes {duration} seconds")
 
 
-def main_loop():
-    pass
+def main_loop(server_addr, client_addr, prep, raw_img_data):
+    print(f"* Run UDS server on addr: {server_addr}, client addr: {client_addr}")
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.bind(server_addr)
+
+    try:
+        print("* Start main loop")
+        while True:
+            _ = sock.recvfrom(2 ** 18)[0]
+            resp = prep.inference(raw_img_data, 70)
+            sock.sendto(resp, client_addr)
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt detected! Exit program")
+        sys.exit(0)
 
 
 def main():
@@ -36,7 +49,6 @@ def main():
 
     server_addr = "/tmp/coin_dl_server"
     client_addr = "/tmp/coin_dl_client"
-    print(f"* Run UDS server on addr: {server_addr}")
 
     for addr in [client_addr, server_addr]:
         try:
@@ -44,13 +56,7 @@ def main():
         except OSError:
             pass
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-    sock.bind(server_addr)
-
-    data = sock.recvfrom(2 ** 18)[0]
-    print(len(data))
-    resp = prep.inference(raw_img_data, 70)
-    sock.sendto(resp, client_addr)
+    main_loop(server_addr, client_addr, prep, raw_img_data)
 
 
 if __name__ == "__main__":

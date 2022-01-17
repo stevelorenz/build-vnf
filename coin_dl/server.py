@@ -15,6 +15,7 @@ import json
 
 import psutil
 
+import preprocessor
 import detector
 import log
 import rtp
@@ -104,17 +105,33 @@ class Server:
             # TODO: Measure the computational time of local server inference and store them.
             print(f"[{r}], duration: {duration} s")
 
-    def warm_up(self, det):
+    def warm_up(self, det, mode):
         self.logger.info("Warm-up the detector")
         start = time.time()
-        data = det.read_img_jpeg_bytes("./pedestrain.jpg")
-        # Warm up the session, first time inference is slow
-        ret = det.inference(data)
-        ret = det.get_detection_results(*ret)
+        raw_img_data = det.read_img_jpeg_bytes("./pedestrain.jpg")
+        if mode == "raw":
+            # Warm up the session, first time inference is slow
+            ret = det.inference(raw_img_data)
+            ret = det.get_detection_results(*ret)
+        elif mode == "preprocessed":
+            prep = preprocessor.Preprocessor()
+            compressed_img_data = prep.inference(raw_img_data, 70)
+            ret = det.inference(compressed_img_data)
+            ret = det.get_detection_results(*ret)
         duration = time.time() - start
-        self.logger.info(f"Warm-up finished! Takes {duration} seconds")
+        self.logger.info(f"Warm-up the mode {mode} finished! Takes {duration} seconds")
 
-    def recv_frame(self):
+    @staticmethod
+    def sort_fragments(fragments):
+        """Sort the given fragments in-place with fragment_offset
+        It's unexpected that RTP fragments come out-of-order from DPDK VNF...
+        It may be a new "research question"...
+
+        :param fragments:
+        """
+        fragments.sort(key=lambda f: f.fragment_offset)
+
+    def recv_frame(self, num_fragments=-1):
         """It's naive... It assumes no packet losses yet..."""
         marker = 0
         fragments = []
@@ -125,9 +142,18 @@ class Server:
             fragments.append(fragment)
             marker = fragment.marker
 
+        if num_fragments > 0:
+            if len(fragments) != num_fragments:
+                self.logger.error(
+                    f"Fragment number is wrong. Expect: {num_fragments}, actual: {len(fragments)}"
+                )
+
+        self.sort_fragments(fragments)
+
         for fragment in fragments[:-1]:
             reassembler.add_fragment(fragment)
         ret = reassembler.add_fragment(fragments[-1])
+
         assert ret == "HAS_ENTIRE_FRAME"
         return reassembler.get_frame()
 
@@ -137,9 +163,19 @@ class Server:
 
     def run_store_forward(self, num_frames):
         det = detector.Detector(mode="raw")
-        self.warm_up(det)
+        self.warm_up(det, "raw")
         for _ in range(num_frames):
             frame = self.recv_frame()
+            ret = det.inference(frame)
+            resp = det.get_detection_results(*ret)
+            self.send_resp(resp)
+        self.logger.info("All frames are received! Stop the server!")
+
+    def run_compute_forward(self, num_frames):
+        det = detector.Detector(mode="preprocessed")
+        self.warm_up(det, "preprocessed")
+        for _ in range(num_frames):
+            frame = self.recv_frame(97)
             ret = det.inference(frame)
             resp = det.get_detection_results(*ret)
             self.send_resp(resp)
@@ -154,6 +190,8 @@ class Server:
             self.run_server_local(30, fake_inference)
         elif mode == "store_forward":
             self.run_store_forward(num_frames)
+        elif mode == "compute_forward":
+            self.run_compute_forward(num_frames)
 
     def cleanup(self):
         self.sock_control.close()

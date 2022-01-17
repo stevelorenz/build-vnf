@@ -89,6 +89,8 @@ class Client:
             # The first frame may trigger the deployment of new OpenFlow rules.
             if frame_index == 0 and idx < 2:
                 time.sleep(0.3)
+            print(f"- Current index: {idx}")
+            time.sleep(0.01)
 
     def recv_resp(self, sequence_number):
         data, _ = self.sock_data.recvfrom(1500)

@@ -61,6 +61,7 @@ void run_store_forward(ffpp::PEConfig pe_config)
 				LOG(ERROR) << "LOL!";
 			}
 			write_eth_to_mbuf(eth, vec[i]);
+			rte_delay_us_block(1e3);
 		}
 		pe.tx_pkts(vec, chrono::microseconds(3));
 	}
@@ -155,7 +156,6 @@ void run_compute_forward(ffpp::PEConfig pe_config)
 				fragmenter.fragmentize(recv_str, base, 1400);
 
 			auto num_pop = vec.size() - fragments.size();
-			cout << "Number of pop:" << num_pop << endl;
 			for (i = 0; i < num_pop; ++i) {
 				rte_pktmbuf_free(vec.back());
 				vec.pop_back();
@@ -173,10 +173,9 @@ void run_compute_forward(ffpp::PEConfig pe_config)
 				write_eth_to_mbuf(eth, vec[i]);
 			}
 			// TX the preprocessed frame
-			pe.tx_pkts(vec, chrono::microseconds(0));
+			pe.tx_pkts(vec, chrono::microseconds(1000));
 			eths.clear();
 			fragments.clear();
-			break;
 		}
 	}
 }
