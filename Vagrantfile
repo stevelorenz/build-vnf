@@ -13,8 +13,13 @@ CPUS = 4
 RAM = 4096
 
 # Use Ubuntu LTS for dev.
-# Bento box is relative light weight.
+# Bento box is relative light weight. But it only supports Virtualbox
 BOX = "bento/ubuntu-20.04"
+
+# Generic boxes support five providers (https://app.vagrantup.com/generic/boxes/ubuntu2004)
+BOX_GENERIC = "generic/ubuntu2004"
+# NFS protocol version for synced folder with libvirt. On Arch/Manjaro, NFS4 is used. Default is 3.
+NFS_VERSION = 4
 
 #######################
 #  Provision Scripts  #
@@ -103,6 +108,9 @@ Vagrant.configure("2") do |config|
   config.vm.define "dev" do |dev|
   # --- VM for network function (dev)elopment/test/benchmarking ---
 
+    dev.vm.box = BOX
+    dev.vm.synced_folder ".", "/vagrant"
+
     dev.vm.provider "virtualbox" do |vb|
       vb.name = "build-vnf-dev"
       vb.memory = RAM
@@ -112,8 +120,15 @@ Vagrant.configure("2") do |config|
       vb.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
     end
 
-    dev.vm.box = BOX
-    dev.vm.synced_folder ".", "/vagrant"
+    dev.vm.provider "libvirt" do |libvirt, override|
+      # Overwrite default options for Virtualbox provider
+      override.vm.box = BOX_GENERIC
+      override.vm.synced_folder ".", "/vagrant", type: "nfs", nfs_version: 4
+
+      libvirt.driver = "kvm"
+      libvirt.cpus = CPUS
+      libvirt.memory = RAM
+    end
 
     dev.vm.hostname="build-vnf-dev"
     dev.vm.box_check_update= true

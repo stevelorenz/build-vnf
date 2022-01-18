@@ -135,10 +135,14 @@ def create_dumbbell():
 
     # TODO: Pick up the suitable parameters here.
     BW_MAX = 1000  # 1Gb/sec
+    DELAY_MIN_MS = 1
+    DELAY_MIN_MS_STR = f"{DELAY_MIN_MS}ms"
+
     BW_BOTTLENECK = 100  # Mbits/s
-    DELAY_BOTTLENECK_MS = 10
+    DELAY_BOTTLENECK_MS = 100
     DELAY_BOTTLENECK_MS_STR = str(DELAY_BOTTLENECK_MS) + "ms"
     BDP = ((BW_BOTTLENECK * 10 ** 6) * (DELAY_BOTTLENECK_MS * 10 ** -3)) / 8.0
+
     info(f"\n*** The BDP of the bottleneck link is {BDP:.2f} B\n")
     topo_params.update(
         {
@@ -153,8 +157,9 @@ def create_dumbbell():
     info("*** Creating links\n")
     for client, server in zip(clients, servers):
         # TODO (Zuo): Check if max_queue_size need to be added here
-        net.addLinkNamedIfce(client, s1, bw=BW_MAX, delay=DELAY_BOTTLENECK_MS_STR)
-        net.addLinkNamedIfce(s2, server, bw=BW_MAX, delay=DELAY_BOTTLENECK_MS_STR)
+        net.addLinkNamedIfce(client, s1, bw=BW_MAX, delay=DELAY_MIN_MS_STR)
+        net.addLinkNamedIfce(s2, server, bw=BW_MAX, delay=DELAY_MIN_MS_STR)
+
     # Add bottleneck link
     net.addLinkNamedIfce(s1, s2, bw=BW_BOTTLENECK, delay=DELAY_BOTTLENECK_MS_STR)
 

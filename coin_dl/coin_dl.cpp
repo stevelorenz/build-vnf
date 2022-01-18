@@ -1,5 +1,5 @@
 /*
- * Packet engine component for COIN YOLO
+ * Packet engine component for COIN DL
  */
 
 #include <chrono>
@@ -61,7 +61,7 @@ void run_store_forward(ffpp::PEConfig pe_config)
 				LOG(ERROR) << "LOL!";
 			}
 			write_eth_to_mbuf(eth, vec[i]);
-			rte_delay_us_block(1e3);
+			rte_delay_us_block(uint64_t(1 * 1e3));
 		}
 		pe.tx_pkts(vec, chrono::microseconds(3));
 	}
@@ -173,7 +173,7 @@ void run_compute_forward(ffpp::PEConfig pe_config)
 				write_eth_to_mbuf(eth, vec[i]);
 			}
 			// TX the preprocessed frame
-			pe.tx_pkts(vec, chrono::microseconds(1000));
+			pe.tx_pkts(vec, chrono::microseconds(uint64_t(1e3)));
 			eths.clear();
 			fragments.clear();
 		}

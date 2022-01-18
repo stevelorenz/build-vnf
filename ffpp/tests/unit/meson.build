@@ -7,59 +7,59 @@
 # Common tests do not require special environment setup
 
 test_common_sources = files('''
-	test_dummy.cpp
+    test_dummy.cpp
 '''.split())
 
 test_common_executable = executable('test_common',
-	sources: test_common_sources,
-	include_directories: inc,
-	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+  sources: test_common_sources,
+  include_directories: inc,
+  dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 
 test('test_common', [test_common_executable], is_parallel: true, suite: ['unit'],
-	workdir : meson.source_root()
-)
+  workdir : meson.source_root()
+  )
 
 # Following tests are defined separately mainly because of some environment have to be initialized only ONCE... e.g. DPDK's EAL,
 # So they need to run in different/isolated processes.
 
 test_packet_engine_exe = executable('test_packet_engine',
-	sources: ['test_packet_engine.cpp'],
-	include_directories: inc,
-	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+  sources: ['test_packet_engine.cpp'],
+  include_directories: inc,
+  dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 
 test('test_packet_engine', test_packet_engine_exe, is_parallel: false, suite: ['unit'],
-	workdir : meson.source_root()
-)
+  workdir : meson.source_root()
+  )
 
 test_mbuf_pdu_exe = executable('test_mbuf_pdu',
-	sources: ['test_mbuf_pdu.cpp'],
-	include_directories: inc,
-	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+  sources: ['test_mbuf_pdu.cpp'],
+  include_directories: inc,
+  dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 
 test('test_mbuf_pdu', test_mbuf_pdu_exe, is_parallel: false, suite: ['unit', 'dev'],
-	workdir : meson.source_root()
-)
+  workdir : meson.source_root()
+  )
 
 test_rtp_exe = executable('test_rtp',
-	sources: ['test_rtp.cpp'],
-	include_directories: inc,
-	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+  sources: ['test_rtp.cpp'],
+  include_directories: inc,
+  dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 test('test_rtp', test_rtp_exe, is_parallel: false, suite: ['unit'],
-	workdir : meson.source_root()
-)
+  workdir : meson.source_root()
+  )
 
 test_data_processor_exe = executable('test_data_processor',
-	sources: ['test_data_processor.cpp'],
-	include_directories: inc,
-	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+  sources: ['test_data_processor.cpp'],
+  include_directories: inc,
+  dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 test('test_data_processor', test_data_processor_exe, is_parallel: false, suite: ['unit'],
-	workdir : meson.source_root()
-)
+  workdir : meson.source_root()
+  )
 
 test_packet_container_exe = executable('test_packet_container',
-	sources: ['test_packet_container.cpp'],
-	include_directories: inc,
-	dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
+  sources: ['test_packet_container.cpp'],
+  include_directories: inc,
+  dependencies: [ffpp_deps, gtest_withmain_dep], link_with: [ffpplib_shared])
 test('test_packet_container', test_packet_container_exe, is_parallel: false, suite: ['unit'],
-	workdir : meson.source_root()
-)
+  workdir : meson.source_root()
+  )
