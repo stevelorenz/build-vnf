@@ -89,8 +89,7 @@ class Client:
             # The first frame may trigger the deployment of new OpenFlow rules.
             if frame_index == 0 and idx < 2:
                 time.sleep(0.3)
-            print(f"- Current index: {idx}")
-            time.sleep(0.01)
+            # time.sleep(0.01)
 
     def recv_resp(self, sequence_number):
         data, _ = self.sock_data.recvfrom(1500)
@@ -113,13 +112,14 @@ class Client:
         self.logger.info(f"Run client. Number of frames to send: {num_frames}")
         frames = self.prepare_frames(num_frames)
         assert len(frames) == num_frames
-        service_latencies = self.request_yolo_service(frames)
+        resp_latencies = self.request_yolo_service(frames)
 
         with open(
-            os.path.join(result_dir, f"client_service_latency{result_suffix}.csv"), "a+"
+            os.path.join(result_dir, f"client_response_latency{result_suffix}.csv"),
+            "a+",
         ) as csvfile:
             writer = csv.writer(csvfile, delimiter=",", lineterminator="\n")
-            writer.writerow(service_latencies)
+            writer.writerow(resp_latencies)
 
     def cleanup(self):
         self.sock_control.close()

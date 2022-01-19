@@ -134,9 +134,13 @@ def create_dumbbell():
         vnfs.append(vnf)
 
     # TODO: Pick up the suitable parameters here.
-    BW_MAX = 1000  # 1Gb/sec
-    DELAY_MIN_MS = 1
-    DELAY_MIN_MS_STR = f"{DELAY_MIN_MS}ms"
+    # TODO: Use better DS and names for parameters here.
+    BW_MAX_NODE = 1000  # 1Gb/sec
+    DELAY_MIN_NODE_MS = 1
+    DELAY_MIN_NODE_MS_STR = f"{DELAY_MIN_NODE_MS}ms"
+    BW_MIN_NODE = 100
+    DELAY_MAX_NODE_MS = 10
+    DELAY_MAX_NODE_MS_STR = f"{DELAY_MAX_NODE_MS}ms"
 
     BW_BOTTLENECK = 100  # Mbits/s
     DELAY_BOTTLENECK_MS = 100
@@ -157,15 +161,16 @@ def create_dumbbell():
     info("*** Creating links\n")
     for client, server in zip(clients, servers):
         # TODO (Zuo): Check if max_queue_size need to be added here
-        net.addLinkNamedIfce(client, s1, bw=BW_MAX, delay=DELAY_MIN_MS_STR)
-        net.addLinkNamedIfce(s2, server, bw=BW_MAX, delay=DELAY_MIN_MS_STR)
+        net.addLinkNamedIfce(client, s1, bw=BW_MAX_NODE, delay=DELAY_MIN_NODE_MS_STR)
+        # Here... the server should also be a "bottleneck"
+        net.addLinkNamedIfce(s2, server, bw=BW_MIN_NODE, delay=DELAY_MAX_NODE_MS_STR)
 
     # Add bottleneck link
     net.addLinkNamedIfce(s1, s2, bw=BW_BOTTLENECK, delay=DELAY_BOTTLENECK_MS_STR)
 
     for switch, vnf in zip(switches, vnfs):
         # TODO (Zuo): Check if max_queue_size need to be added here, to remove additional queuing latency of VNF data interfaces
-        net.addLinkNamedIfce(switch, vnf, bw=BW_MAX, delay="0ms")
+        net.addLinkNamedIfce(switch, vnf, bw=BW_MAX_NODE, delay="0ms")
 
     with open("./dumbbell.json", "w+", encoding="ascii") as f:
         json.dump(topo_params, f, sort_keys=True, indent=2)
@@ -183,7 +188,7 @@ def start_controllers(controllers):
     info("Starting controllers\n")
     assert len(controllers) == 1
     c1 = controllers[0]
-    makeTerm(c1, cmd="ryu-manager ./dumbbell_controller.py")
+    # makeTerm(c1, cmd="ryu-manager ./dumbbell_controller.py")
 
 
 def disable_checksum_offload(nodes):

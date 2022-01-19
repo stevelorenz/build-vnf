@@ -34,7 +34,8 @@ void exit_handler(int signal)
 	gExit = true;
 }
 
-void run_store_forward(ffpp::PEConfig pe_config)
+void run_store_forward(ffpp::PEConfig pe_config,
+		       uint64_t batch_forward_delay_us)
 {
 	using namespace Tins;
 	using namespace ffpp;
@@ -50,7 +51,9 @@ void run_store_forward(ffpp::PEConfig pe_config)
 	uint32_t num_rx = 0;
 	uint32_t i = 0;
 
-	LOG(INFO) << "Run store-and-forward loop!";
+	LOG(INFO) << fmt::format(
+		"Run store-and-forward loop! Batch forwarding delay: {} us",
+		batch_forward_delay_us);
 	while (not gExit) {
 		num_rx = pe.rx_pkts(vec, max_num_burst);
 		for (i = 0; i < num_rx; ++i) {
@@ -61,7 +64,7 @@ void run_store_forward(ffpp::PEConfig pe_config)
 				LOG(ERROR) << "LOL!";
 			}
 			write_eth_to_mbuf(eth, vec[i]);
-			rte_delay_us_block(uint64_t(1 * 1e3));
+			rte_delay_us_block(batch_forward_delay_us);
 		}
 		pe.tx_pkts(vec, chrono::microseconds(3));
 	}
@@ -173,7 +176,7 @@ void run_compute_forward(ffpp::PEConfig pe_config)
 				write_eth_to_mbuf(eth, vec[i]);
 			}
 			// TX the preprocessed frame
-			pe.tx_pkts(vec, chrono::microseconds(uint64_t(1e3)));
+			pe.tx_pkts(vec, chrono::microseconds(3));
 			eths.clear();
 			fragments.clear();
 		}
@@ -194,11 +197,15 @@ int main(int argc, char *argv[])
 	uint32_t lcore_id = 3;
 	uint64_t num_fragments = 164;
 
+	// 0.5ms
+	uint64_t batch_forward_delay_us = 500;
+
 	try {
 		po::options_description desc("COIN YOLO");
 		// clang-format off
 		desc.add_options()
 			("dev", po::value<string>(), fmt::format("The name of the IO network device. Default: {}", dev).c_str())
+			("delay", po::value<uint64_t>(), fmt::format("Batch forward delay in microseconds. Default: {} us", batch_forward_delay_us).c_str())
 			("help,h", "Produce help message")
 			("lcore_id", po::value<uint64_t>(), fmt::format("The lcore id to run on. Default: {}", lcore_id).c_str())
 			("mode", po::value<string>(), "Set working mode [store_forward, compute_forward]. Default: store_forward.")
@@ -207,20 +214,25 @@ int main(int argc, char *argv[])
 		po::store(po::parse_command_line(argc, argv, desc), vm);
 		po::notify(vm);
 
+		if (vm.count("dev")) {
+			dev = vm["dev"].as<string>();
+		}
+
+		if(vm.count("delay")) {
+			batch_forward_delay_us = vm["delay"].as<uint64_t>();
+		}
+
 		if (vm.count("help")) {
 			cout << desc << "\n";
 			return 1;
 		}
-		if (vm.count("dev")) {
-			dev = vm["dev"].as<string>();
-		}
-		/* TODO:  <25-10-21, Zuo> Add a mode to measure batch sizes ? */
-		if (vm.count("mode")) {
-			mode = vm["mode"].as<string>();
-		}
 
 		if (vm.count("lcore_id")) {
 			lcore_id = vm["lcore_id"].as<uint64_t>();
+		}
+
+		if (vm.count("mode")) {
+			mode = vm["mode"].as<string>();
 		}
 
 	} catch (exception &e) {
@@ -243,7 +255,7 @@ int main(int argc, char *argv[])
 	};
 
 	if (mode == "store_forward") {
-		run_store_forward(pe_config);
+		run_store_forward(pe_config, batch_forward_delay_us);
 	} else if(mode == "compute_forward") {
 		run_compute_forward(pe_config);
 	} else {

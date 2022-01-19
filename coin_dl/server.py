@@ -8,10 +8,11 @@ About: Server
 
 import argparse
 import csv
+import json
+import os
 import socket
 import sys
 import time
-import json
 
 import psutil
 
@@ -164,34 +165,52 @@ class Server:
     def run_store_forward(self, num_frames):
         det = detector.Detector(mode="raw")
         self.warm_up(det, "raw")
+
+        proc_latencies = []
         for _ in range(num_frames):
+            start = time.time()
             frame = self.recv_frame()
             ret = det.inference(frame)
             resp = det.get_detection_results(*ret)
             self.send_resp(resp)
+            duration = time.time() - start
+            proc_latencies.append(duration)
         self.logger.info("All frames are received! Stop the server!")
+        return proc_latencies
 
     def run_compute_forward(self, num_frames):
         det = detector.Detector(mode="preprocessed")
         self.warm_up(det, "preprocessed")
+
+        proc_latencies = []
         for _ in range(num_frames):
+            start = time.time()
             frame = self.recv_frame(97)
             ret = det.inference(frame)
             resp = det.get_detection_results(*ret)
             self.send_resp(resp)
+            duration = time.time() - start
+            proc_latencies.append(duration)
         self.logger.info("All frames are received! Stop the server!")
+        return proc_latencies
 
-    def run(self, mode, num_frames, fake_inference):
+    def run(self, mode, num_frames, result_dir, fake_inference):
         """MARK: Packet losses are not considered yet!"""
         self.logger.info(
             f"Run server main loop with mode {mode}, number of frames: {num_frames}"
         )
         if mode == "server_local":
             self.run_server_local(30, fake_inference)
+            proc_latencies = []
         elif mode == "store_forward":
-            self.run_store_forward(num_frames)
+            proc_latencies = self.run_store_forward(num_frames)
         elif mode == "compute_forward":
-            self.run_compute_forward(num_frames)
+            proc_latencies = self.run_compute_forward(num_frames)
+
+        p = os.path.join(result_dir, f"server_process_latency_{mode}.csv")
+        with open(p, "a+") as csvfile:
+            writer = csv.writer(csvfile, delimiter=",", lineterminator="\n")
+            writer.writerow(proc_latencies)
 
     def cleanup(self):
         self.sock_control.close()
@@ -248,7 +267,7 @@ if __name__ == "__main__":
             args.verbose,
         )
         server.setup(args.mode)
-        server.run(args.mode, args.num_frames, args.fake_inference)
+        server.run(args.mode, args.num_frames, args.result_dir, args.fake_inference)
     except KeyboardInterrupt:
         print("KeyboardInterrupt! Stop server!")
     except RuntimeError as e:

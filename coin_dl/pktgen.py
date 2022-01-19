@@ -13,7 +13,9 @@ import shlex
 import subprocess
 
 
-def run(topo_params_file, test_duration: int, mps: int, server_name: str):
+def run(
+    topo_params_file, test_duration: int, mps: int, msg_size: int, server_name: str
+):
     with open(topo_params_file, "r") as f:
         topo_params = json.load(f)
 
@@ -24,7 +26,7 @@ def run(topo_params_file, test_duration: int, mps: int, server_name: str):
 
     cmd = f"sockperf under-load -i {server_ip} -p {port} \
             --mps {mps} --reply-every 1 \
-            --msg-size 64 \
+            --msg-size {msg_size} \
             -t {test_duration} \
             --full-rtt"
     cmd = shlex.split(cmd)
@@ -59,6 +61,7 @@ def main():
         default="server1",
         help="The name of the destination server",
     )
+    parser.add_argument("--msg_size", type=int, default="1400", help="Message size")
     parser.add_argument(
         "--topo_params_file",
         type=str,
@@ -71,7 +74,7 @@ def main():
         raise RuntimeError(
             f"Can not find the topology JSON file: {args.topo_params_file}"
         )
-    run(args.topo_params_file, args.duration, args.mps, args.server)
+    run(args.topo_params_file, args.duration, args.mps, args.msg_size, args.server)
 
 
 if __name__ == "__main__":
