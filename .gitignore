@@ -47,7 +47,7 @@
 *.idb
 *.pdb
 
-# Kernel Module Compile Results
+# Kernel module compile results
 *.mod*
 *.cmd
 .tmp_versions/
@@ -61,8 +61,12 @@ dkms.conf
 *.gcda
 *.gcno
 
-# Meson build system
+# Out-of-source build directories
 build/
+build_clang/
+build_debug/
+build_gcc/
+build_release/
 builddir/
 
 # CCLS language server
@@ -174,16 +178,17 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# mkdocs documentation
+# Mkdocs documentation
 /site
 
-# mypy
+# Mypy
 .mypy_cache/
 
 ##########
 #  FFPP  #
 ##########
 
+ffpp/result/*
 ffpp/results/*
 
 #############

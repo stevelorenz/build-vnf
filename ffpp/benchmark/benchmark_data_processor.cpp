@@ -21,8 +21,9 @@
  *  IN THE SOFTWARE.
  */
 
-#include <iostream>
 #include <chrono>
+#include <cmath>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -60,7 +61,20 @@ static void bm_embeded_py_cpp_ref(benchmark::State &state)
 	}
 }
 
+static void bm_py_bytearray(benchmark::State &state)
+{
+	ffpp::py_insert_sys_path("/ffpp/tests/unit/", 0);
+	auto test_module = py::module::import("test_py_data_processor");
+	auto do_nothing = test_module.attr("do_nothing");
+	std::string test_data(int(std::pow(2, 20)), 'A');
+	for (auto _ : state) {
+		// Great! bytearray costs less than 50% time than std::string
+		do_nothing(py::bytearray(test_data));
+	}
+}
+
 BENCHMARK(bm_embeded_py);
 BENCHMARK(bm_embeded_py_cpp_ref);
+BENCHMARK(bm_py_bytearray);
 
 BENCHMARK_MAIN();
